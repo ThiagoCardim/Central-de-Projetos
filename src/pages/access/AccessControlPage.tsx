@@ -319,6 +319,8 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
       onSaved();
     } catch (err) {
       setServerError((err as Error).message);
+      // O perfil pode ter sido criado mesmo se o e-mail falhou: atualiza a lista.
+      if (isNew) onStatusChanged();
     } finally {
       setSaving(false);
     }

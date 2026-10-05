@@ -50,9 +50,33 @@ function assertUuid(v: unknown, field: string): string {
   return v;
 }
 
-function redirectUrl(): string {
-  const base = Deno.env.get("APP_URL") ?? "";
+/**
+ * Destino do link de convite. APP_URL tem prioridade; sem ela, usa a origem do
+ * app que chamou — somente se estiver em APP_ALLOWED_ORIGINS (quando definida).
+ * O Supabase Auth ainda valida o destino contra a lista de Redirect URLs.
+ */
+function redirectUrl(req: Request): string {
+  const configured = Deno.env.get("APP_URL");
+  const origin = req.headers.get("origin") ?? "";
+  const allowed = (Deno.env.get("APP_ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+  const base = configured || (allowed.length === 0 || allowed.includes(origin) ? origin : allowed[0]);
   return `${base.replace(/\/$/, "")}/definir-senha`;
+}
+
+/** Envia o convite do Supabase Auth e vincula o usuário criado ao perfil. */
+async function sendInvite(req: Request, profileId: string, email: string, name: string): Promise<boolean> {
+  const admin = serviceClient();
+  const { data: invited, error } = await admin.auth.admin.inviteUserByEmail(email.trim().toLowerCase(), {
+    redirectTo: redirectUrl(req),
+    data: { name: name.trim() },
+  });
+  if (error || !invited?.user) return false;
+  const { error: linkError } = await admin.rpc("admin_link_auth_user", {
+    p_profile_id: profileId,
+    p_auth_user_id: invited.user.id,
+  });
+  if (linkError) throw fromPostgrest(linkError);
+  return true;
 }
 
 async function invite(req: Request, p: InvitePayload) {
@@ -76,24 +100,13 @@ async function invite(req: Request, p: InvitePayload) {
   if (error) throw fromPostgrest(error);
 
   // 2) Convite pelo Supabase Auth (cadastro público fica desabilitado).
-  const admin = serviceClient();
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(p.email.trim().toLowerCase(), {
-    redirectTo: redirectUrl(),
-    data: { name: p.name.trim() },
-  });
-  if (inviteError || !invited?.user) {
-    await admin.rpc("admin_discard_pending_user", { p_profile_id: profileId });
+  //    Se o e-mail falhar, o perfil permanece como "convite pendente" e pode ser
+  //    reenviado — nunca apagamos dados para desfazer.
+  const sent = await sendInvite(req, profileId as string, p.email, p.name);
+  if (!sent) {
     throw new AppError(502, "invite_failed",
-      "Não foi possível enviar o convite. O usuário não foi criado. Verifique o e-mail e tente novamente.");
+      "O usuário foi cadastrado, mas o e-mail de convite não foi enviado. Use \"Reenviar convite\" em alguns minutos.");
   }
-
-  // 3) Vincula o usuário de autenticação ao perfil.
-  const { error: linkError } = await admin.rpc("admin_link_auth_user", {
-    p_profile_id: profileId,
-    p_auth_user_id: invited.user.id,
-  });
-  if (linkError) throw fromPostgrest(linkError);
-
   return { profile_id: profileId, invited: true };
 }
 
@@ -144,13 +157,19 @@ async function resendInvite(req: Request, p: ResendPayload) {
   const { data: perms, error: permError } = await user.rpc("my_permissions");
   if (permError || !perms?.can_manage_users) throw new AppError(403, "forbidden", "Você não pode reenviar convites.");
   const { data: profile, error } = await user.from("profiles")
-    .select("id, email, name, tenant_id, status").eq("id", p.profile_id).maybeSingle();
+    .select("id, email, name, tenant_id, status, auth_user_id").eq("id", p.profile_id).maybeSingle();
   if (error) throw fromPostgrest(error);
   if (!profile) throw new AppError(404, "not_found", "Usuário não encontrado.");
   if (profile.status !== "ativo") throw new AppError(422, "invalid", "Reative o usuário antes de reenviar o convite.");
 
-  const { error: linkError } = await serviceClient().auth.resetPasswordForEmail(profile.email, { redirectTo: redirectUrl() });
-  if (linkError) throw new AppError(502, "invite_failed", "Não foi possível reenviar o convite. Tente novamente em alguns minutos.");
+  if (!profile.auth_user_id) {
+    // Convite original não chegou a ser criado no Auth: envia agora.
+    const sent = await sendInvite(req, profile.id, profile.email, profile.name);
+    if (!sent) throw new AppError(502, "invite_failed", "Não foi possível enviar o convite. Tente novamente em alguns minutos.");
+  } else {
+    const { error: linkError } = await serviceClient().auth.resetPasswordForEmail(profile.email, { redirectTo: redirectUrl(req) });
+    if (linkError) throw new AppError(502, "invite_failed", "Não foi possível reenviar o convite. Tente novamente em alguns minutos.");
+  }
   return { sent: true };
 }
 

@@ -396,8 +396,7 @@ create trigger notifications_guard before update on public.notifications
   for each row execute function private.guard_notification_update();
 
 -- Diretório substitui leitura direta de perfis por clientes.
-drop policy profiles_select on public.profiles;
-create policy profiles_select on public.profiles for select to authenticated
+alter policy profiles_select on public.profiles
   using (private.can_view_person(id));
 
 -- Visão segura de pessoas (sem dados trabalhistas) para exibir responsáveis.

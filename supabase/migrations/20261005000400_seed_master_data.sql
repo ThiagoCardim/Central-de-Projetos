@@ -70,7 +70,7 @@ where p.code = 'projetos_complementares' and s.code in ('projeto_eletrico', 'pro
 -- Cada etapa depende da anterior (término → início). "dep" adiciona dependência
 -- entre serviços, ignorada quando o serviço predecessor não foi contratado.
 -- -----------------------------------------------------------------------------
-create function private.seed_template(p_service text, p_name text, p_area_min numeric, p_area_max numeric, p_tasks jsonb)
+create function pg_temp.seed_template(p_service text, p_name text, p_area_min numeric, p_area_max numeric, p_tasks jsonb)
 returns void language plpgsql as $$
 declare
   v_template uuid;
@@ -107,7 +107,7 @@ end;
 $$;
 
 -- Projeto Arquitetônico
-select private.seed_template('projeto_arquitetonico', 'Projeto Arquitetônico', null, null, '[
+select pg_temp.seed_template('projeto_arquitetonico', 'Projeto Arquitetônico', null, null, '[
   {"code":"planejamento",       "name":"Planejamento",       "days":20},
   {"code":"envio_briefing",     "name":"Envio do Briefing",  "days":7},
   {"code":"estudo_preliminar",  "name":"Estudo Preliminar",  "days":20},
@@ -116,7 +116,7 @@ select private.seed_template('projeto_arquitetonico', 'Projeto Arquitetônico', 
 ]');
 
 -- Aprovação / Projeto Legal
-select private.seed_template('aprovacao_projeto_legal', 'Aprovação / Projeto Legal', null, null, '[
+select pg_temp.seed_template('aprovacao_projeto_legal', 'Aprovação / Projeto Legal', null, null, '[
   {"code":"planejamento_arquitetura", "name":"Planejamento com Arquitetura",        "days":20},
   {"code":"briefing_arq_apr_eng",     "name":"Briefing Arq + Apr + Eng",            "days":3},
   {"code":"producao_arquitetura",     "name":"Tempo de Produção da Arquitetura",    "type":"dependent", "dep":"projeto_arquitetonico.estudo_preliminar"},
@@ -136,7 +136,7 @@ begin
   for s in select code, name from public.services
            where family_id = (select id from public.service_families where code = 'engenharia')
   loop
-    perform private.seed_template(s.code, s.name, null, null, '[
+    perform pg_temp.seed_template(s.code, s.name, null, null, '[
       {"code":"briefing_arq_apr_eng",        "name":"Briefing Arq + Apr + Eng",          "days":3},
       {"code":"producao_arquitetura",        "name":"Tempo de Produção da Arquitetura",  "type":"dependent", "dep":"projeto_arquitetonico.estudo_preliminar"},
       {"code":"revisao_apr_arq_eng",         "name":"Revisão APR x ARQ x ENG",           "days":2},
@@ -151,7 +151,7 @@ begin
 end $$;
 
 -- Design de Interiores — até 500 m²
-select private.seed_template('design_interiores', 'Design de Interiores — até 500 m²', null, 500, '[
+select pg_temp.seed_template('design_interiores', 'Design de Interiores — até 500 m²', null, 500, '[
   {"code":"planejamento",       "name":"Planejamento",           "days":10},
   {"code":"envio_briefing",     "name":"Envio do Briefing",      "days":5},
   {"code":"projeto_interiores", "name":"Projeto de Interiores",  "days":10},
@@ -162,7 +162,7 @@ select private.seed_template('design_interiores', 'Design de Interiores — até
 ]');
 
 -- Design de Interiores — acima de 500 m²
-select private.seed_template('design_interiores', 'Design de Interiores — acima de 500 m²', 500, null, '[
+select pg_temp.seed_template('design_interiores', 'Design de Interiores — acima de 500 m²', 500, null, '[
   {"code":"planejamento",       "name":"Planejamento",       "days":15},
   {"code":"envio_briefing",     "name":"Envio do Briefing",  "days":7},
   {"code":"layout_modelagem",   "name":"Layout + Modelagem", "days":15},
@@ -173,10 +173,9 @@ select private.seed_template('design_interiores', 'Design de Interiores — acim
 ]');
 
 -- Gestão de Obra Integrada
-select private.seed_template('gestao_obra_integrada', 'Gestão de Obra Integrada', null, null, '[
+select pg_temp.seed_template('gestao_obra_integrada', 'Gestão de Obra Integrada', null, null, '[
   {"code":"orcamento_detalhado",    "name":"Orçamento Detalhado",          "days":30},
   {"code":"cronograma_fisico_fin",  "name":"Cronograma Físico-financeiro", "days":15},
   {"code":"gestao_obra",            "name":"Gestão de Obra",               "type":"ongoing"}
 ]');
 
-drop function private.seed_template(text, text, numeric, numeric, jsonb);

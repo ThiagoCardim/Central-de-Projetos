@@ -117,9 +117,9 @@ select tst.ok(public.get_home_dashboard() ? 'client' and not (public.get_home_da
 select tst.ok(jsonb_array_length(public.get_home_dashboard() -> 'client' -> 'projects') = 2, 'Cliente vê seus 2 projetos');
 select tst.ok(position('Cliente não enviou medidas' in public.get_home_dashboard()::text) = 0, 'Justificativa interna nunca chega ao cliente');
 select tst.ok(position('responsible' in public.get_home_dashboard()::text) = 0, 'Cliente não recebe dados internos de responsáveis');
-select tst.ok((select (p -> 'services' -> 0 -> 'current_step' ->> 'name') from jsonb_array_elements(public.client_projects_overview()) p
+select tst.ok((select (p -> 'services' -> 0 -> 'current_step' ->> 'name') from jsonb_array_elements(private.client_projects_overview()) p
                where p ->> 'name' = 'Residência Dois') = 'Envio do Briefing', 'Cliente vê a etapa atual');
-select tst.ok((select (p ->> 'progress')::int from jsonb_array_elements(public.client_projects_overview()) p
+select tst.ok((select (p ->> 'progress')::int from jsonb_array_elements(private.client_projects_overview()) p
                where p ->> 'name' = 'Residência Dois') = 33, 'Cliente vê o progresso (33%)');
 reset role;
 

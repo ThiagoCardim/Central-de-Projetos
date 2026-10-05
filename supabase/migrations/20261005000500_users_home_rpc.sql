@@ -75,18 +75,6 @@ $$;
 revoke execute on function public.admin_link_auth_user(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.admin_link_auth_user(uuid, uuid) to service_role;
 
--- Remove um perfil convidado cujo convite falhou (nunca vinculado). Somente service_role.
-create or replace function public.admin_discard_pending_user(p_profile_id uuid)
-returns void
-language sql
-security definer
-set search_path = ''
-as $$
-  delete from public.client_contacts where profile_id = p_profile_id;
-  delete from public.profiles where id = p_profile_id and auth_user_id is null;
-$$;
-revoke execute on function public.admin_discard_pending_user(uuid) from public, anon, authenticated;
-grant execute on function public.admin_discard_pending_user(uuid) to service_role;
 
 -- Edita dados do usuário (RLS + guardas validam papel/unidade).
 create or replace function public.admin_update_user(
