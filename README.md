@@ -26,6 +26,7 @@ Stack: React · Supabase (Postgres, Auth, Storage, Edge Functions) · Vercel.
 supabase/
   migrations/   0001 fundação · 0002 entrada/projetos · 0003 catálogo/cronograma
                 0004 dados mestres · 0005 RPCs de usuários e Home
+                0006 privilégios · 0007 ajustes do consultor · 0008 vínculo de convite
   functions/    admin-users (+ _shared)
   tests/        testes SQL de segurança (96 asserções)
   config.toml   cadastro público desabilitado, auth hook habilitado
@@ -45,6 +46,13 @@ scripts/test-db.sh
 Todas as regras ficam em `private.can_*` (ex.: `can_manage_users`, `can_view_project`,
 `can_assign_team`, `can_view_performance`, `can_manage_tenant`, `can_edit_schedule`,
 `can_manage_templates`). O frontend só usa `my_permissions()` para exibir ou ocultar a interface.
+
+## Ambiente em produção
+
+- Supabase: projeto `ewdgraxksonxtrylxpbd` (migrations 0001–0008 aplicadas; consultor de segurança sem alertas)
+- Edge Function `admin-users` publicada com JWT obrigatório
+- Vercel: projeto `central-de-projetos` → https://central-de-projetos-sigma.vercel.app
+  (usa as variáveis `NEXT_PUBLIC_SUPABASE_*` criadas pela integração Supabase ↔ Vercel)
 
 ## Deploy do frontend (Vercel)
 
