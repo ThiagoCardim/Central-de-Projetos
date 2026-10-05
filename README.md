@@ -16,7 +16,9 @@ Stack: React · Supabase (Postgres, Auth, Storage, Edge Functions) · Vercel.
 | Catálogo de serviços, pacotes e templates v1 | pronto |
 | RPCs de usuários, unidades e Home por perfil | pronto, testado |
 | Edge Function `admin-users` (convite, edição, desativação) | pronto |
-| Frontend (design system, login, Home, Controle de Acessos, Unidades) | a fazer |
+| Frontend: design system YouCon (dark/light), login, recuperação e definição de senha | pronto |
+| Home "painel do avião" por perfil (cliente, CLT, PJ, líder, ADM unidade, ADM global) | pronto |
+| Controle de Acessos (convite, edição, CLT/PJ, B2C/B2B, desativação) e Unidades | pronto |
 
 ## Estrutura
 
@@ -43,6 +45,20 @@ scripts/test-db.sh
 Todas as regras ficam em `private.can_*` (ex.: `can_manage_users`, `can_view_project`,
 `can_assign_team`, `can_view_performance`, `can_manage_tenant`, `can_edit_schedule`,
 `can_manage_templates`). O frontend só usa `my_permissions()` para exibir ou ocultar a interface.
+
+## Deploy do frontend (Vercel)
+
+1. Importe o repositório na Vercel (framework detectado: Vite).
+2. Em *Environment Variables*, defina `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+3. Publique. Cada push na `main` gera um novo deploy.
+
+`vercel.json` já configura o fallback de SPA e cabeçalhos de segurança (CSP, HSTS, X-Frame-Options).
+
+## Preview visual sem npm
+
+`scripts/preview` compila o app com esbuild contra um Supabase simulado e tira screenshots
+de cada perfil (`?as=global_admin|unit_admin|leader|clt|pj|client|empty`). Só para revisão
+visual: o mock nunca entra no build de produção.
 
 ## Rodando os testes de banco
 

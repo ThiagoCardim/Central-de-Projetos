@@ -1,0 +1,188 @@
+// Tipos de domínio espelhando o schema do banco (supabase/migrations).
+
+export type UserRole = "client" | "collaborator" | "leader" | "unit_admin" | "global_admin";
+export type EmploymentType = "clt" | "pj";
+export type ClientType = "b2c" | "b2b";
+export type RecordStatus = "ativo" | "inativo";
+export type TenantType = "franqueadora" | "franquia";
+
+export type ProjectStatus =
+  | "awaiting_allocation" | "awaiting_team_assignment" | "in_progress" | "on_hold" | "completed" | "cancelled";
+
+export type TaskStatus =
+  | "not_started" | "waiting_dependency" | "ready" | "in_progress" | "waiting_client"
+  | "waiting_third_party" | "completed" | "overdue" | "cancelled";
+
+export type TrackStatus = "no_template" | "awaiting_area" | "planned" | "in_progress" | "completed" | "cancelled";
+
+export interface Tenant {
+  id: string;
+  name: string;
+  type: TenantType;
+  status: RecordStatus;
+  parent_tenant_id: string | null;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  auth_user_id: string | null;
+  tenant_id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  employment_type: EmploymentType | null;
+  client_type: ClientType | null;
+  status: RecordStatus;
+  phone: string | null;
+  avatar_url: string | null;
+  invited_at: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+}
+
+export interface ClientRecord {
+  id: string;
+  tenant_id: string;
+  name: string;
+  client_type: ClientType;
+  email: string | null;
+  status: RecordStatus;
+}
+
+/** Retorno de public.my_permissions() — usado só para exibir/ocultar UI. */
+export interface Permissions {
+  profile_id: string;
+  tenant_id: string;
+  role: UserRole;
+  employment_type: EmploymentType | null;
+  client_type: ClientType | null;
+  can_manage_users: boolean;
+  can_manage_tenant: boolean;
+  can_manage_tenants: boolean;
+  can_manage_templates: boolean;
+  can_distribute: boolean;
+  can_view_intake: boolean;
+  can_view_performance: boolean;
+  is_manager: boolean;
+  is_staff: boolean;
+}
+
+export interface TenantOverview {
+  tenant_id: string;
+  name: string;
+  type: TenantType;
+  status: RecordStatus;
+  city: string | null;
+  state: string | null;
+  users_active: number;
+  users_inactive: number;
+  collaborators_clt: number;
+  collaborators_pj: number;
+  clients: number;
+  projects_active: number;
+  projects_awaiting: number;
+  created_at: string;
+}
+
+/** Linha de public.task_alerts. */
+export interface TaskAlert {
+  task_id: string;
+  project_id: string;
+  task_name: string;
+  status: TaskStatus;
+  responsible_user_id: string | null;
+  planned_start_date: string | null;
+  planned_end_date: string | null;
+  project_name: string;
+  project_code: string | null;
+  service_name: string;
+  due_in_days: number | null;
+  overdue_days: number | null;
+  waiting_days: number | null;
+  is_overdue: boolean;
+  is_blocked: boolean;
+  is_waiting_client: boolean;
+  is_unassigned: boolean;
+}
+
+export interface AwaitingTeamProject {
+  id: string;
+  code: string | null;
+  name: string;
+  project_type: string | null;
+  client_type: ClientType;
+  client_name: string;
+  city: string | null;
+  state: string | null;
+  contracted_at: string | null;
+  services: string[];
+}
+
+export interface ClientStep {
+  name: string;
+  status: TaskStatus;
+  planned_end_date: string | null;
+  actual_end_date: string | null;
+}
+
+export interface ClientService {
+  name: string;
+  track_status: TrackStatus;
+  progress: number;
+  current_step: { name: string; status: TaskStatus; planned_end_date: string | null } | null;
+  next_step: { name: string; planned_start_date: string | null } | null;
+  planned_end_date: string | null;
+  steps: ClientStep[];
+}
+
+export interface ClientProject {
+  id: string;
+  code: string | null;
+  name: string;
+  status: ProjectStatus;
+  city: string | null;
+  state: string | null;
+  contracted_at: string | null;
+  forecast_end: string | null;
+  progress: number;
+  pending_from_client: number;
+  services: ClientService[];
+}
+
+/** Retorno de public.get_home_dashboard(). Blocos presentes conforme o perfil. */
+export interface HomeDashboard {
+  me: {
+    id: string;
+    name: string;
+    role: UserRole;
+    employment_type: EmploymentType | null;
+    client_type: ClientType | null;
+    tenant: { id: string; name: string; type: TenantType };
+  };
+  generated_at: string;
+  client?: { projects: ClientProject[] };
+  my_work?: {
+    counts: { open: number; overdue: number; due_today: number; due_next_7: number; waiting_client: number; blocked: number };
+    tasks: TaskAlert[];
+    projects: { id: string; code: string | null; name: string; status: ProjectStatus; project_role: string }[];
+  };
+  operations?: {
+    counts: {
+      projects_active: number; awaiting_team: number; awaiting_allocation: number;
+      tasks_overdue: number; tasks_blocked: number; tasks_waiting_client: number; tasks_unassigned: number;
+      due_next_7: number; projects_at_risk: number; services_pending_review: number;
+    };
+    awaiting_team: AwaitingTeamProject[];
+    alerts: TaskAlert[];
+    team_load: { id: string; name: string; open: number; overdue: number }[];
+  };
+  admin?: {
+    users: { active: number; inactive: number; clt: number; pj: number; clients: number; pending_invite: number };
+    intake: { received: number; errors: number; last_24h: number };
+    tenants: TenantOverview[] | null;
+  };
+}

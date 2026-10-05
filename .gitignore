@@ -3,3 +3,5 @@ dist/
 .env
 .env.local
 supabase/.temp/
+scripts/preview/dist/
+scripts/preview/shots/
