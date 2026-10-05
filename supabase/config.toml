@@ -1,0 +1,41 @@
+# Configuração do projeto Supabase (CLI). Valores de produção são definidos no
+# painel; este arquivo documenta e reproduz o ambiente local.
+project_id = "portal-projetos-youcon"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/definir-senha", "http://localhost:5173/redefinir-senha"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Sem cadastro público: usuários entram somente por convite.
+enable_signup = false
+enable_anonymous_sign_ins = false
+minimum_password_length = 10
+password_requirements = "lower_upper_letters_digits"
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = true
+secure_password_change = true
+
+# Bloqueia token de usuário inativo / unidade inativa.
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
+
+[functions.admin-users]
+verify_jwt = true
