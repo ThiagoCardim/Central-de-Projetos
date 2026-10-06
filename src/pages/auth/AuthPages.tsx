@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import { Alert, Button, Field, Input } from "@/components/ui/primitives";
 import { BrandMark } from "@/components/domain/Brand";
 import { useDocumentTitle } from "@/hooks";
+import { authLinkError } from "@/services/supabase";
 
 function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode }) {
   return (
@@ -65,7 +66,9 @@ export function LoginPage() {
   return (
     <AuthShell title="Entrar" subtitle="Use o e-mail em que você recebeu o convite.">
       <form className="stack" onSubmit={submit} noValidate>
-        {(error || notice) && <Alert tone="danger">{error ?? notice}</Alert>}
+        {(error || notice || authLinkError) && (
+          <Alert tone={error || notice ? "danger" : "warning"}>{error ?? notice ?? authLinkError}</Alert>
+        )}
         <Field label="E-mail">
           {({ id }) => (
             <Input id={id} type="email" large autoComplete="username" inputMode="email" autoFocus
@@ -138,8 +141,11 @@ export function ForgotPasswordPage() {
 /** Usada pelo link do convite (/definir-senha) e pela recuperação (/redefinir-senha). */
 export function SetPasswordPage({ mode }: { mode: "invite" | "reset" }) {
   useDocumentTitle(mode === "invite" ? "Criar senha" : "Nova senha");
-  const { status, session, updatePassword } = useAuth();
+  const { status, session, updatePassword, confirmEmailLink } = useAuth();
   const navigate = useNavigate();
+  const tokenHash = useSearchParam("token_hash");
+  const [confirming, setConfirming] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [touched, setTouched] = useState(false);
@@ -164,8 +170,38 @@ export function SetPasswordPage({ mode }: { mode: "invite" | "reset" }) {
     }
   }
 
+  async function confirmLink() {
+    if (!tokenHash) return;
+    setConfirming(true); setLinkError(null);
+    try {
+      await confirmEmailLink(tokenHash, mode === "invite" ? "invite" : "recovery");
+      // Remove o código da barra de endereço depois de usado.
+      window.history.replaceState(null, "", window.location.pathname);
+    } catch (err) {
+      setLinkError((err as Error).message);
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   if (status === "loading") {
     return <AuthShell title="Validando link…"><p className="subtext">Um instante.</p></AuthShell>;
+  }
+
+  // Link do e-mail ainda não confirmado: exige um clique (verificadores de e-mail não clicam).
+  if (tokenHash && !session) {
+    return (
+      <AuthShell
+        title={mode === "invite" ? "Ative seu acesso" : "Redefinir senha"}
+        subtitle={mode === "invite"
+          ? "Você foi convidado para o Portal de Projetos YouCon."
+          : "Confirme para criar uma nova senha."}
+        footer={linkError ? <Link to="/esqueci-senha" className="link">Pedir um novo link</Link> : undefined}
+      >
+        {linkError && <Alert tone="danger">{linkError}</Alert>}
+        <Button size="lg" block loading={confirming} onClick={confirmLink}>Continuar</Button>
+      </AuthShell>
+    );
   }
 
   if (!session) {

@@ -21,6 +21,8 @@ interface AuthValue {
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  /** Valida o link do e-mail (token_hash) somente quando a pessoa clica em Continuar. */
+  confirmEmailLink: (tokenHash: string, type: "invite" | "recovery") => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -118,12 +120,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadIdentity((await supabase.auth.getSession()).data.session);
   }, [loadIdentity]);
 
+  const confirmEmailLink = useCallback(async (tokenHash: string, type: "invite" | "recovery") => {
+    if (type === "recovery") recovering.current = true;
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    if (error) {
+      recovering.current = false;
+      throw new Error(/expired|invalid|not found/i.test(error.message)
+        ? "Este link expirou ou já foi usado. Peça um novo em \"Esqueci minha senha\"."
+        : translateAuthError(error.message));
+    }
+  }, []);
+
   const refresh = useCallback(async () => { await loadIdentity(session); }, [loadIdentity, session]);
 
   const value = useMemo<AuthValue>(() => ({
     status, session, profile, permissions, notice,
-    signIn, signOut, requestPasswordReset, updatePassword, refresh,
-  }), [status, session, profile, permissions, notice, signIn, signOut, requestPasswordReset, updatePassword, refresh]);
+    signIn, signOut, requestPasswordReset, updatePassword, confirmEmailLink, refresh,
+  }), [status, session, profile, permissions, notice, signIn, signOut, requestPasswordReset, updatePassword, confirmEmailLink, refresh]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
