@@ -335,4 +335,20 @@ select tst.ok((select planned_start_date from public.project_tasks where project
               public.next_business_day((select max(planned_end_date) from public.project_tasks where project_id = tst.pid('2009') and name <> 'Gestão de Obra') + 1, '00000000-0000-4000-8000-000000000101'),
   'Etapa seguinte começa depois da mais longa do grupo');
 
+
+-- Excluir padrão: exige o nome do serviço; projetos em andamento preservados
+select tst.login('lid@hq'); set role authenticated;
+select tst.throws(format('select public.delete_template_variant(%L, %L)', (select id from public.schedule_templates where name = 'Gestão de Obra Integrada' and active), 'Gestão de Obra Integrada'),
+  'Líder não exclui padrão');
+reset role; select tst.login('');
+select tst.login('ga@hq'); set role authenticated;
+select tst.throws(format('select public.delete_template_variant(%L, %L)', (select id from public.schedule_templates where name = 'Gestão de Obra Integrada' and active), 'sim'),
+  'Exclusão exige digitar o nome do serviço');
+select tst.ok((select sum(projects_in_progress) from public.template_usage((select id from public.services where code = 'gestao_obra_integrada'))) = 1, 'Mostra quantos projetos em andamento usam o padrão');
+select tst.ok((public.delete_template_variant((select id from public.schedule_templates where name = 'Gestão de Obra Integrada' and active), ' gestão de obra integrada ') ->> 'projects_in_progress')::int = 1,
+  'Exclusão informa projetos em andamento afetados (nenhuma etapa muda)');
+reset role; select tst.login('');
+select tst.ok(not (select has_schedule_template from public.services where code = 'gestao_obra_integrada'), 'Serviço passa a Sem cronograma padrão');
+select tst.ok((select count(*) from public.project_tasks where project_id = tst.pid('2009')) = 4, 'Projeto em andamento mantém suas etapas');
+
 \echo '✔ Etapa 3 — motor de cronograma'

@@ -342,6 +342,20 @@ export const api = {
     rpc<void>("save_template_draft", { p_template: templateId, p_name: name, p_tasks: tasks }),
   publishTemplate: (templateId: string, notes: string) => rpc<void>("publish_template", { p_template: templateId, p_notes: notes || null }),
   discardTemplateDraft: (templateId: string) => rpc<void>("discard_template_draft", { p_template: templateId }),
+  /** Situação de cada template (para o navegador de serviços). */
+  async templateSummaries(): Promise<Pick<ScheduleTemplate, "id" | "service_id" | "status" | "active" | "version" | "client_type" | "area_min" | "area_max" | "published_at">[]> {
+    const { data, error } = await supabase.from("schedule_templates")
+      .select("id, service_id, status, active, version, client_type, area_min, area_max, published_at");
+    if (error) throw toUserError(error);
+    return (data ?? []).filter((t) => !(t.status === "archived" && !t.published_at)) as never;
+  },
+  templateUsage: (serviceId: string) => rpc<{ template_id: string; projects_in_progress: number }[]>("template_usage", { p_service: serviceId }),
+  deleteTemplateVariant: (templateId: string, confirm: string) =>
+    rpc<{ archived: number; projects_in_progress: number }>("delete_template_variant", { p_template: templateId, p_confirm: confirm }),
+  async setTaskLibraryActive(id: string, active: boolean): Promise<void> {
+    const { error } = await supabase.from("task_library").update({ active }).eq("id", id);
+    if (error) throw toUserError(error);
+  },
 
   // ---------- Equipe ----------
   async teamWorkload(tenantId: string | null): Promise<{ user_id: string; project_role: string; project: { id: string; name: string; status: string } | null }[]> {

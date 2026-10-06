@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "@/services/auth";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
@@ -6,14 +6,14 @@ import { PageHead } from "@/layouts/AppLayout";
 import {
   Alert, Badge, Button, Card, EmptyState, Field, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
 } from "@/components/ui/primitives";
-import { ConfirmDialog, Drawer, useToast } from "@/components/ui/overlays";
+import { ConfirmDialog, Drawer, Modal, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import type {
-  CatalogService, ClientType, DurationType, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency, TemplateTask,
+  CatalogService, ClientType, DurationType, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
 } from "@/types/domain";
 import { cx, formatDate, plural } from "@/utils/format";
-import { groupIndexes, parallelFromDeps, useDragSort } from "@/components/ui/sortable";
 import { DURATION_TYPE_LABEL } from "@/pages/schedule/model";
+import { groupIndexes, parallelFromDeps, useDragSort } from "@/components/ui/sortable";
 
 type Tab = "templates" | "library";
 
@@ -25,11 +25,9 @@ export function TemplatesPage() {
   return (
     <div className="page">
       <PageHead title="Serviços e Cronogramas"
-        subtitle={canEdit
-          ? "Gerenciador de Templates YouCon. Alterar o padrão cria uma nova versão; projetos já iniciados continuam com a versão que usaram."
-          : "Padrões de cronograma da YouCon e biblioteca de etapas. Somente o ADM Global altera os padrões."} />
+        subtitle="Os padrões YouCon definem as etapas, a ordem e os prazos que cada serviço recebe quando um projeto começa." />
       <Tabs<Tab> label="Seções" value={tab} onChange={setTab} tabs={[
-        { value: "templates", label: "Padrões YouCon" },
+        { value: "templates", label: "Padrões por serviço" },
         { value: "library", label: "Biblioteca de etapas" },
       ]} />
       {tab === "templates" ? <TemplatesManager canEdit={canEdit} /> : <LibraryManager />}
@@ -38,269 +36,360 @@ export function TemplatesPage() {
 }
 
 /* ==========================================================================
-   Padrões
+   Utilidades de variante e fases
    ========================================================================== */
-function variantKey(t: Pick<ScheduleTemplate, "client_type" | "area_min" | "area_max">) {
-  return `${t.client_type ?? "all"}|${t.area_min ?? ""}|${t.area_max ?? ""}`;
-}
-function variantLabel(t: Pick<ScheduleTemplate, "client_type" | "area_min" | "area_max">) {
+type Variant = Pick<ScheduleTemplate, "client_type" | "area_min" | "area_max">;
+const variantKey = (t: Variant) => `${t.client_type ?? "all"}|${t.area_min ?? ""}|${t.area_max ?? ""}`;
+function variantLabel(t: Variant, short = false) {
   const parts: string[] = [];
-  parts.push(t.client_type ? t.client_type.toUpperCase() : "B2C e B2B");
+  if (t.client_type) parts.push(`Só ${t.client_type.toUpperCase()}`);
+  else if (!short) parts.push("B2C e B2B");
   if (t.area_min != null && t.area_max != null) parts.push(`${t.area_min}–${t.area_max} m²`);
   else if (t.area_max != null) parts.push(`até ${t.area_max} m²`);
   else if (t.area_min != null) parts.push(`acima de ${t.area_min} m²`);
-  return parts.join(" · ");
+  return parts.join(" · ") || "Padrão geral";
 }
 
+interface FlowStep { id: string; name: string; duration_type: DurationType; days: number | null; client_visible: boolean;
+  include_if: string[] | null; waits: string[] }
+
+/** Agrupa etapas ativas em fases a partir das dependências internas do padrão. */
+function toPhases(template: ScheduleTemplate, deps: TemplateDependency[]): FlowStep[][] {
+  const tasks = template.tasks.filter((t) => t.active);
+  const internal = (id: string) => deps.filter((d) => d.template_task_id === id && d.predecessor_task_id).map((d) => d.predecessor_task_id!);
+  const groups = groupIndexes(parallelFromDeps(tasks.map((t) => t.id), internal));
+  const phases: FlowStep[][] = [];
+  tasks.forEach((t, i) => {
+    (phases[groups[i]] ??= []).push({
+      id: t.id, name: t.name, duration_type: t.duration_type, days: t.default_duration_days, client_visible: t.client_visible,
+      include_if: t.include_if_service_codes,
+      waits: deps.filter((d) => d.template_task_id === t.id && d.predecessor_service_code)
+        .map((d) => `${(d.predecessor_task_code ?? "").replaceAll("_", " ")} (${(d.predecessor_service_code ?? "").replaceAll("_", " ")})`),
+    });
+  });
+  return phases;
+}
+
+function phaseDuration(steps: { duration_type: DurationType; days: number | null }[]) {
+  const fixed = steps.filter((s) => s.duration_type === "fixed");
+  const partial = fixed.some((s) => !s.days) || steps.some((s) => s.duration_type === "dependent" || s.duration_type === "external");
+  const max = Math.max(0, ...fixed.map((s) => s.days ?? 0));
+  return { days: max, partial };
+}
+
+function durationLabel(s: { duration_type: DurationType; days: number | null }) {
+  if (s.duration_type === "fixed") return s.days ? `${s.days} d.u.` : "A definir";
+  if (s.duration_type === "dependent") return "Conforme outro serviço";
+  if (s.duration_type === "external") return "Prazo de terceiros";
+  return "Contínua";
+}
+
+/* ==========================================================================
+   Padrões por serviço
+   ========================================================================== */
 function TemplatesManager({ canEdit }: { canEdit: boolean }) {
   const mobile = useIsMobile();
   const catalog = useAsync(() => api.listCatalog(), []);
-  const [family, setFamily] = useState<string | null>(null);
+  const summaries = useAsync(() => api.templateSummaries(), []);
   const [service, setService] = useState<string | null>(null);
+  const [q, setQ] = useState("");
 
-  useEffect(() => {
-    if (!catalog.data || family) return;
-    setFamily(catalog.data.families[0]?.id ?? null);
-  }, [catalog.data, family]);
-  const services = (catalog.data?.services ?? []).filter((s) => s.family_id === family);
-  useEffect(() => { if (services.length && !services.some((s) => s.id === service)) setService(services[0].id); }, [family, catalog.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!service && catalog.data?.services.length) setService(catalog.data.services[0].id); }, [catalog.data, service]);
+  const reloadAll = () => { void catalog.reload(); void summaries.reload(); };
 
   if (catalog.error) return <LoadError message={catalog.error} onRetry={catalog.reload} />;
   if (catalog.loading && !catalog.data) return <Skeleton height={420} radius={16} />;
-  const families = catalog.data!.families;
-  const current = catalog.data!.services.find((s) => s.id === service) ?? null;
+  const { families, services } = catalog.data!;
+  const current = services.find((s) => s.id === service) ?? null;
+  const statusOf = (s: CatalogService) => {
+    const mine = (summaries.data ?? []).filter((t) => t.service_id === s.id);
+    if (mine.some((t) => t.status === "draft")) return { tone: "warning" as const, text: "Rascunho em edição" };
+    const active = mine.filter((t) => t.active);
+    if (active.length) return { tone: "success" as const, text: active.length > 1 ? `${active.length} variantes` : `Padrão v${active[0].version}` };
+    return { tone: "neutral" as const, text: "Sem cronograma padrão" };
+  };
 
   return (
-    <div className="tplm">
-      <nav className="tplm__col tplm__families" aria-label="Famílias">
-        <span className="label">Famílias</span>
+    <div className="svcm">
+      <nav className="svcm__nav" aria-label="Serviços">
         {mobile ? (
-          <Select aria-label="Família" value={family ?? ""} onChange={(e) => setFamily(e.target.value)}>
-            {families.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          <Select aria-label="Serviço" value={service ?? ""} onChange={(e) => setService(e.target.value)}>
+            {families.map((f) => (
+              <optgroup key={f.id} label={f.name}>
+                {services.filter((s) => s.family_id === f.id).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </optgroup>
+            ))}
           </Select>
-        ) : families.map((f) => (
-          <FamilyButton key={f.id} f={f} active={f.id === family} count={catalog.data!.services.filter((s) => s.family_id === f.id).length}
-            onClick={() => setFamily(f.id)} />
-        ))}
+        ) : (
+          <>
+            <SearchInput placeholder="Buscar serviço" aria-label="Buscar serviço" value={q} onChange={(e) => setQ(e.target.value)} />
+            <div className="svcm__groups">
+              {families.map((f: ServiceFamily) => {
+                const list = services.filter((s) => s.family_id === f.id && (!q || s.name.toLowerCase().includes(q.toLowerCase())));
+                if (!list.length) return null;
+                return (
+                  <div key={f.id} className="svcm__group">
+                    <span className="label">{f.name}</span>
+                    {list.map((s) => {
+                      const st = statusOf(s);
+                      return (
+                        <button key={s.id} type="button" className={cx("svcm__item", s.id === service && "is-active")}
+                          aria-current={s.id === service || undefined} onClick={() => setService(s.id)}>
+                          <span className="svcm__name">{s.name}</span>
+                          <span className={cx("svcm__status", `tone-${st.tone}`)}><span className="svcm__dot" aria-hidden="true" />{st.text}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </nav>
-      <section className="tplm__col tplm__services" aria-label="Serviços">
-        <span className="label">Serviços</span>
-        <ul className="svc-pick">
-          {services.map((s) => (
-            <li key={s.id}>
-              <button type="button" className={cx("svc-pick__item", s.id === service && "is-active")} aria-current={s.id === service || undefined}
-                onClick={() => setService(s.id)}>
-                <span className="svc-pick__name">{s.name}</span>
-                <span className="svc-pick__meta">
-                  {s.available_for_b2c && <Badge tag outline>B2C</Badge>}
-                  {s.available_for_b2b && <Badge tag outline>B2B</Badge>}
-                  {!s.has_schedule_template && <span className="muted">Sem cronograma padrão</span>}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="tplm__col tplm__detail" aria-label="Template selecionado">
-        {current ? <ServicePanel key={current.id} service={current} canEdit={canEdit} onCatalogChanged={catalog.reload} />
-          : <EmptyState icon="layers" title="Selecione um serviço." />}
+      <section className="svcm__main" aria-label="Padrão do serviço">
+        {current ? (
+          <ServiceWorkspace key={current.id} service={current} family={families.find((f) => f.id === current.family_id)?.name ?? ""}
+            canEdit={canEdit} onChanged={reloadAll} />
+        ) : <EmptyState icon="layers" title="Selecione um serviço." />}
       </section>
     </div>
   );
 }
 
-function FamilyButton({ f, active, count, onClick }: { f: ServiceFamily; active: boolean; count: number; onClick: () => void }) {
-  return (
-    <button type="button" className={cx("fam", active && "is-active")} aria-current={active || undefined} onClick={onClick}>
-      <span className="grow truncate">{f.name}</span><span className="num muted">{count}</span>
-    </button>
-  );
-}
-
-function ServicePanel({ service, canEdit, onCatalogChanged }: { service: CatalogService; canEdit: boolean; onCatalogChanged: () => void }) {
+function ServiceWorkspace({ service, family, canEdit, onChanged }: { service: CatalogService; family: string; canEdit: boolean; onChanged: () => void }) {
   const toast = useToast();
   const templates = useAsync(() => api.listTemplates(service.id), [service.id]);
+  const usage = useAsync(() => api.templateUsage(service.id), [service.id]);
   const [variant, setVariant] = useState<string | null>(null);
   const [editing, setEditing] = useState<ScheduleTemplate | null>(null);
-  const [newVariant, setNewVariant] = useState(false);
+  const [panel, setPanel] = useState<"settings" | "variant" | "delete" | "discard" | null>(null);
   const [busy, setBusy] = useState(false);
 
   const list = templates.data ?? [];
   const variants = useMemo(() => {
     const m = new Map<string, ScheduleTemplate[]>();
     list.forEach((t) => m.set(variantKey(t), [...(m.get(variantKey(t)) ?? []), t]));
-    return [...m.entries()].map(([key, ts]) => ({ key, label: variantLabel(ts[0]), templates: ts.sort((a, b) => b.version - a.version) }));
+    return [...m.entries()].map(([key, ts]) => ({ key, base: ts[0], templates: ts.sort((a, b) => b.version - a.version) }))
+      .filter((v) => v.templates.some((t) => t.active || t.status === "draft"));
   }, [list]);
   useEffect(() => { if (variants.length && !variants.some((v) => v.key === variant)) setVariant(variants[0].key); }, [variants, variant]);
-  const cur = variants.find((v) => v.key === variant);
+  const cur = variants.find((v) => v.key === variant) ?? null;
   const active = cur?.templates.find((t) => t.active) ?? null;
   const draft = cur?.templates.find((t) => t.status === "draft") ?? null;
-  const shown = active ?? draft;
+  const history = list.filter((t) => t.status !== "draft").sort((a, b) => b.version - a.version);
+  const inUse = (ids: string[]) => (usage.data ?? []).filter((u) => ids.includes(u.template_id)).reduce((n, u) => n + u.projects_in_progress, 0);
+  const reload = () => { void templates.reload(); void usage.reload(); onChanged(); };
 
-  async function toggle(field: "available_for_b2c" | "available_for_b2b" | "requires_area_rule") {
-    const next = { [field]: !service[field] } as Partial<CatalogService>;
-    if (field !== "requires_area_rule" && !next.available_for_b2c && !service.available_for_b2b && field === "available_for_b2c") {
-      toast("O serviço precisa estar disponível para B2C ou B2B.", "error"); return;
-    }
-    if (field === "available_for_b2b" && !next.available_for_b2b && !service.available_for_b2c) {
-      toast("O serviço precisa estar disponível para B2C ou B2B.", "error"); return;
-    }
-    try { await api.updateService(service.id, next); toast("Serviço atualizado."); onCatalogChanged(); }
-    catch (e) { toast((e as Error).message, "error"); }
-  }
-
-  async function startDraft(from: ScheduleTemplate | null) {
+  async function openDraft(from: ScheduleTemplate | null) {
     setBusy(true);
     try {
       const id = await api.createTemplateDraft(from ? { from: from.id } : { service_id: service.id, name: service.name });
-      await templates.reload();
       const fresh = (await api.listTemplates(service.id)).find((t) => t.id === id) ?? null;
+      void templates.reload(); onChanged();
       setEditing(fresh);
     } catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
   }
 
+  const facts = [
+    service.available_for_b2c && service.available_for_b2b ? "Atende B2C e B2B" : service.available_for_b2c ? "Só B2C" : "Só B2B",
+    service.requires_area_rule ? "Prazos variam com a área" : "Prazo único para qualquer área",
+  ];
+
   return (
-    <div className="stack" style={{ gap: 16 }}>
-      <div className="row-between" style={{ alignItems: "flex-start" }}>
-        <div>
-          <h2 className="tplm__title">{service.name}</h2>
-          <p className="subtext">{service.aliases.length ? `Também chega do CRM como: ${service.aliases.join(", ")}` : "Sem apelidos cadastrados para o CRM."}</p>
+    <div className="stack" style={{ gap: 20 }}>
+      <header className="svcw__head">
+        <div className="grow">
+          <span className="label">{family}</span>
+          <h2 className="svcw__title">{service.name}</h2>
+          <p className="subtext">{facts.join(" · ")}{service.aliases.length ? ` · No CRM também: ${service.aliases.join(", ")}` : ""}</p>
         </div>
-      </div>
-      <div className="row" style={{ flexWrap: "wrap" }}>
-        <ToggleChip on={service.available_for_b2c} label="Disponível B2C" disabled={!canEdit} onClick={() => toggle("available_for_b2c")} />
-        <ToggleChip on={service.available_for_b2b} label="Disponível B2B" disabled={!canEdit} onClick={() => toggle("available_for_b2b")} />
-        <ToggleChip on={service.requires_area_rule} label="Prazo varia com a área" disabled={!canEdit} onClick={() => toggle("requires_area_rule")} />
-      </div>
+        {canEdit && (
+          <div className="row">
+            {draft ? <Button icon="edit" onClick={() => setEditing(draft)}>Continuar edição</Button>
+              : active ? <Button icon="edit" loading={busy} onClick={() => openDraft(active)}>Editar padrão</Button>
+              : <Button icon="plus" loading={busy} onClick={() => openDraft(null)}>Criar padrão</Button>}
+            <MoreMenu items={[
+              { label: "Configurações do serviço", icon: "edit", onClick: () => setPanel("settings") },
+              { label: "Nova variante (por área ou cliente)", icon: "plus", onClick: () => setPanel("variant") },
+              ...(cur ? [{ label: "Excluir padrão", icon: "x" as const, danger: true, onClick: () => setPanel("delete") }] : []),
+            ]} />
+          </div>
+        )}
+      </header>
 
       {templates.error ? <LoadError message={templates.error} onRetry={templates.reload} /> :
        templates.loading && !templates.data ? <Skeleton height={260} radius={16} /> :
        variants.length === 0 ? (
         <Card>
           <EmptyState icon="layers" title="Sem cronograma padrão"
-            text="A YouCon ainda não definiu os prazos deste serviço. Projetos com ele mostram “Sem cronograma padrão” e podem receber etapas manualmente."
-            action={canEdit ? <Button size="sm" loading={busy} onClick={() => startDraft(null)}>Criar cronograma padrão</Button> : undefined} />
+            text="Projetos com este serviço mostram “Sem cronograma padrão” e podem receber etapas manualmente. Crie o padrão quando a YouCon definir as etapas e prazos."
+            action={canEdit ? <Button size="sm" icon="plus" loading={busy} onClick={() => openDraft(null)}>Criar padrão</Button> : undefined} />
         </Card>
       ) : (
         <>
           {variants.length > 1 && (
-            <Segmented<string> label="Variante" value={variant} onChange={setVariant}
-              options={variants.map((v) => ({ value: v.key, label: v.label }))} />
+            <Tabs<string> label="Variantes do padrão" value={variant ?? variants[0].key} onChange={setVariant}
+              tabs={variants.map((v) => ({ value: v.key, label: variantLabel(v.base, true) }))} />
           )}
-          {shown && (
-            <Card title={<>{shown.name} <span className="muted">· v{shown.version}</span></>}
-              action={
+          {draft && (
+            <Alert tone="warning" title={`Rascunho v${draft.version} ainda não publicado`}
+              action={canEdit ? (
                 <div className="row">
-                  {shown.status === "published" && <Badge tone="success" dot>Vigente</Badge>}
-                  {draft && <Badge tone="warning" dot>Rascunho v{draft.version}</Badge>}
-                </div>
-              }>
-              <p className="subtext tpl-meta">
-                {variants.length === 1 && `${variantLabel(shown)} · `}
-                {shown.published_at ? `Publicada em ${formatDate(shown.published_at, true)}` : "Ainda não publicada"}
-                {shown.notes ? ` · ${shown.notes}` : ""}
-              </p>
-              <TemplateTaskList template={shown} />
-              {canEdit && (
-                <div className="row tpl-actions">
-                  {draft ? (
-                    <Button size="sm" icon="edit" onClick={() => setEditing(draft)}>Continuar rascunho v{draft.version}</Button>
-                  ) : (
-                    <Button size="sm" icon="edit" loading={busy} onClick={() => startDraft(active)}>Alterar padrão YouCon</Button>
-                  )}
-                  <Button size="sm" variant="ghost" icon="plus" onClick={() => setNewVariant(true)}>Nova variante</Button>
-                </div>
-              )}
-            </Card>
+                  <Button size="sm" onClick={() => setEditing(draft)}>Continuar edição</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPanel("discard")}>Descartar</Button>
+                </div>) : undefined}>
+              {active ? `Novos projetos continuam usando a versão ${active.version} até a publicação.` : "Este serviço ainda não tem padrão publicado."}
+            </Alert>
           )}
-          {cur && cur.templates.filter((t) => t.status === "archived").length > 0 && (
-            <Card title="Versões anteriores">
-              <ul className="history">
-                {cur.templates.filter((t) => t.status === "archived").map((t) => (
-                  <li key={t.id}><span className="history__what">v{t.version} · {t.tasks.length} etapas</span>
-                    <span className="history__when num">{formatDate(t.published_at, true)}</span>
-                    {t.notes && <span className="history__note">{t.notes}</span>}</li>
-                ))}
-              </ul>
-              <p className="subtext card__note">Projetos que começaram com uma versão anterior continuam com ela.</p>
-            </Card>
-          )}
+          {(active ?? draft) && <FlowCard template={(active ?? draft)!} usage={active ? inUse([active.id]) : 0} variants={variants.length} />}
         </>
       )}
-
-      {editing && (
-        <TemplateEditor template={editing} service={service} onClose={() => setEditing(null)}
-          onDone={() => { setEditing(null); void templates.reload(); onCatalogChanged(); }} />
+      {history.length > 0 && (
+        <details className="versions">
+          <summary><Icon name="clock" size={16} /> Histórico de versões <span className="muted">· {history.length}</span></summary>
+          <ul className="history">
+            {history.map((t) => (
+              <li key={t.id}>
+                <span className="history__what">
+                  v{t.version} · {variantLabel(t)} {t.active ? <Badge tone="success">Vigente</Badge> : <Badge>Arquivada</Badge>}
+                </span>
+                <span className="history__when num">{formatDate(t.published_at, true)}</span>
+                <span className="history__note">{plural(t.tasks.length, "etapa", "etapas")}{t.notes ? ` · ${t.notes}` : ""}{inUse([t.id]) ? ` · ${plural(inUse([t.id]), "projeto em andamento", "projetos em andamento")}` : ""}</span>
+                {canEdit && !t.active && !draft && (
+                  <span className="history__note"><Button size="sm" variant="ghost" icon="refresh" loading={busy} onClick={() => openDraft(t)}>Usar como base de nova versão</Button></span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="subtext card__note">Projetos usam a versão que estava vigente quando começaram; alterações futuras não mudam projetos em andamento.</p>
+        </details>
       )}
-      {newVariant && (
-        <NewVariantDialog service={service} onClose={() => setNewVariant(false)}
-          onCreated={async (id) => { setNewVariant(false); await templates.reload(); setEditing((await api.listTemplates(service.id)).find((t) => t.id === id) ?? null); }} />
+
+      {editing && <TemplateEditor template={editing} service={service} onClose={() => setEditing(null)} onSaved={reload} onDone={() => { setEditing(null); reload(); }} />}
+      {panel === "settings" && <ServiceSettings service={service} onClose={() => setPanel(null)} onSaved={() => { setPanel(null); onChanged(); }} />}
+      {panel === "variant" && (
+        <NewVariantDrawer service={service} onClose={() => setPanel(null)}
+          onCreated={async (id) => { setPanel(null); const fresh = (await api.listTemplates(service.id)).find((t) => t.id === id) ?? null; reload(); setEditing(fresh); }} />
+      )}
+      {panel === "delete" && cur && (
+        <DeleteTemplateDialog service={service} variant={cur.base} variantsCount={variants.length}
+          templateId={(active ?? draft ?? cur.templates[0]).id} projects={inUse(cur.templates.map((t) => t.id))}
+          onClose={() => setPanel(null)} onDeleted={() => { setPanel(null); reload(); }} />
+      )}
+      <ConfirmDialog open={panel === "discard"} danger title={`Descartar rascunho v${draft?.version ?? ""}?`}
+        message="As alterações deste rascunho serão perdidas. A versão vigente continua valendo." confirmLabel="Descartar rascunho"
+        loading={busy} onCancel={() => setPanel(null)}
+        onConfirm={async () => {
+          if (!draft) return;
+          setBusy(true);
+          try { await api.discardTemplateDraft(draft.id); toast("Rascunho descartado."); setPanel(null); reload(); }
+          catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
+        }} />
+    </div>
+  );
+}
+
+/* ---------- Menu "mais ações" ---------- */
+function MoreMenu({ items }: { items: { label: string; icon: "edit" | "plus" | "x"; danger?: boolean; onClick: () => void }[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", close); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  return (
+    <div className="menu" ref={ref}>
+      <Button variant="outline" iconOnly icon="more" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>Mais ações</Button>
+      {open && (
+        <div className="menu__list" role="menu">
+          {items.map((it) => (
+            <button key={it.label} type="button" role="menuitem" className={cx("menu__item", it.danger && "is-danger")}
+              onClick={() => { setOpen(false); it.onClick(); }}>
+              <Icon name={it.icon} size={16} /> {it.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-function ToggleChip({ on, label, disabled, onClick }: { on: boolean; label: string; disabled?: boolean; onClick: () => void }) {
-  return (
-    <button type="button" className="chip" aria-pressed={on} disabled={disabled} onClick={onClick} title={disabled ? "Somente o ADM Global altera" : undefined}>
-      {on && <Icon name="check" size={14} />} {label}
-    </button>
-  );
-}
-
-function TemplateTaskList({ template }: { template: ScheduleTemplate }) {
+/* ---------- Fluxo visual por fases ---------- */
+function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; usage: number; variants: number }) {
   const deps = useAsync(() => api.templateDependencies(template.id), [template.id]);
-  const cross = (taskId: string) => (deps.data ?? []).filter((d) => d.template_task_id === taskId && d.predecessor_service_code);
-  const tasks = template.tasks.filter((t) => t.active);
-  const internal = (id: string) => (deps.data ?? []).filter((d) => d.template_task_id === id && d.predecessor_task_id).map((d) => d.predecessor_task_id!);
-  const parallel = deps.data ? parallelFromDeps(tasks.map((t) => t.id), internal) : tasks.map(() => false);
-  const groups = groupIndexes(parallel);
-  const groupSize = (g: number) => groups.filter((x) => x === g).length;
-  const fixedTotal = tasks.reduce((n, t) => n + (t.duration_type === "fixed" ? t.default_duration_days ?? 0 : 0), 0);
-  const undefinedCount = tasks.filter((t) => t.duration_type === "fixed" && !t.default_duration_days).length;
+  const phases = deps.data ? toPhases(template, deps.data) : null;
+  const total = phases?.reduce((n, ph) => n + phaseDuration(ph).days, 0) ?? 0;
+  const partial = phases?.some((ph) => phaseDuration(ph).partial) ?? false;
+  const steps = phases?.reduce((n, ph) => n + ph.length, 0) ?? 0;
+
   return (
-    <>
-      <ol className="tpl-steps">
-        {tasks.map((t, i) => {
-          const g = groups[i]; const inGroup = groupSize(g) > 1;
-          return (
-            <li key={t.id} className={cx(inGroup && "is-par", inGroup && groups[i - 1] !== g && "is-par-first", inGroup && groups[i + 1] !== g && "is-par-last")}>
-              <span className="tpl-steps__n num">{g + 1}</span>
-              <span className="grow">
-                <span className="tpl-steps__name">{t.name}</span>
-                <span className="tpl-steps__meta">
-                  {[
-                    inGroup && groups[i - 1] !== g ? `${groupSize(g)} etapas simultâneas` : "",
-                    t.include_if_service_codes?.length ? `Só se contratado: ${t.include_if_service_codes.join(", ").replaceAll("_", " ")}` : "",
-                    ...cross(t.id).map((d) => `Aguarda ${d.predecessor_task_code?.replaceAll("_", " ")} (${d.predecessor_service_code?.replaceAll("_", " ")})`),
-                    !t.client_visible ? "interna" : "",
-                  ].filter(Boolean).join(" · ")}
-                </span>
-              </span>
-              <span className={cx("tpl-steps__dur", t.duration_type === "fixed" && !t.default_duration_days && "text-warning")}>
-                {t.duration_type === "fixed" ? (t.default_duration_days ? `${t.default_duration_days} d.u.` : "A definir") : DURATION_TYPE_LABEL[t.duration_type]}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      <p className="subtext card__note">
-        {plural(tasks.length, "etapa", "etapas")} em {plural(new Set(groups).size, "fase", "fases")} · {fixedTotal} dias úteis somando prazos fixos
-        {undefinedCount ? ` · ${plural(undefinedCount, "etapa", "etapas")} com prazo a definir` : ""}
+    <Card title={<>Fluxo do padrão <span className="muted">· v{template.version}{variants > 1 ? ` · ${variantLabel(template)}` : ""}</span></>}
+      action={template.status === "draft" ? <Badge tone="warning" dot>Rascunho</Badge> : <Badge tone="success" dot>Vigente</Badge>}>
+      <p className="subtext flow__meta">
+        {template.published_at ? `Publicado em ${formatDate(template.published_at, true)}` : "Ainda não publicado"}
+        {usage ? ` · ${plural(usage, "projeto em andamento usa", "projetos em andamento usam")} esta versão` : ""}
+        {template.notes ? ` · ${template.notes}` : ""}
       </p>
-    </>
+      {!phases ? <Skeleton height={160} /> : (
+        <>
+          <ol className="flow" aria-label="Fases do padrão em ordem">
+            {phases.map((ph, i) => {
+              const d = phaseDuration(ph);
+              return (
+                <li key={i} className={cx("flow__phase", ph.length > 1 && "phase--parallel")}>
+                  <span className="flow__rail" aria-hidden="true"><span className="flow__n">{i + 1}</span></span>
+                  <div className="flow__body">
+                    <div className="phase__head">
+                      <span className="phase__n">Fase {i + 1}</span>
+                      <span className="phase__dur num">{d.days ? `${d.days} dias úteis` : ""}{d.partial ? (d.days ? " + a definir" : "Prazo a definir") : ""}</span>
+                      {ph.length > 1 && <span className="phase__par"><Icon name="parallel" size={14} /> {ph.length} etapas ao mesmo tempo</span>}
+                    </div>
+                    <ul className="phase__steps">
+                      {ph.map((s) => (
+                        <li key={s.id} className="pstep">
+                          <span className="pstep__name">{s.name}</span>
+                          <span className={cx("pstep__dur", s.duration_type === "fixed" && !s.days && "text-warning")}>{durationLabel(s)}</span>
+                          {(s.waits.length > 0 || s.include_if?.length || !s.client_visible) && (
+                            <span className="pstep__tags">
+                              {s.waits.map((w) => <span key={w} className="pstep__tag">Aguarda {w}</span>)}
+                              {s.include_if?.length ? <span className="pstep__tag">Só se contratar {s.include_if.join(", ").replaceAll("_", " ")}</span> : null}
+                              {!s.client_visible && <span className="pstep__tag">Interna</span>}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          <div className="flow__legend">
+            <span><Icon name="sequence" size={14} /> uma fase começa quando a anterior termina</span>
+            <span><Icon name="parallel" size={14} /> etapas lado a lado acontecem ao mesmo tempo</span>
+            <span className="grow" />
+            <span className="num"><strong>{plural(steps, "etapa", "etapas")}</strong> em {plural(phases.length, "fase", "fases")} · ~{total} dias úteis{partial ? " + prazos a definir" : ""}</span>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 
-/* ---------- Editor de rascunho ---------- */
-interface DraftRow {
-  key: string; id: string | null; name: string; duration_type: DurationType; duration: string; client_visible: boolean;
-  include_if: string[] | null; cross: string; // "service_code.task_code" ou ""
-  parallel: boolean; // simultânea à etapa anterior
-}
+/* ==========================================================================
+   Editor por fases
+   ========================================================================== */
+interface EStep { key: string; id: string | null; name: string; duration_type: DurationType; days: string; client_visible: boolean;
+  include_if: string[] | null; cross: string; showCross: boolean }
+interface EPhase { key: string; steps: EStep[] }
+const newStep = (): EStep => ({ key: crypto.randomUUID(), id: null, name: "", duration_type: "fixed", days: "", client_visible: true, include_if: null, cross: "", showCross: false });
 
-function TemplateEditor({ template, service, onClose, onDone }: {
-  template: ScheduleTemplate; service: CatalogService; onClose: () => void; onDone: () => void;
+function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
+  template: ScheduleTemplate; service: CatalogService; onClose: () => void; onSaved: () => void; onDone: () => void;
 }) {
   const toast = useToast();
   const listId = useId();
@@ -308,148 +397,251 @@ function TemplateEditor({ template, service, onClose, onDone }: {
   const crossOptions = useAsync(() => api.activeTemplateTasks(), []);
   const deps = useAsync(() => api.templateDependencies(template.id), [template.id]);
   const [name, setName] = useState(template.name);
-  const [rows, setRows] = useState<DraftRow[] | null>(null);
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState<"save" | "publish" | "discard" | null>(null);
+  const [phases, setPhases] = useState<EPhase[] | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState<"save" | "publish" | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<"publish" | "discard" | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [leaving, setLeaving] = useState(false);
+  const [drag, setDrag] = useState<{ p: number; s: number } | null>(null);
+  const [over, setOver] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!deps.data || rows) return;
+    if (!deps.data || phases) return;
+    const flow = toPhases(template, deps.data);
     const crossOf = (id: string) => {
-      const d = deps.data!.find((x: TemplateDependency) => x.template_task_id === id && x.predecessor_service_code);
+      const d = deps.data!.find((x) => x.template_task_id === id && x.predecessor_service_code);
       return d ? `${d.predecessor_service_code}.${d.predecessor_task_code}` : "";
     };
-    const active = template.tasks.filter((t) => t.active);
-    const internal = (id: string) => deps.data!.filter((d) => d.template_task_id === id && d.predecessor_task_id).map((d) => d.predecessor_task_id!);
-    const par = parallelFromDeps(active.map((t) => t.id), internal);
-    setRows(active.map((t: TemplateTask, i) => ({
-      key: t.id, id: t.id, name: t.name, duration_type: t.duration_type, duration: t.default_duration_days ? String(t.default_duration_days) : "",
-      client_visible: t.client_visible, include_if: t.include_if_service_codes, cross: crossOf(t.id), parallel: par[i],
-    })));
-  }, [deps.data, rows, template.tasks]);
+    setPhases(flow.length ? flow.map((ph) => ({ key: crypto.randomUUID(), steps: ph.map((s) => ({
+      key: s.id, id: s.id, name: s.name, duration_type: s.duration_type, days: s.days ? String(s.days) : "",
+      client_visible: s.client_visible, include_if: s.include_if, cross: crossOf(s.id), showCross: !!crossOf(s.id),
+    })) })) : [{ key: crypto.randomUUID(), steps: [newStep()] }]);
+  }, [deps.data, phases, template]);
 
-  const update = (key: string, patch: Partial<DraftRow>) => setRows((rs) => rs!.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const sort = useDragSort(rows ?? [], (next) => setRows(next));
-  const add = () => setRows((rs) => [...rs!, { key: crypto.randomUUID(), id: null, name: "", duration_type: "fixed", duration: "", client_visible: true, include_if: null, cross: "", parallel: false }]);
-  const groups = groupIndexes((rows ?? []).map((r) => r.parallel));
-  const groupSize = (g: number) => groups.filter((x) => x === g).length;
-  const fromLibrary = (key: string, value: string) => {
+  const mutate = (fn: (ps: EPhase[]) => EPhase[]) => { setPhases((ps) => fn(ps!.map((p) => ({ ...p, steps: [...p.steps] })))); setDirty(true); };
+  const updateStep = (pi: number, si: number, patch: Partial<EStep>) => mutate((ps) => { ps[pi].steps[si] = { ...ps[pi].steps[si], ...patch }; return ps; });
+  const fromLibrary = (pi: number, si: number, value: string) => {
     const l = (library.data ?? []).find((x: TaskLibraryItem) => x.name.toLowerCase() === value.trim().toLowerCase());
-    update(key, l ? { name: value, ...(l.default_duration_days ? { duration: String(l.default_duration_days) } : {}),
+    updateStep(pi, si, l ? { name: value, ...(l.default_duration_days ? { days: String(l.default_duration_days) } : {}),
       ...(l.duration_type !== "dependent" ? { duration_type: l.duration_type } : {}) } : { name: value });
   };
+  const addPhaseAt = (index: number) => mutate((ps) => { ps.splice(index, 0, { key: crypto.randomUUID(), steps: [newStep()] }); return ps; });
+  const movePhase = (i: number, d: -1 | 1) => mutate((ps) => { const j = i + d; if (j < 0 || j >= ps.length) return ps; [ps[i], ps[j]] = [ps[j], ps[i]]; return ps; });
+  const removeStep = (pi: number, si: number) => mutate((ps) => { ps[pi].steps.splice(si, 1); return ps.filter((p) => p.steps.length > 0); });
+  const dropOn = (pi: number, si: number | null) => {
+    if (!drag) return;
+    const from = drag;
+    mutate((ps) => {
+      const [moved] = ps[from.p].steps.splice(from.s, 1);
+      let target = si ?? ps[pi].steps.length;
+      if (from.p === pi && si !== null && from.s < si) target -= 1;
+      ps[pi].steps.splice(Math.max(0, target), 0, moved);
+      return ps.filter((p) => p.steps.length > 0);
+    });
+    setDrag(null); setOver(null);
+  };
 
-  const payload = () => rows!.map((r) => ({
-    id: r.id, name: r.name.trim(), duration_type: r.duration_type,
-    duration_days: r.duration_type === "fixed" && r.duration ? Number(r.duration) : null,
-    client_visible: r.client_visible, include_if: r.include_if, parallel: r.parallel,
-    cross_deps: r.cross ? [{ service_code: r.cross.split(".")[0], task_code: r.cross.split(".")[1] }] : [],
-  }));
+  const payload = () => phases!.flatMap((ph) => ph.steps.map((s, i) => ({
+    id: s.id, name: s.name.trim(), duration_type: s.duration_type, parallel: i > 0,
+    duration_days: s.duration_type === "fixed" && s.days ? Number(s.days) : null,
+    client_visible: s.client_visible, include_if: s.include_if,
+    cross_deps: s.cross ? [{ service_code: s.cross.split(".")[0], task_code: s.cross.split(".")[1] }] : [],
+  })));
 
   async function save(thenPublish: boolean) {
     setBusy(thenPublish ? "publish" : "save"); setErr(null);
     try {
       await api.saveTemplateDraft(template.id, name, payload());
+      setDirty(false);
       if (thenPublish) {
         await api.publishTemplate(template.id, notes);
         toast(`Versão ${template.version} publicada. Novos projetos já usam este padrão.`);
         onDone();
       } else {
-        toast("Rascunho salvo.");
+        toast("Rascunho salvo."); onSaved();
       }
-    } catch (e) { setErr((e as Error).message); setConfirm(null); } finally { setBusy(null); }
+    } catch (e) { setErr((e as Error).message); setPublishing(false); } finally { setBusy(null); }
   }
 
-  const otherServices = (crossOptions.data ?? []).filter((o) => o.service_code !== service.code);
-  const grouped = otherServices.reduce<Record<string, typeof otherServices>>((acc, o) => { (acc[o.service_name] ??= []).push(o); return acc; }, {});
+  const others = (crossOptions.data ?? []).filter((o) => o.service_code !== service.code);
+  const grouped = others.reduce<Record<string, typeof others>>((acc, o) => { (acc[o.service_name] ??= []).push(o); return acc; }, {});
+  const durOf = (ph: EPhase) => phaseDuration(ph.steps.map((s) => ({ duration_type: s.duration_type, days: s.days ? Number(s.days) : null })));
+  const total = phases?.reduce((n, ph) => n + durOf(ph).days, 0) ?? 0;
 
   return (
-    <Drawer open onClose={onClose} title={`Alterar padrão YouCon · v${template.version}`}
-      subtitle={`${service.name} · ${variantLabel(template)} · rascunho`}
+    <Drawer open wide onClose={() => (dirty ? setLeaving(true) : onClose())}
+      title={`Editar padrão · ${service.name}`}
+      subtitle={`Rascunho v${template.version} · ${variantLabel(template)} · vale para novos projetos depois de publicado`}
       footer={
         <>
-          <Button variant="danger-ghost" loading={busy === "discard"} onClick={() => setConfirm("discard")}>Descartar</Button>
+          <span className="subtext">{phases ? `${plural(phases.length, "fase", "fases")} · ~${total} dias úteis` : ""}{dirty ? " · alterações não salvas" : ""}</span>
           <span className="spacer" />
-          <Button variant="secondary" loading={busy === "save"} disabled={!rows} onClick={() => save(false)}>Salvar rascunho</Button>
-          <Button loading={busy === "publish"} disabled={!rows} onClick={() => setConfirm("publish")}>Publicar versão</Button>
+          <Button variant="secondary" loading={busy === "save"} disabled={!phases} onClick={() => save(false)}>Salvar rascunho</Button>
+          <Button loading={busy === "publish"} disabled={!phases} onClick={() => setPublishing(true)}>Publicar versão {template.version}</Button>
         </>
       }>
       <div className="form">
-        <Alert tone="info" title="Alterar padrão YouCon">Vale para novos projetos. Projetos em andamento continuam com a versão que usaram. Para mudar um projeto só, use “Ajustar prazo” ou “Adicionar etapa” no cronograma dele.</Alert>
+        <div className="ed-help">
+          <span><Icon name="sequence" size={14} /><strong>Fases</strong> acontecem uma depois da outra.</span>
+          <span><Icon name="parallel" size={14} /><strong>Etapas da mesma fase</strong> acontecem ao mesmo tempo.</span>
+          <span><Icon name="grip" size={14} />Arraste pela alça para mudar a etapa de lugar ou de fase.</span>
+        </div>
         {err && <Alert tone="danger" title="Não foi salvo">{err}</Alert>}
-        <Field label="Nome do template">{({ id }) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
+        <Field label="Nome do padrão">{({ id }) => <Input id={id} value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} />}</Field>
         <datalist id={listId}>{(library.data ?? []).map((l) => <option key={l.id} value={l.name} />)}</datalist>
 
-        {!rows ? <Skeleton height={240} /> : (
-          <fieldset className="form__group">
-            <legend className="label">Etapas, em ordem</legend>
-            <p className="subtext">Arraste pela alça para mudar a ordem. Cada etapa começa quando a fase anterior termina; marque “Simultânea à anterior” para etapas que correm em paralelo. Prazos em dias úteis; em branco = a definir.</p>
-            <ol className="tpl-edit">
-              {rows.map((r, i) => {
-                const g = groups[i]; const inGroup = groupSize(g) > 1;
-                return (
-                <li key={r.key} {...sort.row(i)}
-                  className={cx("tpl-edit__row", inGroup && "is-par", sort.dragging === i && "is-dragging", sort.over === i && sort.dragging !== i && "is-over")}>
-                  <div className="tpl-edit__order">
-                    <span className="drag-grip" {...sort.grip(i, `Mover ${r.name || "etapa"}`)}><Icon name="grip" size={16} /></span>
-                    <span className="tpl-edit__phase num" title={`Fase ${g + 1}`}>{g + 1}</span>
-                  </div>
-                  <div className="tpl-edit__fields">
-                    <Input aria-label={`Nome da etapa ${i + 1}`} list={listId} value={r.name} placeholder="Nome (escolha da biblioteca ou digite)"
-                      onChange={(e) => fromLibrary(r.key, e.target.value)} />
-                    <div className="tpl-edit__line">
-                      <Select aria-label="Tipo de prazo" value={r.duration_type} onChange={(e) => update(r.key, { duration_type: e.target.value as DurationType })}>
-                        {(Object.keys(DURATION_TYPE_LABEL) as DurationType[]).map((k) => <option key={k} value={k}>{DURATION_TYPE_LABEL[k]}</option>)}
-                      </Select>
-                      {r.duration_type === "fixed" && (
-                        <Input aria-label="Dias úteis" type="number" min={1} max={2000} inputMode="numeric" placeholder="Dias úteis"
-                          value={r.duration} onChange={(e) => update(r.key, { duration: e.target.value })} />
-                      )}
-                      <label className="check"><input type="checkbox" checked={r.client_visible} onChange={(e) => update(r.key, { client_visible: e.target.checked })} /> Cliente vê</label>
+        {!phases ? <Skeleton height={280} /> : (
+          <div className="ph-list">
+            {phases.map((ph, pi) => {
+              const d = durOf(ph);
+              return (
+                <div key={ph.key}>
+                  {pi > 0 && (
+                    <div className="ph-gap">
+                      <Icon name="sequence" size={16} className="ph-gap__arrow" />
+                      <button type="button" className="ph-gap__btn" onClick={() => addPhaseAt(pi)}><Icon name="plus" size={14} /> Inserir fase aqui</button>
                     </div>
-                    <Select aria-label="Aguarda etapa de outro serviço" value={r.cross} onChange={(e) => update(r.key, { cross: e.target.value })}>
-                      <option value="">{r.duration_type === "dependent" ? "Escolha a etapa de outro serviço (obrigatório)" : "Não aguarda outro serviço"}</option>
-                      {Object.entries(grouped).map(([svc, opts]) => (
-                        <optgroup key={svc} label={svc}>{opts.map((o) => <option key={`${o.service_code}.${o.code}`} value={`${o.service_code}.${o.code}`}>Aguarda: {o.name}</option>)}</optgroup>
+                  )}
+                  <section className={cx("ph-edit", ph.steps.length > 1 && "ph-edit--parallel", over === `p${pi}` && "is-over")} aria-label={`Fase ${pi + 1}`}
+                    onDragOver={(e: DragEvent) => { if (drag) { e.preventDefault(); setOver(`p${pi}`); } }}
+                    onDrop={(e: DragEvent) => { e.preventDefault(); dropOn(pi, null); }}>
+                    <header className="ph-edit__head">
+                      <span className="phase__n">Fase {pi + 1}</span>
+                      <span className="muted num">{d.days ? `${d.days} d.u.` : ""}{d.partial ? (d.days ? " + a definir" : "Prazo a definir") : ""}</span>
+                      {ph.steps.length > 1 && <span className="phase__par"><Icon name="parallel" size={14} /> {ph.steps.length} ao mesmo tempo</span>}
+                      <span className="grow" />
+                      <Button variant="ghost" size="sm" iconOnly icon="chevronDown" className="flip" disabled={pi === 0} onClick={() => movePhase(pi, -1)}>Mover fase para cima</Button>
+                      <Button variant="ghost" size="sm" iconOnly icon="chevronDown" disabled={pi === phases.length - 1} onClick={() => movePhase(pi, 1)}>Mover fase para baixo</Button>
+                    </header>
+                    <ul className="ph-edit__steps">
+                      {ph.steps.map((s, si) => (
+                        <li key={s.key} className={cx("es", drag?.p === pi && drag.s === si && "is-dragging", over === `${pi}.${si}` && "is-over")}
+                          draggable={drag?.p === pi && drag.s === si}
+                          onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.key); }}
+                          onDragOver={(e) => { if (drag) { e.preventDefault(); e.stopPropagation(); setOver(`${pi}.${si}`); } }}
+                          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropOn(pi, si); }}
+                          onDragEnd={() => { setDrag(null); setOver(null); }}>
+                          <div className="es__main">
+                            <span className="drag-grip" role="button" tabIndex={0} aria-label={`Mover ${s.name || "etapa"}`} title="Arraste para mover"
+                              onPointerDown={() => setDrag({ p: pi, s: si })}><Icon name="grip" size={16} /></span>
+                            <Input className="es__name" aria-label="Nome da etapa" list={listId} value={s.name} placeholder="Nome da etapa (biblioteca ou novo)"
+                              onChange={(e) => fromLibrary(pi, si, e.target.value)} />
+                            <Select className="es__type" aria-label="Tipo de prazo" value={s.duration_type}
+                              onChange={(e) => updateStep(pi, si, { duration_type: e.target.value as DurationType, showCross: e.target.value === "dependent" || s.showCross })}>
+                              <option value="fixed">Dias úteis</option>
+                              <option value="dependent">Conforme outro serviço</option>
+                              <option value="external">Prazo de terceiros</option>
+                              <option value="ongoing">Contínua</option>
+                            </Select>
+                            {s.duration_type === "fixed" ? (
+                              <Input className="es__days" aria-label="Dias úteis" type="number" min={1} max={2000} inputMode="numeric" placeholder="dias"
+                                value={s.days} onChange={(e) => updateStep(pi, si, { days: e.target.value })} />
+                            ) : <span className="es__days es__days--none" aria-hidden="true" />}
+                            <Button variant="ghost" size="sm" iconOnly icon={s.client_visible ? "user" : "lock"}
+                              title={s.client_visible ? "O cliente vê esta etapa (clique para tornar interna)" : "Etapa interna: o cliente não vê (clique para mostrar)"}
+                              onClick={() => updateStep(pi, si, { client_visible: !s.client_visible })}>
+                              {s.client_visible ? "Cliente vê" : "Interna"}
+                            </Button>
+                            <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => removeStep(pi, si)}>Remover etapa</Button>
+                          </div>
+                          {(s.showCross || s.include_if?.length) ? (
+                            <div className="es__extra">
+                              {s.showCross && (
+                                <Select aria-label="Aguarda etapa de outro serviço" value={s.cross} onChange={(e) => updateStep(pi, si, { cross: e.target.value })}>
+                                  <option value="">{s.duration_type === "dependent" ? "Escolha de qual etapa de outro serviço depende (obrigatório)" : "Não aguarda outro serviço"}</option>
+                                  {Object.entries(grouped).map(([svc, opts]) => (
+                                    <optgroup key={svc} label={svc}>{opts.map((o) => <option key={`${o.service_code}.${o.code}`} value={`${o.service_code}.${o.code}`}>Aguarda: {o.name}</option>)}</optgroup>
+                                  ))}
+                                </Select>
+                              )}
+                              {s.include_if?.length ? <span className="subtext">Só entra se o projeto contratar: {s.include_if.join(", ").replaceAll("_", " ")}</span> : null}
+                            </div>
+                          ) : (
+                            <button type="button" className="es__link" onClick={() => updateStep(pi, si, { showCross: true })}>+ Aguardar etapa de outro serviço</button>
+                          )}
+                        </li>
                       ))}
-                    </Select>
-                    {r.include_if?.length ? <span className="subtext">Só entra se contratado: {r.include_if.join(", ").replaceAll("_", " ")}</span> : null}
-                    {i > 0 && (
-                      <Segmented<"seq" | "par"> label={`Quando ${r.name || "esta etapa"} começa`} value={r.parallel ? "par" : "seq"}
-                        onChange={(v) => update(r.key, { parallel: v === "par" })}
-                        options={[{ value: "seq", label: "Depois da anterior" }, { value: "par", label: "Simultânea à anterior" }]} />
-                    )}
-                  </div>
-                  <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => setRows((rs) => rs!.filter((x) => x.key !== r.key))}>Remover etapa</Button>
-                </li>
-                );
-              })}
-            </ol>
-            <div><Button variant="outline" size="sm" icon="plus" onClick={add}>Adicionar etapa</Button></div>
-          </fieldset>
+                    </ul>
+                    <button type="button" className="ph-edit__add" onClick={() => mutate((ps) => { ps[pi].steps.push(newStep()); return ps; })}>
+                      <Icon name="parallel" size={14} /> Adicionar etapa simultânea nesta fase
+                    </button>
+                  </section>
+                </div>
+              );
+            })}
+            <div className="ph-gap"><Icon name="sequence" size={16} className="ph-gap__arrow" /></div>
+            <button type="button" className="ph-new" onClick={() => addPhaseAt(phases.length)}><Icon name="plus" size={16} /> Adicionar fase no final</button>
+          </div>
         )}
-        <Field label="Nota da versão" hint="Opcional. Aparece no histórico de versões.">
-          {({ id }) => <Input id={id} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex.: inclui levantamento no local" />}
-        </Field>
       </div>
 
-      <ConfirmDialog open={confirm === "publish"} title={`Publicar versão ${template.version}?`}
-        message="Novos projetos passam a usar este padrão. Projetos já iniciados não mudam." confirmLabel="Publicar"
-        loading={busy === "publish"} onCancel={() => setConfirm(null)} onConfirm={() => save(true)} />
-      <ConfirmDialog open={confirm === "discard"} title="Descartar rascunho?" danger
-        message="As alterações deste rascunho serão perdidas. A versão vigente continua valendo." confirmLabel="Descartar"
-        loading={busy === "discard"} onCancel={() => setConfirm(null)}
-        onConfirm={async () => {
-          setBusy("discard");
-          try { await api.discardTemplateDraft(template.id); toast("Rascunho descartado."); onDone(); }
-          catch (e) { setErr((e as Error).message); setConfirm(null); } finally { setBusy(null); }
-        }} />
+      <Modal open={publishing} onClose={() => setPublishing(false)} title={`Publicar versão ${template.version}?`}
+        footer={<><Button variant="ghost" onClick={() => setPublishing(false)}>Cancelar</Button>
+          <Button loading={busy === "publish"} onClick={() => save(true)}>Publicar</Button></>}>
+        <p>Novos projetos com {service.name} passam a usar este padrão. Projetos já iniciados não mudam.</p>
+        <Field label="Nota da versão" hint="Opcional. Aparece no histórico.">
+          {({ id }) => <Input id={id} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex.: renderização junto com alterações" />}
+        </Field>
+      </Modal>
+      <ConfirmDialog open={leaving} title="Sair sem salvar?" danger message="As alterações feitas desde o último salvamento serão perdidas."
+        confirmLabel="Sair sem salvar" onCancel={() => setLeaving(false)} onConfirm={() => { setLeaving(false); onClose(); }} />
     </Drawer>
   );
 }
 
-function NewVariantDialog({ service, onClose, onCreated }: { service: CatalogService; onClose: () => void; onCreated: (id: string) => void }) {
+/* ---------- Configurações do serviço ---------- */
+function OptionRow({ checked, onChange, title, text }: { checked: boolean; onChange: (v: boolean) => void; title: string; text: ReactNode }) {
+  return (
+    <label className={cx("opt", checked && "is-on")}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span><span className="opt__title">{title}</span><span className="opt__text">{text}</span></span>
+    </label>
+  );
+}
+
+function ServiceSettings({ service, onClose, onSaved }: { service: CatalogService; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [b2c, setB2c] = useState(service.available_for_b2c);
+  const [b2b, setB2b] = useState(service.available_for_b2b);
+  const [area, setArea] = useState(service.requires_area_rule);
+  const [aliases, setAliases] = useState(service.aliases.join(", "));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <Drawer open onClose={onClose} title="Configurações do serviço" subtitle={service.name}
+      footer={<><span className="spacer" /><Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button loading={busy} onClick={async () => {
+          if (!b2c && !b2b) { setErr("O serviço precisa atender B2C, B2B ou ambos."); return; }
+          setBusy(true); setErr(null);
+          try {
+            await api.updateService(service.id, { available_for_b2c: b2c, available_for_b2b: b2b, requires_area_rule: area,
+              aliases: aliases.split(",").map((a) => a.trim()).filter(Boolean) });
+            toast("Serviço atualizado."); onSaved();
+          } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+        }}>Salvar</Button></>}>
+      <div className="form">
+        {err && <Alert tone="danger">{err}</Alert>}
+        <fieldset className="form__group">
+          <legend className="label">Quem pode contratar</legend>
+          <OptionRow checked={b2c} onChange={setB2c} title="Clientes B2C" text="Pessoa física (residencial)." />
+          <OptionRow checked={b2b} onChange={setB2b} title="Clientes B2B" text="Empresas, incorporadoras e construtoras." />
+        </fieldset>
+        <fieldset className="form__group">
+          <legend className="label">Prazos</legend>
+          <OptionRow checked={area} onChange={setArea} title="Prazos variam com a área do projeto"
+            text="Use variantes por faixa de área (ex.: até 500 m² e acima de 500 m²). Sem área informada, o projeto fica aguardando a área." />
+        </fieldset>
+        <Field label="Outros nomes usados no CRM" hint="Separe por vírgula. A Central de Entrada reconhece o serviço por estes nomes.">
+          {({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} value={aliases} onChange={(e) => setAliases(e.target.value)} />}
+        </Field>
+      </div>
+    </Drawer>
+  );
+}
+
+function NewVariantDrawer({ service, onClose, onCreated }: { service: CatalogService; onClose: () => void; onCreated: (id: string) => void }) {
   const toast = useToast();
   const [ct, setCt] = useState<"all" | ClientType>("all");
   const [min, setMin] = useState("");
@@ -465,9 +657,9 @@ function NewVariantDialog({ service, onClose, onCreated }: { service: CatalogSer
               area_min: min ? Number(min) : null, area_max: max ? Number(max) : null, name: service.name });
             onCreated(id);
           } catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
-        }}>Criar rascunho</Button></>}>
+        }}>Criar e editar</Button></>}>
       <div className="form">
-        <p className="subtext">Use variantes quando os prazos mudam conforme o tipo de cliente ou a área (ex.: Interiores até 500 m² e acima de 500 m²). Faixas de área não podem se sobrepor.</p>
+        <p className="subtext">Variantes servem quando as etapas ou prazos mudam conforme o tipo de cliente ou a área. Exemplo: Interiores até 500 m² e acima de 500 m². As faixas de área não podem se sobrepor.</p>
         <Segmented<"all" | ClientType> label="Tipo de cliente" value={ct} onChange={setCt}
           options={[{ value: "all", label: "B2C e B2B" }, { value: "b2c", label: "Só B2C" }, { value: "b2b", label: "Só B2B" }]} />
         <div className="form__cols">
@@ -476,6 +668,39 @@ function NewVariantDialog({ service, onClose, onCreated }: { service: CatalogSer
         </div>
       </div>
     </Drawer>
+  );
+}
+
+/* ---------- Exclusão com dupla confirmação ---------- */
+function DeleteTemplateDialog({ service, variant, variantsCount, templateId, projects, onClose, onDeleted }: {
+  service: CatalogService; variant: Variant; variantsCount: number; templateId: string; projects: number; onClose: () => void; onDeleted: () => void;
+}) {
+  const toast = useToast();
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const match = typed.trim().toLowerCase() === service.name.trim().toLowerCase();
+  return (
+    <Modal open onClose={onClose} title={`Excluir padrão de ${service.name}?`}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="danger" disabled={!match} loading={busy} onClick={async () => {
+          setBusy(true); setErr(null);
+          try { await api.deleteTemplateVariant(templateId, typed); toast("Padrão excluído. O histórico foi preservado."); onDeleted(); }
+          catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+        }}>Excluir padrão</Button></>}>
+      <div className="stack">
+        {variantsCount > 1 && <p>Variante: <strong>{variantLabel(variant)}</strong></p>}
+        <ul className="del-facts">
+          <li><Icon name="alert" size={16} /> Novos projetos com este serviço{variantsCount > 1 ? " nesta variante" : ""} ficarão “Sem cronograma padrão” até um novo padrão ser criado.</li>
+          <li><Icon name="checkCircle" size={16} /> {projects ? `${plural(projects, "projeto em andamento usa", "projetos em andamento usam")} este padrão e não serão alterados.` : "Nenhum projeto em andamento usa este padrão."}</li>
+          <li><Icon name="clock" size={16} /> O histórico de versões fica guardado e pode servir de base para um novo padrão.</li>
+        </ul>
+        {err && <Alert tone="danger">{err}</Alert>}
+        <Field label={`Para confirmar, digite o nome do serviço: ${service.name}`}>
+          {({ id }) => <Input id={id} value={typed} autoComplete="off" onChange={(e) => setTyped(e.target.value)} placeholder={service.name} />}
+        </Field>
+      </div>
+    </Modal>
   );
 }
 
@@ -491,7 +716,8 @@ function LibraryManager() {
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<TaskLibraryItem | "new" | null>(null);
   const [order, setOrder] = useState<TaskLibraryItem[]>([]);
-  useEffect(() => { setOrder(lib.data ?? []); }, [lib.data]);
+  useEffect(() => { setOrder((lib.data ?? []).filter((l) => l.active)); }, [lib.data]);
+  const removed = (lib.data ?? []).filter((l) => !l.active);
 
   const sortable = canAdd && !q;
   const sort = useDragSort(order, async (next) => {
@@ -509,10 +735,10 @@ function LibraryManager() {
         <SearchInput placeholder="Buscar etapa" aria-label="Buscar etapa" value={q} onChange={(e) => setQ(e.target.value)} />
         {canAdd && <Button icon="plus" onClick={() => setEditing("new")}>Registrar etapa</Button>}
       </div>
-      <p className="subtext">
-        Etapas registradas aqui aparecem como opção, nesta ordem, ao montar os padrões YouCon e ao incluir uma etapa extra num projeto.
-        {sortable ? " Arraste pela alça para organizar." : ""} A sequência e as etapas simultâneas de cada serviço são definidas em Padrões YouCon.
-      </p>
+      <Alert tone="info">
+        A biblioteca guarda os nomes de etapas para reutilizar. A ordem, as fases e os prazos de cada serviço são definidos em “Padrões por serviço”.
+        {sortable ? " Arraste pela alça para organizar como as opções aparecem." : ""}
+      </Alert>
       {lib.error ? <LoadError message={lib.error} onRetry={lib.reload} /> : lib.loading && !lib.data ? <Skeleton height={300} radius={16} /> :
         list.length === 0 ? <Card><EmptyState icon="search" title={q ? "Nenhuma etapa encontrada." : "Nenhuma etapa registrada."} /></Card> : (
           <Card flush>
@@ -520,15 +746,14 @@ function LibraryManager() {
               {list.map((l, i) => (
                 <li key={l.id} {...(sortable ? sort.row(i) : {})}
                   className={cx(sortable && sort.dragging === i && "is-dragging", sortable && sort.over === i && sort.dragging !== i && "is-over")}>
-                  <div className={cx("task", !l.active && "is-muted")}>
+                  <div className="task">
                     {sortable && <span className="drag-grip" {...sort.grip(i, `Mover ${l.name}`)}><Icon name="grip" size={16} /></span>}
                     <span className="task__main">
                       <span className="task__name">{l.name}</span>
                       {l.description && <span className="task__meta truncate">{l.description}</span>}
                     </span>
                     <span className="task__side">
-                      {!l.active && <Badge>Inativa</Badge>}
-                      <span className="muted">{l.duration_type === "fixed" ? (l.default_duration_days ? `${l.default_duration_days} d.u.` : "Prazo a definir") : DURATION_TYPE_LABEL[l.duration_type]}</span>
+                      <span className="muted">{l.duration_type === "fixed" ? (l.default_duration_days ? `Sugestão: ${l.default_duration_days} d.u.` : "Sem prazo sugerido") : DURATION_TYPE_LABEL[l.duration_type]}</span>
                       {canEditItem(l) && <Button variant="ghost" size="sm" iconOnly icon="edit" onClick={() => setEditing(l)}>Editar</Button>}
                     </span>
                   </div>
@@ -537,32 +762,51 @@ function LibraryManager() {
             </ol>
           </Card>
         )}
+      {removed.length > 0 && (
+        <details className="versions">
+          <summary><Icon name="clock" size={16} /> Excluídas da biblioteca <span className="muted">· {removed.length}</span></summary>
+          <ul className="history">
+            {removed.map((l) => (
+              <li key={l.id}><span className="history__what">{l.name}</span>
+                {canEditItem(l) && (
+                  <span className="history__when"><Button size="sm" variant="ghost" icon="refresh" onClick={async () => {
+                    try { await api.setTaskLibraryActive(l.id, true); toast("Etapa restaurada."); void lib.reload(); }
+                    catch (e) { toast((e as Error).message, "error"); }
+                  }}>Restaurar</Button></span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {editing && (
         <LibraryDrawer item={editing === "new" ? null : editing} onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); toast("Biblioteca atualizada."); void lib.reload(); }} />
+          onSaved={(msg) => { setEditing(null); toast(msg); void lib.reload(); }} />
       )}
     </div>
   );
 }
 
-function LibraryDrawer({ item, onClose, onSaved }: { item: TaskLibraryItem | null; onClose: () => void; onSaved: () => void }) {
+function LibraryDrawer({ item, onClose, onSaved }: { item: TaskLibraryItem | null; onClose: () => void; onSaved: (msg: string) => void }) {
   const { permissions } = useAuth();
   const [name, setName] = useState(item?.name ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
   const [kind, setKind] = useState<"fixed" | "external" | "ongoing">(item?.duration_type === "external" || item?.duration_type === "ongoing" ? item.duration_type : "fixed");
   const [days, setDays] = useState(item?.default_duration_days ? String(item.default_duration_days) : "");
-  const [active, setActive] = useState(item?.active ?? true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <Drawer open onClose={onClose} title={item ? "Editar etapa" : "Registrar etapa"} subtitle="Biblioteca de etapas"
-      footer={<><span className="spacer" /><Button variant="ghost" onClick={onClose}>Cancelar</Button>
+      footer={<>
+        {item && <Button variant="danger-ghost" icon="x" onClick={() => setConfirmDelete(true)}>Excluir</Button>}
+        <span className="spacer" /><Button variant="ghost" onClick={onClose}>Cancelar</Button>
         <Button loading={busy} disabled={name.trim().length < 2} onClick={async () => {
           setBusy(true); setErr(null);
           try {
             await api.saveTaskLibraryItem({ id: item?.id, name, description, duration_type: kind, default_duration_days: days ? Number(days) : null,
-              active: item ? active : undefined, created_by: permissions?.profile_id ?? null });
-            onSaved();
+              created_by: permissions?.profile_id ?? null });
+            onSaved(item ? "Etapa atualizada." : "Etapa registrada.");
           } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
         }}>Salvar</Button></>}>
       <div className="form">
@@ -572,12 +816,20 @@ function LibraryDrawer({ item, onClose, onSaved }: { item: TaskLibraryItem | nul
         <Segmented<"fixed" | "external" | "ongoing"> label="Tipo de prazo" value={kind} onChange={setKind}
           options={[{ value: "fixed", label: "Dias úteis" }, { value: "external", label: "Terceiros" }, { value: "ongoing", label: "Contínua" }]} />
         {kind === "fixed" && (
-          <Field label="Prazo sugerido (dias úteis)" hint="Opcional. Em branco = a definir em cada uso.">
+          <Field label="Prazo sugerido (dias úteis)" hint="Opcional. Preenche automaticamente ao escolher a etapa; cada padrão pode ajustar.">
             {({ id }) => <Input id={id} type="number" min={1} max={2000} value={days} onChange={(e) => setDays(e.target.value)} />}
           </Field>
         )}
-        {item && <label className="check"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Disponível para seleção</label>}
       </div>
+      <ConfirmDialog open={confirmDelete} danger title={`Excluir “${item?.name}” da biblioteca?`}
+        message="A etapa deixa de aparecer como opção. Padrões e projetos que já usam esta etapa não mudam. Você pode restaurá-la depois."
+        confirmLabel="Excluir da biblioteca" loading={busy} onCancel={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          if (!item) return;
+          setBusy(true);
+          try { await api.setTaskLibraryActive(item.id, false); onSaved("Etapa excluída da biblioteca."); }
+          catch (e) { setErr((e as Error).message); setConfirmDelete(false); } finally { setBusy(false); }
+        }} />
     </Drawer>
   );
 }

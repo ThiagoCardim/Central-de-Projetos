@@ -45,8 +45,8 @@ function useDialog(open: boolean, onClose: () => void) {
 }
 
 /** Detalhes sob demanda: drawer lateral no desktop, bottom sheet no mobile. */
-export function Drawer({ open, onClose, title, subtitle, children, footer }: {
-  open: boolean; onClose: () => void; title: ReactNode; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode;
+export function Drawer({ open, onClose, title, subtitle, children, footer, wide }: {
+  open: boolean; onClose: () => void; title: ReactNode; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean;
 }) {
   const mobile = useIsMobile();
   const ref = useDialog(open, onClose);
@@ -55,7 +55,7 @@ export function Drawer({ open, onClose, title, subtitle, children, footer }: {
   return createPortal(
     <>
       <div className="overlay" onClick={onClose} aria-hidden="true" />
-      <div ref={ref} className={mobile ? "sheet" : "drawer"} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      <div ref={ref} className={mobile ? "sheet" : wide ? "drawer drawer--wide" : "drawer"} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         {mobile && <div className="sheet__grip" aria-hidden="true" />}
         <header className="drawer__head">
           <div className="grow">
