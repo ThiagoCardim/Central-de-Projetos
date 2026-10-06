@@ -1,6 +1,7 @@
 // Componentes de domínio: TaskCard, ProjectCard (aguardando equipe) e Timeline do cliente.
 import type { AwaitingTeamProject, ClientStep, TaskAlert } from "@/types/domain";
-import { Badge, Button } from "@/components/ui/primitives";
+import { Badge } from "@/components/ui/primitives";
+import { Link } from "@/lib/router";
 import { Icon } from "@/components/ui/Icon";
 import { alertPhrase, CLIENT_TYPE_LABEL, cx, formatDate, TASK_STATUS_LABEL, TASK_STATUS_TONE } from "@/utils/format";
 
@@ -67,10 +68,9 @@ export function AwaitingTeamCard({ project }: { project: AwaitingTeamProject }) 
             <Icon name="mapPin" size={14} /> {project.city}{project.state ? `/${project.state}` : ""}
           </span>
         )}
-        <Button variant="secondary" size="sm" className="pcard__cta" aria-disabled="true"
-          title="Atribuição de equipe disponível na Etapa 2" onClick={(e) => e.preventDefault()}>
+        <Link to={`/projetos/${project.id}?acao=equipe`} className="btn btn--secondary btn--sm pcard__cta">
           Revisar e atribuir equipe
-        </Button>
+        </Link>
       </div>
     </article>
   );

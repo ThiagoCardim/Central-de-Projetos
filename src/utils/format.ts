@@ -1,5 +1,6 @@
 import type {
-  ClientType, EmploymentType, ProjectStatus, RecordStatus, TaskAlert, TaskStatus, TenantType, UserRole,
+  ClientType, EmploymentType, IntakeStatus, ProjectServiceStatus, ProjectStatus, RecordStatus, TaskAlert, TaskStatus,
+  TenantType, UserRole,
 } from "@/types/domain";
 
 export const ROLE_LABEL: Record<UserRole, string> = {
@@ -129,4 +130,50 @@ export function alertPhrase(a: TaskAlert): { text: string; tone: Tone } {
 
 export function cx(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
+}
+
+/* ---------- Etapa 2 ---------- */
+
+export const INTAKE_STATUS_LABEL: Record<IntakeStatus, string> = {
+  received: "Recebida",
+  validated: "Validada",
+  processing: "Processando",
+  processed: "Processada",
+  error: "Com erro",
+  ignored: "Ignorada",
+};
+export const INTAKE_STATUS_TONE: Record<IntakeStatus, Tone> = {
+  received: "neutral", validated: "brand", processing: "brand", processed: "success", error: "danger", ignored: "neutral",
+};
+
+export const PROJECT_STATUS_TONE: Record<ProjectStatus, Tone> = {
+  awaiting_allocation: "warning",
+  awaiting_team_assignment: "brand",
+  in_progress: "success",
+  on_hold: "neutral",
+  completed: "neutral",
+  cancelled: "neutral",
+};
+
+export const SERVICE_STATUS_LABEL: Record<ProjectServiceStatus, string> = {
+  pending_review: "Aguardando revisão",
+  active: "Ativo",
+  completed: "Concluído",
+  cancelled: "Cancelado",
+};
+
+export const ALLOCATION_METHOD_LABEL: Record<string, string> = {
+  automatic_headquarters: "Automático — Franqueadora",
+  manual: "Manual",
+};
+
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+export function formatMoney(v: number | null | undefined): string {
+  return v == null ? "—" : BRL.format(v);
+}
+
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return `${formatDate(value)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }

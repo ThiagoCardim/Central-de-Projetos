@@ -55,7 +55,25 @@ export function computeNextStep(d: HomeDashboard, perms: Permissions | null): Ne
         ? `Novo projeto aguardando equipe: ${p.client_name}.`
         : `${ops.awaiting_team.length} projetos aguardando equipe.`,
       context: `${p.name}${p.city ? `, ${p.city}` : ""} — ${p.services.join(", ") || "serviços a confirmar"}.`,
-      action: { label: "Revisar e atribuir equipe", disabledReason: "Atribuição de equipe disponível na Etapa 2" },
+      action: ops.awaiting_team.length === 1
+        ? { label: "Revisar e atribuir equipe", to: `/projetos/${p.id}?acao=equipe` }
+        : { label: "Ver projetos aguardando equipe", to: "/projetos?status=awaiting_team_assignment" },
+    };
+  }
+  if (ops && perms?.can_distribute && ops.counts.awaiting_allocation > 0) {
+    return {
+      tone: "brand", icon: "building",
+      headline: `${plural(ops.counts.awaiting_allocation, "projeto aguardando distribuição", "projetos aguardando distribuição")}.`,
+      context: "Defina qual unidade executa cada projeto para liberar a atribuição de equipe.",
+      action: { label: "Distribuir projetos", to: "/projetos?status=awaiting_allocation" },
+    };
+  }
+  if (d.admin && d.admin.intake.errors > 0 && perms?.can_view_intake) {
+    return {
+      tone: "warning", icon: "inbox",
+      headline: `${plural(d.admin.intake.errors, "entrada do CRM precisa", "entradas do CRM precisam")} de revisão.`,
+      context: "Corrija os dados e reprocesse para criar o projeto.",
+      action: { label: "Abrir Central de Entrada", to: "/entrada" },
     };
   }
   if (mine && mine.counts.overdue > 0) {

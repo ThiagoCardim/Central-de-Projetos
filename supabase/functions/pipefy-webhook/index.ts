@@ -19,8 +19,15 @@ function reply(status: number, body: Record<string, unknown>): Response {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return reply(405, { ok: false, error: "Use POST." });
 
-  const token = req.headers.get("x-youcon-token") ?? "";
-  if (token.length < 32) return reply(401, { ok: false, error: "Token ausente ou inválido." });
+  // Aceita X-YouCon-Token ou Authorization: Bearer; tolera espaços e aspas coladas no valor.
+  const clean = (v: string | null) => (v ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
+  const bearer = clean(req.headers.get("authorization")).replace(/^bearer\s+/i, "");
+  const token = clean(req.headers.get("x-youcon-token")) || bearer;
+  if (token.length < 32) {
+    // Diagnóstico sem expor segredo: só nomes de cabeçalhos e tamanho.
+    console.warn("pipefy-webhook sem token", JSON.stringify({ headers: [...req.headers.keys()], length: token.length }));
+    return reply(401, { ok: false, error: "Token ausente. Envie no cabeçalho X-YouCon-Token." });
+  }
 
   const contentType = req.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
@@ -52,7 +59,10 @@ Deno.serve(async (req) => {
     console.error("pipefy-webhook token", tokenError.message);
     return reply(500, { ok: false, error: "Falha ao validar o token. Tente novamente." });
   }
-  if (!valid) return reply(401, { ok: false, error: "Token ausente ou inválido." });
+  if (!valid) {
+    console.warn("pipefy-webhook token não confere", JSON.stringify({ length: token.length, via: req.headers.has("x-youcon-token") ? "x-youcon-token" : "authorization" }));
+    return reply(401, { ok: false, error: "Token inválido. Confira o valor do cabeçalho X-YouCon-Token." });
+  }
 
   const { data, error } = await admin.rpc("ingest_crm_webhook", { p_source: "pipefy", p_payload: payload });
   if (error) {

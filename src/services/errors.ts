@@ -24,7 +24,9 @@ export function toUserError(err: unknown, fallback = "Não foi possível conclui
       );
     case "23505":
       return new UserFacingError(msg.includes("profiles_email") ? "Já existe um usuário com este e-mail." :
-        msg.includes("tenants_slug") ? "Já existe uma unidade com este identificador." : "Este registro já existe.", e.code);
+        msg.includes("tenants_slug") ? "Já existe uma unidade com este identificador." :
+        msg.includes("clients_tenant_document") ? "Já existe um cliente com este CPF/CNPJ nesta unidade." : "Este registro já existe.", e.code);
+    case "P0002":
     case "23514":
     case "23503":
       return new UserFacingError(msg || "Dados inválidos. Revise os campos e tente novamente.", e.code);

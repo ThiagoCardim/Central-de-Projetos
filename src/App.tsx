@@ -12,6 +12,9 @@ import { ForgotPasswordPage, LoginPage, SetPasswordPage } from "@/pages/auth/Aut
 import { HomePage } from "@/pages/home/HomePage";
 import { AccessControlPage } from "@/pages/access/AccessControlPage";
 import { UnitsPage } from "@/pages/units/UnitsPage";
+import { IntakePage } from "@/pages/intake/IntakePage";
+import { ProjectDetailPage, ProjectsPage } from "@/pages/projects/ProjectsPages";
+import { ClientsPage, TeamPage } from "@/pages/clients/ClientsTeamPages";
 
 function Boot() {
   return <div className="boot" aria-busy="true" aria-label="Carregando"><BrandMark className="boot__mark" /></div>;
@@ -82,6 +85,11 @@ export function App() {
             { path: "/", element: <Protected><HomePage /></Protected> },
             { path: "/acessos", element: <Protected requires="manageUsers"><AccessControlPage /></Protected> },
             { path: "/unidades", element: <Protected requires="manageUnit"><UnitsPage /></Protected> },
+            { path: "/entrada", element: <Protected requires="viewIntake"><IntakePage /></Protected> },
+            { path: "/projetos", element: <Protected requires="staff"><ProjectsPage /></Protected> },
+            { path: "/projetos/:id", element: <Protected requires="staff"><ProjectDetailPage /></Protected> },
+            { path: "/clientes", element: <Protected requires="manager"><ClientsPage /></Protected> },
+            { path: "/equipe", element: <Protected requires="manager"><TeamPage /></Protected> },
             { path: "*", element: <NotFound /> },
           ]} />
         </ToastProvider>

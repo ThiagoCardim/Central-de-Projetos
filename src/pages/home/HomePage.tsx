@@ -199,7 +199,7 @@ function UsersCard({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
 function IntakeCard({ d }: { d: HomeDashboard }) {
   const i = d.admin!.intake;
   return (
-    <Card title="Central de Entrada" action={<Badge tag>Etapa 2</Badge>}>
+    <Card title="Central de Entrada" action={<Link to="/entrada" className="link">Abrir</Link>}>
       <dl className="kv">
         <div><dt>Aguardando processamento</dt><dd className="num">{i.received}</dd></div>
         <div><dt>Com erro</dt><dd className={cx("num", i.errors > 0 && "text-danger")}>{i.errors}</dd></div>

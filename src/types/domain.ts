@@ -186,3 +186,98 @@ export interface HomeDashboard {
     tenants: TenantOverview[] | null;
   };
 }
+
+/* ==========================================================================
+   Etapa 2 — Entrada, projetos, distribuição e equipe
+   ========================================================================== */
+export type IntakeStatus = "received" | "validated" | "processing" | "processed" | "error" | "ignored";
+export type IntakeKind = "new_project" | "additional_service";
+export type ProjectServiceStatus = "pending_review" | "active" | "completed" | "cancelled";
+
+export interface Intake {
+  id: string;
+  source: string;
+  external_id: string;
+  intake_kind: IntakeKind;
+  target_external_id: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  client_phone: string | null;
+  client_document: string | null;
+  client_type: ClientType | null;
+  project_name: string | null;
+  project_type: string | null;
+  services: string[];
+  resolved_services: { service_id: string; name: string; input: string; package_id: string | null }[] | null;
+  contracted_at: string | null;
+  contract_value: number | null;
+  area_m2: number | null;
+  city: string | null;
+  state: string | null;
+  address: string | null;
+  salesperson: string | null;
+  notes: string | null;
+  status: IntakeStatus;
+  validation_error: string | null;
+  validation_details: { errors?: string[]; warnings?: string[]; unknown_services?: string[] } | null;
+  received_at: string;
+  processed_at: string | null;
+  created_project_id: string | null;
+  raw_payload: unknown;
+}
+
+export interface ProjectListItem {
+  id: string;
+  code: string | null;
+  name: string;
+  status: ProjectStatus;
+  client_type: ClientType;
+  project_type: string | null;
+  city: string | null;
+  state: string | null;
+  contracted_at: string | null;
+  created_at: string;
+  delivery_tenant_id: string | null;
+  client: { id: string; name: string } | null;
+  delivery: { name: string } | null;
+  services: { id: string; status: ProjectServiceStatus; active: boolean; service: { name: string } | null }[];
+}
+
+export interface ProjectRole { code: string; name: string; sort_order: number; required: boolean }
+
+export interface ProjectDetail extends Omit<ProjectListItem, "services" | "client"> {
+  address: string | null;
+  area_m2: number | null;
+  started_at: string | null;
+  external_source: string | null;
+  external_id: string | null;
+  origin_tenant_id: string | null;
+  commercial_tenant_id: string;
+  client: (ClientRecord & { phone: string | null; document: string | null; company_name: string | null }) | null;
+  origin: { name: string } | null;
+  commercial: { name: string } | null;
+  services: {
+    id: string; status: ProjectServiceStatus; active: boolean; contracted_at: string | null; contract_source: string | null;
+    service: { id: string; name: string; code: string; family: { name: string; default_project_role: string | null } | null } | null;
+  }[];
+  team: {
+    id: string; project_role: string; employment_type: EmploymentType | null; active: boolean; assigned_at: string;
+    user: { id: string; name: string; avatar_url: string | null; employment_type: EmploymentType | null } | null;
+  }[];
+  allocations: {
+    id: string; allocation_method: string; allocation_status: string; allocated_at: string | null; notes: string | null;
+    created_at: string; delivery: { name: string } | null;
+  }[];
+}
+
+export interface StaffMember {
+  id: string; name: string; role: UserRole; employment_type: EmploymentType | null; avatar_url: string | null; tenant_id: string;
+}
+
+export interface ClientListItem extends ClientRecord {
+  phone: string | null;
+  document: string | null;
+  company_name: string | null;
+  created_at: string;
+  projects: { count: number }[];
+}
