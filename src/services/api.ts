@@ -5,7 +5,7 @@ import { toUserError, UserFacingError } from "./errors";
 import type {
   CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
-  SchedulePreview, ServiceFamily, StaffMember, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
+  SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
 } from "@/types/domain";
 
@@ -160,6 +160,13 @@ export const api = {
   },
   assignTeam: (projectId: string, assignments: { project_role: string; user_id: string }[]) =>
     rpc<{ started: boolean; added: number; removed: number }>("assign_project_team", { p_project: projectId, p_assignments: assignments }),
+  /** Sub-etapas de cada serviço do projeto (do cronograma ou do padrão) e quem responde por elas. */
+  async projectStepOptions(projectId: string): Promise<StepOption[]> {
+    const rows = await rpc<StepOption[]>("project_step_options", { p_project: projectId });
+    return (rows ?? []).sort((a, b) => a.service_sort - b.service_sort || a.service_name.localeCompare(b.service_name) || a.task_sort - b.task_sort);
+  },
+  setStepAssignments: (projectId: string, items: { project_service_id: string; task_code: string; user_id: string }[]) =>
+    rpc<{ added: number; removed: number; tasks_updated: number }>("set_step_assignments", { p_project: projectId, p_items: items }),
   allocateProject: (projectId: string, tenantId: string, notes: string) =>
     rpc<void>("allocate_project", { p_project: projectId, p_delivery_tenant: tenantId, p_notes: notes || null }),
 

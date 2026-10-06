@@ -392,6 +392,13 @@ export interface ScheduleTemplate {
   tasks: TemplateTask[];
 }
 
+/** Sub-etapa que pode ser atribuída a um colaborador indireto. */
+export interface StepOption {
+  project_service_id: string; service_name: string; service_sort: number;
+  task_code: string; task_name: string; task_sort: number;
+  user_id: string | null; from_schedule: boolean;
+}
+
 export interface TaskLibraryItem {
   id: string; name: string; description: string | null; family_id: string | null;
   default_duration_days: number | null; duration_type: DurationType; active: boolean; created_by: string | null; created_at: string;

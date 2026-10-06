@@ -200,6 +200,16 @@ function rpc(name: string, _args?: any) {
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
       return delay({ data: null, error: null }, 300);
     case "reorder_task_library": return delay({ data: null, error: null }, 200);
+    case "project_step_options": {
+      const pr = PROJECTS.find((x) => x.id === _args?.p_project);
+      const rows = (pr?.services ?? []).flatMap((x: any, si: number) => {
+        const tpl = TEMPLATES.find((t) => t.service_id === x.service.id && t.active);
+        return (tpl?.tasks ?? []).map((t: any) => ({ project_service_id: x.id, service_name: x.service.name, service_sort: si, task_code: t.code, task_name: t.name,
+          task_sort: t.sort_order, user_id: pr.id === "pr1" && x.service.id === "arq" && t.code === "imagens_3d_video" ? "p-pj2" : null, from_schedule: pr.status === "in_progress" }));
+      });
+      return delay({ data: rows, error: null });
+    }
+    case "set_step_assignments": return delay({ data: { added: 1, removed: 0, tasks_updated: 1 }, error: null }, 300);
     case "template_usage": return delay({ data: TEMPLATES.filter((t) => t.service_id === _args?.p_service).map((t) => ({ template_id: t.id, projects_in_progress: t.active ? 3 : 0 })), error: null });
     case "delete_template_variant": return delay({ data: { archived: 1, projects_in_progress: 3 }, error: null }, 300);
     case "add_project_task": return delay({ data: { task_id: "tr-arq-alteracoes", impacted_count: 2 }, error: null }, 300);

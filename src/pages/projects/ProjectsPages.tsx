@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/primitives";
 import { Drawer, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
-import type { EmploymentType, ProjectDetail, ProjectListItem, ProjectStatus, StaffMember, Tenant } from "@/types/domain";
+import { StepAssignPicker, stepKey } from "@/components/ui/StepAssignPicker";
+import type { EmploymentType, ProjectDetail, ProjectListItem, ProjectStatus, StaffMember, StepOption, Tenant } from "@/types/domain";
 import {
   ALLOCATION_METHOD_LABEL, CLIENT_TYPE_LABEL, EMPLOYMENT_LABEL, formatDate, formatDateTime, PROJECT_STATUS_LABEL,
   PROJECT_STATUS_TONE, ROLE_LABEL, SERVICE_STATUS_LABEL,
@@ -206,7 +207,7 @@ export function ProjectDetailPage() {
               : <p className="subtext card__note">O cronograma é gerado a partir dos padrões YouCon quando a equipe for confirmada.</p>}
           </Card>
 
-          <TeamCard project={p} canAssign={canAssign} me={profile?.id ?? null} onEdit={() => setTeamOpen(true)} />
+          <TeamCard project={p} canAssign={canAssign} staff={!!permissions?.is_staff} me={profile?.id ?? null} onEdit={() => setTeamOpen(true)} />
         </div>
 
         <div className="stack" style={{ gap: 16 }}>
@@ -314,7 +315,10 @@ function activeServices(project: ProjectDetail): ProjectService[] {
     .sort((a, b) => (a.service?.family?.sort_order ?? 99) - (b.service?.family?.sort_order ?? 99));
 }
 
-function TeamCard({ project, canAssign, me }: { project: ProjectDetail; canAssign: boolean; me: string | null; onEdit?: () => void }) {
+function TeamCard({ project, canAssign, staff, me }: { project: ProjectDetail; canAssign: boolean; staff: boolean; me: string | null; onEdit?: () => void }) {
+  const stepOpts = useAsync(() => (staff && project.team.some((t) => t.active && t.project_role === "support") ? api.projectStepOptions(project.id) : Promise.resolve([] as StepOption[])),
+    [staff, project]);
+  const stepsOf = (userId: string) => (stepOpts.data ?? []).filter((o) => o.user_id === userId);
   const team = project.team.filter((t) => t.active && t.user);
   const lead = team.find((t) => t.project_role === "project_lead")?.user ?? null;
   const services = activeServices(project);
@@ -354,7 +358,19 @@ function TeamCard({ project, canAssign, me }: { project: ProjectDetail; canAssig
             <div>
               <p className="label team-list__group">Colaboradores indiretos</p>
               <ul className="team-list">
-                {indirect.map((t) => <li key={t.id}><span className="team-list__role team-list__svc">Etapas específicas</span><Person u={t.user!} /></li>)}
+                {indirect.map((t) => {
+                  const mine = stepsOf(t.user!.id);
+                  return (
+                    <li key={t.id} className="team-list__indirect">
+                      <Person u={t.user!} />
+                      {mine.length > 0 ? (
+                        <ul className="indirect__steps" aria-label={`Etapas de ${t.user!.name}`}>
+                          {mine.map((o) => <li key={`${o.project_service_id}|${o.task_code}`} className="step-chip step-chip--ro"><span className="step-chip__name">{o.task_name}</span><span className="step-chip__svc">{o.service_name}</span></li>)}
+                        </ul>
+                      ) : <span className="subtext">Etapas definidas no cronograma</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -373,8 +389,10 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
   const services = useMemo(() => activeServices(project), [project]);
   const [lead, setLead] = useState("");
   const [byService, setByService] = useState<Record<string, string>>({});
-  const [indirect, setIndirect] = useState<string[]>([]);
+  const steps = useAsync(() => (open ? api.projectStepOptions(project.id) : Promise.resolve([] as StepOption[])), [open, project.id]);
+  const [indirect, setIndirect] = useState<{ user: string; steps: string[] }[]>([]);
   const [adding, setAdding] = useState("");
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -391,25 +409,40 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
     });
     setByService(initial);
     const direct = new Set(Object.values(initial).filter(Boolean));
-    setIndirect(team.filter((t) => t.project_role === "support" && !direct.has(t.user!.id)).map((t) => t.user!.id));
-    setAdding(""); setErr(null);
-  }, [open, project, services]);
+    const opts = steps.data ?? [];
+    const users = new Set([...team.filter((t) => t.project_role === "support" && !direct.has(t.user!.id)).map((t) => t.user!.id),
+      ...opts.map((o) => o.user_id).filter((u): u is string => !!u)]);
+    setIndirect([...users].map((u) => ({ user: u, steps: opts.filter((o) => o.user_id === u).map(stepKey) })));
+    setAdding(""); setErr(null); setJustAdded(null);
+  }, [open, project, services, steps.data]);
 
   const isStart = project.status === "awaiting_team_assignment";
   const people = staff.data ?? [];
   const label = (m: StaffMember) => `${m.name} · ${m.employment_type ? EMPLOYMENT_LABEL[m.employment_type] : ROLE_LABEL[m.role]}`;
   const missing = services.filter((s) => !byService[s.id]).length;
 
+  const stepOptions = steps.data ?? [];
+  const optionByKey = useMemo(() => new Map(stepOptions.map((o) => [stepKey(o), o])), [stepOptions]);
+  const nameOf = (id: string) => people.find((m) => m.id === id)?.name ?? "outra pessoa";
+  const setSteps = (user: string, keys: string[]) => setIndirect((xs) => xs.map((x) =>
+    x.user === user ? { ...x, steps: keys } : { ...x, steps: x.steps.filter((k) => !keys.includes(k)) }));
+
   async function save() {
     if (!lead) { setErr("Escolha o Líder do Projeto."); return; }
+    const noSteps = stepOptions.length ? indirect.filter((x) => x.steps.length === 0) : [];
+    if (noSteps.length) { setErr(`Escolha ao menos uma etapa para ${noSteps.map((x) => nameOf(x.user)).join(", ")}, ou remova a pessoa.`); return; }
     setSaving(true); setErr(null);
     try {
       const assignments = [
         { project_role: "project_lead", user_id: lead },
         ...services.filter((s) => byService[s.id]).map((s) => ({ project_service_id: s.id, user_id: byService[s.id] })),
-        ...indirect.map((u) => ({ project_role: "support", user_id: u })),
+        ...indirect.map((x) => ({ project_role: "support", user_id: x.user })),
       ];
       const res = await api.assignTeam(project.id, assignments);
+      if (!steps.error) {
+        await api.setStepAssignments(project.id, indirect.flatMap((x) => x.steps.map((k) => optionByKey.get(k))
+          .filter((o): o is StepOption => !!o).map((o) => ({ project_service_id: o.project_service_id, task_code: o.task_code, user_id: x.user }))));
+      }
       toast(res.started ? "Equipe confirmada. Projeto iniciado e cronograma gerado." : "Equipe atualizada.");
       onSaved();
     } catch (e) {
@@ -475,15 +508,41 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
 
             <fieldset className="form__group">
               <legend className="label">Colaboradores indiretos <span className="muted">· opcional</span></legend>
-              <p className="subtext">Para sub-etapas específicas (executivo, imagens e vídeo 3D, detalhamento…). Também é possível vincular alguém direto numa etapa do cronograma.</p>
+              <p className="subtext">Profissionais que respondem só por algumas sub-etapas (executivo, imagens e vídeo 3D, detalhamento…). Escolha a pessoa e marque as etapas dela; as demais etapas seguem com o responsável direto.</p>
+              {steps.error && <LoadError message={steps.error} onRetry={steps.reload} />}
               {indirect.length > 0 && (
-                <ul className="team-list">
-                  {indirect.map((u) => {
-                    const m = people.find((x) => x.id === u);
+                <ul className="indirect-list">
+                  {indirect.map((x) => {
+                    const m = people.find((p) => p.id === x.user);
                     return (
-                      <li key={u}>
-                        <span className="ident grow"><Avatar name={m?.name ?? "?"} src={m?.avatar_url} size="sm" /><span className="ident__name truncate">{m?.name ?? "Pessoa da equipe"}</span></span>
-                        <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => setIndirect((xs) => xs.filter((x) => x !== u))}>Remover</Button>
+                      <li key={x.user} className="indirect">
+                        <div className="indirect__head">
+                          <span className="ident grow"><Avatar name={m?.name ?? "?"} src={m?.avatar_url} size="sm" />
+                            <span className="ident__text"><span className="ident__name truncate">{m?.name ?? "Pessoa da equipe"}</span>
+                              <span className="ident__sub">{[m?.employment_type ? EMPLOYMENT_LABEL[m.employment_type] : null,
+                                x.steps.length ? `${x.steps.length} ${x.steps.length === 1 ? "etapa" : "etapas"}` : null].filter(Boolean).join(" · ")}</span></span></span>
+                          <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => setIndirect((xs) => xs.filter((y) => y.user !== x.user))}>Remover {m?.name}</Button>
+                        </div>
+                        {x.steps.length > 0 ? (
+                          <ul className="indirect__steps" aria-label={`Etapas de ${m?.name ?? "colaborador"}`}>
+                            {x.steps.map((k) => {
+                              const o = optionByKey.get(k);
+                              return (
+                                <li key={k} className="step-chip">
+                                  <span className="step-chip__name">{o?.task_name ?? "Etapa"}</span>
+                                  <span className="step-chip__svc">{o?.service_name}</span>
+                                  <button type="button" aria-label={`Desvincular ${o?.task_name}`} onClick={() => setSteps(x.user, x.steps.filter((y) => y !== k))}><Icon name="x" size={12} /></button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : stepOptions.length > 0 && <p className="subtext text-warning">Nenhuma etapa vinculada ainda.</p>}
+                        {stepOptions.length > 0 && (
+                          <StepAssignPicker options={stepOptions} selected={x.steps} label={`Etapas de ${m?.name ?? "colaborador"}`}
+                            autoOpen={justAdded === x.user}
+                            ownerOf={(k) => { const o = indirect.find((y) => y.user !== x.user && y.steps.includes(k)); return o ? nameOf(o.user) : null; }}
+                            onChange={(keys) => setSteps(x.user, keys)} />
+                        )}
                       </li>
                     );
                   })}
@@ -491,12 +550,12 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
               )}
               <div className="row">
                 <Select aria-label="Adicionar colaborador indireto" value={adding} onChange={(e) => setAdding(e.target.value)}>
-                  <option value="">Adicionar pessoa…</option>
-                  {people.filter((m) => m.id !== lead && !indirect.includes(m.id) && !Object.values(byService).includes(m.id))
+                  <option value="">Escolha o colaborador…</option>
+                  {people.filter((m) => m.id !== lead && !indirect.some((x) => x.user === m.id))
                     .map((m) => <option key={m.id} value={m.id}>{label(m)}</option>)}
                 </Select>
                 <Button variant="outline" size="sm" icon="plus" disabled={!adding}
-                  onClick={() => { setIndirect((xs) => [...xs, adding]); setAdding(""); }}>Adicionar</Button>
+                  onClick={() => { setIndirect((xs) => [...xs, { user: adding, steps: [] }]); setJustAdded(adding); setAdding(""); }}>Adicionar</Button>
               </div>
             </fieldset>
           </>

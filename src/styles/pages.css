@@ -591,3 +591,30 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .step-pop__warn .link { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-weight: 600; color: var(--brand-text); }
 .step-pop__actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 .step-pop__input:focus, .step-pop__input:focus-visible { outline: none; box-shadow: none; }
+
+/* Colaboradores indiretos por sub-etapa */
+.indirect-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.indirect { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.indirect__head { display: flex; align-items: center; gap: var(--s2); }
+.indirect__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.step-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 28px; padding: 3px 4px 3px 10px; border-radius: var(--r-pill);
+  background: var(--brand-pastel); color: var(--text); font-size: var(--fs-sub); }
+.step-chip--ro { padding-right: 10px; }
+.step-chip__name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-chip__svc { color: var(--text-3); white-space: nowrap; }
+.step-chip button { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; flex: none; }
+.step-chip button:hover { background: var(--brand-pastel-hover); color: var(--text); }
+.step-chip button:focus-visible { outline: none; box-shadow: var(--focus); }
+.step-assign__btn { align-self: flex-start; }
+.step-pop__group { display: flex; flex-direction: column; }
+.step-pop__group + .step-pop__group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+.step-pop__glabel { padding: 6px 10px 4px; font-size: var(--fs-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+.step-pop__check { cursor: pointer; }
+.step-pop__check:hover { background: var(--surface-hover); }
+.step-pop__check input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); flex: none; }
+.step-pop__check:has(input:focus-visible) { box-shadow: var(--focus); }
+.step-pop__check.is-selected { color: var(--text); font-weight: 400; }
+.step-pop__done { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); border-top: 1px solid var(--border); }
+.team-list li.team-list__indirect { flex-direction: column; align-items: flex-start; gap: 6px; }
+.team-list li.step-chip { display: inline-flex; padding: 3px 10px; border-top: 0; gap: 6px; }
+.team-list li.team-list__indirect + li.team-list__indirect { padding-top: 10px; }

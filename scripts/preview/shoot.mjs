@@ -96,6 +96,17 @@ const scenes = [
     await p.locator(".drawer .step-pick").click(); await p.waitForTimeout(300); } },
   { name: "m-picker", url: "/servicos?as=global_admin", vp: MOBILE, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700);
     await p.locator(".es .step-pick").nth(0).click(); await p.waitForTimeout(300); } },
+  { name: "indirect-add", url: "/projetos/pr8?as=unit_admin&acao=equipe", vp: { width: 1440, height: 1100 }, action: async (p) => {
+    await p.getByLabel("Adicionar colaborador indireto").selectOption({ index: 1 }); await p.getByRole("button", { name: "Adicionar", exact: true }).click(); await p.waitForTimeout(400);
+    await p.locator(".step-pop__check", { hasText: "Imagens 3D e Vídeo" }).first().click(); await p.waitForTimeout(200); } },
+  { name: "indirect-done", url: "/projetos/pr8?as=unit_admin&acao=equipe", vp: { width: 1440, height: 1100 }, action: async (p) => {
+    await p.getByLabel("Adicionar colaborador indireto").selectOption({ index: 1 }); await p.getByRole("button", { name: "Adicionar", exact: true }).click(); await p.waitForTimeout(400);
+    await p.locator(".step-pop__check", { hasText: "Imagens 3D e Vídeo" }).first().click(); await p.locator(".step-pop__check", { hasText: "Executivo" }).first().click();
+    await p.getByRole("button", { name: "Concluir" }).click(); await p.waitForTimeout(200); await p.locator(".drawer__body").evaluate((el) => el.scrollTo(0, 2000)); } },
+  { name: "indirect-edit", url: "/projetos/pr1?as=leader&acao=equipe", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.locator(".drawer__body").evaluate((el) => el.scrollTo(0, 2000)); } },
+  { name: "indirect-card", url: "/projetos/pr1?as=leader", vp: DESKTOP, full: true },
+  { name: "m-indirect", url: "/projetos/pr8?as=unit_admin&acao=equipe", vp: MOBILE, action: async (p) => {
+    await p.getByLabel("Adicionar colaborador indireto").selectOption({ index: 1 }); await p.getByRole("button", { name: "Adicionar", exact: true }).click(); await p.waitForTimeout(400); } },
   { name: "library", url: "/servicos?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Biblioteca de etapas" }).click(); } },
   { name: "library-drag", url: "/servicos?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Biblioteca de etapas" }).click();
     await p.locator(".lib-list .drag-grip").nth(0).dragTo(p.locator(".lib-list li").nth(3)); await p.waitForTimeout(400); } },
