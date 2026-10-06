@@ -171,10 +171,13 @@ export function ProjectDetailPage() {
           {p.project_type ? <> <span className="sep" aria-hidden="true" /> {p.project_type}</> : null}</>}
         actions={
           <>
-            {canDistribute && <Button variant={p.status === "awaiting_allocation" ? "primary" : "outline"} icon="building" onClick={() => setAllocOpen(true)}>
-              {p.status === "awaiting_allocation" ? "Distribuir projeto" : "Trocar unidade"}</Button>}
-            {canAssign && <Button variant={p.status === "awaiting_team_assignment" ? "primary" : "outline"} icon="userPlus" onClick={() => setTeamOpen(true)}>
-              {p.status === "awaiting_team_assignment" ? "Revisar e atribuir equipe" : "Editar equipe"}</Button>}
+            {/* Nos estados "aguardando", a ação principal fica na faixa de alerta logo abaixo. */}
+            {canDistribute && p.status !== "awaiting_allocation" && (
+              <Button variant="outline" icon="building" onClick={() => setAllocOpen(true)}>Trocar unidade</Button>
+            )}
+            {canAssign && p.status !== "awaiting_team_assignment" && (
+              <Button variant="outline" icon="userPlus" onClick={() => setTeamOpen(true)}>Editar equipe</Button>
+            )}
           </>
         }
       />
@@ -201,12 +204,10 @@ export function ProjectDetailPage() {
             <p className="subtext card__note">O cronograma de cada serviço é gerado na Etapa 3, a partir dos templates YouCon.</p>
           </Card>
 
-          <Card title="Equipe" count={activeTeam.length || undefined}
-            action={canAssign && activeTeam.length > 0 ? <Button variant="ghost" size="sm" icon="edit" onClick={() => setTeamOpen(true)}>Editar</Button> : undefined}>
+          <Card title="Equipe" count={activeTeam.length || undefined}>
             {activeTeam.length === 0 ? (
               <EmptyState compact icon="users" title="Equipe ainda não definida."
-                text={canAssign ? "Defina um responsável por função para iniciar o projeto." : "O líder da unidade executora definirá a equipe."}
-                action={canAssign ? <Button size="sm" onClick={() => setTeamOpen(true)}>Revisar e atribuir equipe</Button> : undefined} />
+                text={canAssign ? "Defina um responsável por função para iniciar o projeto." : "O líder da unidade executora definirá a equipe."} />
             ) : (
               <ul className="team-list">
                 {[...activeTeam].sort((a, b) => (roles.data?.findIndex((r) => r.code === a.project_role) ?? 0)

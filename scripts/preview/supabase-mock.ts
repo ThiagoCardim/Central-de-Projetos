@@ -186,17 +186,121 @@ function rpc(name: string, _args?: any) {
     case "get_home_dashboard": return delay({ data: dashboard(), error: null }, 350);
     case "tenant_overview": return delay({ data: overview(), error: null });
     case "admin_create_tenant": return delay({ data: "new-id", error: null });
+    case "assign_project_team": return delay({ data: { started: true, added: 2, removed: 0 }, error: null }, 400);
+    case "allocate_project": case "ignore_intake": return delay({ data: null, error: null }, 400);
+    case "reprocess_intake": case "create_manual_intake":
+      return delay({ data: { status: "error", errors: ["Serviço não reconhecido: Ar condicionado"] }, error: null }, 400);
     default: return delay({ data: null, error: { message: `rpc ${name} não simulada` } });
   }
 }
+
+// ---------- Etapa 2 ----------
+const svc = (id: string, name: string, family: string, role: string, status = "active", contracted = d(-2)) =>
+  ({ id: `ps-${id}`, status, active: true, contracted_at: contracted, contract_source: "pipefy",
+     service: { id, name, code: id, family: { name: family, default_project_role: role } } });
+
+const PROJECTS: any[] = [
+  { id: "pr8", code: "YC-2026-0023", name: "Casa de campo", status: "awaiting_team_assignment", client_type: "b2c", project_type: "Residencial",
+    city: "Caldas", state: "MG", address: "Estrada da Serra, km 4", area_m2: 286.5, contracted_at: d(-2), created_at: d(-2) + "T14:10:00Z", started_at: null,
+    external_source: "pipefy", external_id: "1029384756", origin_tenant_id: HQ, commercial_tenant_id: HQ, delivery_tenant_id: HQ,
+    client: { id: "c-3", tenant_id: HQ, name: "Ricardo e Helena Tavares", client_type: "b2c", email: "ricardo.tavares@gmail.com", phone: "(35) 99812-4410", document: null, company_name: null, status: "ativo" },
+    origin: { name: "YouCon Franqueadora" }, commercial: { name: "YouCon Franqueadora" }, delivery: { name: "YouCon Franqueadora" },
+    services: [svc("arq", "Projeto Arquitetônico", "Arquitetura", "architecture"), svc("est", "Projeto Estrutural", "Engenharia", "engineering"),
+               svc("ele", "Projeto Elétrico", "Engenharia", "engineering"), svc("hid", "Projeto Hidrossanitário", "Engenharia", "engineering")],
+    team: [], allocations: [{ id: "al1", allocation_method: "automatic_headquarters", allocation_status: "confirmed", allocated_at: d(-2) + "T14:10:00Z", notes: null, created_at: d(-2) + "T14:10:00Z", delivery: { name: "YouCon Franqueadora" } }] },
+  { id: "pr9", code: "YC-2026-0024", name: "Galpão logístico", status: "awaiting_allocation", client_type: "b2b", project_type: "Industrial",
+    city: "Pouso Alegre", state: "MG", address: null, area_m2: 4200, contracted_at: d(-1), created_at: d(-1) + "T10:00:00Z", started_at: null,
+    external_source: "pipefy", external_id: "1029384999", origin_tenant_id: HQ, commercial_tenant_id: HQ, delivery_tenant_id: null,
+    client: { id: "c-2", tenant_id: HQ, name: "Construtora Horizonte", client_type: "b2b", email: "obras@horizonte.com.br", phone: null, document: "12345678000190", company_name: "Horizonte Engenharia Ltda.", status: "ativo" },
+    origin: { name: "YouCon Franqueadora" }, commercial: { name: "YouCon Franqueadora" }, delivery: null,
+    services: [svc("via", "Estudo de Viabilidade", "Arquitetura", "architecture"), svc("spda", "SPDA", "Engenharia", "engineering"), svc("inc", "Combate a Incêndio", "Engenharia", "engineering")],
+    team: [], allocations: [{ id: "al2", allocation_method: "manual", allocation_status: "pending", allocated_at: null, notes: null, created_at: d(-1) + "T10:00:00Z", delivery: null }] },
+  { id: "pr1", code: "YC-2026-0014", name: "Residência Souza", status: "in_progress", client_type: "b2c", project_type: "Residencial",
+    city: "Poços de Caldas", state: "MG", address: null, area_m2: 210, contracted_at: d(-48), created_at: d(-48) + "T10:00:00Z", started_at: d(-46),
+    external_source: "pipefy", external_id: "998877", origin_tenant_id: HQ, commercial_tenant_id: HQ, delivery_tenant_id: HQ,
+    client: { id: "c-1", tenant_id: HQ, name: "Fernanda Souza", client_type: "b2c", email: "fernanda.souza@gmail.com", phone: null, document: null, company_name: null, status: "ativo" },
+    origin: { name: "YouCon Franqueadora" }, commercial: { name: "YouCon Franqueadora" }, delivery: { name: "YouCon Franqueadora" },
+    services: [svc("arq", "Projeto Arquitetônico", "Arquitetura", "architecture", "active", d(-48)), svc("int", "Design de Interiores", "Interiores", "interiors", "active", d(-48)),
+               svc("ele", "Projeto Elétrico", "Engenharia", "engineering", "pending_review", d(-3))],
+    team: [
+      { id: "tm1", project_role: "project_lead", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-ld", name: "Rafael Andrade", avatar_url: null, employment_type: "clt" } },
+      { id: "tm2", project_role: "architecture", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, employment_type: "clt" } },
+      { id: "tm3", project_role: "engineering", employment_type: "pj", active: true, assigned_at: d(-3), user: { id: "p-pj", name: "Camila Rocha", avatar_url: null, employment_type: "pj" } },
+    ],
+    allocations: [{ id: "al3", allocation_method: "automatic_headquarters", allocation_status: "confirmed", allocated_at: d(-48) + "T10:00:00Z", notes: null, created_at: d(-48) + "T10:00:00Z", delivery: { name: "YouCon Franqueadora" } }] },
+  { id: "pr3", code: "YC-2026-0019", name: "Clínica Vida", status: "in_progress", client_type: "b2b", project_type: "Comercial",
+    city: "Poços de Caldas", state: "MG", address: null, area_m2: 140, contracted_at: d(-20), created_at: d(-20) + "T10:00:00Z", started_at: d(-19),
+    external_source: "manual", external_id: null, origin_tenant_id: HQ, commercial_tenant_id: HQ, delivery_tenant_id: HQ,
+    client: { id: "c-4", tenant_id: HQ, name: "Clínica Vida", client_type: "b2b", email: "contato@clinicavida.com.br", phone: null, document: null, company_name: null, status: "ativo" },
+    origin: { name: "YouCon Franqueadora" }, commercial: { name: "YouCon Franqueadora" }, delivery: { name: "YouCon Franqueadora" },
+    services: [svc("int", "Design de Interiores", "Interiores", "interiors", "active", d(-20))],
+    team: [{ id: "tm4", project_role: "project_lead", employment_type: "clt", active: true, assigned_at: d(-19), user: { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, employment_type: "clt" } }],
+    allocations: [] },
+  { id: "pr4", code: "YC-2026-0007", name: "Apartamento 1201", status: "completed", client_type: "b2c", project_type: "Residencial",
+    city: "Pouso Alegre", state: "MG", address: null, area_m2: 98, contracted_at: d(-160), created_at: d(-160) + "T10:00:00Z", started_at: d(-158),
+    external_source: "pipefy", external_id: "555", origin_tenant_id: POCOS, commercial_tenant_id: POCOS, delivery_tenant_id: POCOS,
+    client: { id: "c-5", tenant_id: POCOS, name: "Marcos Ribeiro", client_type: "b2c", email: null, phone: null, document: null, company_name: null, status: "ativo" },
+    origin: { name: "YouCon Sul de Minas" }, commercial: { name: "YouCon Sul de Minas" }, delivery: { name: "YouCon Sul de Minas" },
+    services: [svc("int", "Design de Interiores", "Interiores", "interiors", "completed", d(-160))], team: [], allocations: [] },
+];
+
+const INTAKES: any[] = [
+  { id: "in1", source: "pipefy", external_id: "1029385111", intake_kind: "new_project", target_external_id: null, client_name: "Gustavo Lima Arquitetura", client_email: null, client_phone: "(35) 98888-1122",
+    client_document: null, client_type: null, project_name: "Sede administrativa", project_type: "Comercial", services: ["Projeto Arquitetonico", "Ar condicionado"], resolved_services: null,
+    contracted_at: d(0), contract_value: 48500, area_m2: 620, city: "Varginha", state: "MG", address: null, salesperson: "Thiago", notes: null,
+    status: "error", validation_error: "Tipo de cliente não informado (B2C ou B2B).",
+    validation_details: { errors: ["Tipo de cliente não informado (B2C ou B2B).", "Serviço não reconhecido: Ar condicionado"] },
+    received_at: new Date(Date.now() - 3600e3).toISOString(), processed_at: null, created_project_id: null,
+    raw_payload: { card_id: "1029385111", cliente: "Gustavo Lima Arquitetura", servicos: "Projeto Arquitetonico, Ar condicionado", valor: "48.500,00" } },
+  { id: "in2", source: "pipefy", external_id: "1029384999", intake_kind: "new_project", target_external_id: null, client_name: "Construtora Horizonte", client_email: "obras@horizonte.com.br", client_phone: null,
+    client_document: "12345678000190", client_type: "b2b", project_name: "Galpão logístico", project_type: "Industrial", services: ["Estudo de Viabilidade", "SPDA", "Combate a Incêndio"], resolved_services: ["via", "spda", "inc"],
+    contracted_at: d(-1), contract_value: 132000, area_m2: 4200, city: "Pouso Alegre", state: "MG", address: null, salesperson: "Mariana", notes: null,
+    status: "processed", validation_error: null, validation_details: null, received_at: d(-1) + "T10:00:00Z", processed_at: d(-1) + "T10:00:01Z", created_project_id: "pr9",
+    raw_payload: { card_id: "1029384999" } },
+  { id: "in3", source: "pipefy", external_id: "1029384756", intake_kind: "new_project", target_external_id: null, client_name: "Ricardo e Helena Tavares", client_email: "ricardo.tavares@gmail.com", client_phone: null,
+    client_document: null, client_type: "b2c", project_name: "Casa de campo", project_type: "Residencial", services: ["Projeto Arquitetônico", "Projeto Estrutural", "Projeto Elétrico", "Projeto Hidrossanitário"], resolved_services: [],
+    contracted_at: d(-2), contract_value: 61800, area_m2: 286.5, city: "Caldas", state: "MG", address: null, salesperson: "Thiago", notes: null,
+    status: "processed", validation_error: null, validation_details: null, received_at: d(-2) + "T14:10:00Z", processed_at: d(-2) + "T14:10:01Z", created_project_id: "pr8",
+    raw_payload: { card_id: "1029384756" } },
+  { id: "in4", source: "pipefy", external_id: "1029380000", intake_kind: "new_project", target_external_id: null, client_name: "Teste Pipefy", client_email: null, client_phone: null,
+    client_document: null, client_type: null, project_name: null, project_type: null, services: [], resolved_services: null,
+    contracted_at: null, contract_value: null, area_m2: null, city: null, state: null, address: null, salesperson: null, notes: null,
+    status: "ignored", validation_error: "Card de teste", validation_details: null, received_at: d(-5) + "T09:00:00Z", processed_at: null, created_project_id: null, raw_payload: {} },
+];
+
+const ROLES = [
+  { code: "project_lead", name: "Líder do Projeto", sort_order: 1, required: true, active: true },
+  { code: "architecture", name: "Arquitetura", sort_order: 2, required: false, active: true },
+  { code: "engineering", name: "Engenharia", sort_order: 3, required: false, active: true },
+  { code: "interiors", name: "Interiores", sort_order: 4, required: false, active: true },
+  { code: "approval", name: "Aprovação", sort_order: 5, required: false, active: true },
+  { code: "consulting", name: "Consultoria", sort_order: 6, required: false, active: true },
+];
 
 function visibleRows(table: string): any[] {
   const p = me();
   if (!p) return [];
   const global = p.role === "global_admin";
+  if (table === "projects") {
+    if (currentKey() === "empty") return [];
+    const list = PROJECTS.filter((x) => global || x.delivery_tenant_id === p.tenant_id || x.commercial_tenant_id === p.tenant_id);
+    return p.role === "collaborator" ? list.filter((x) => x.team.some((t: any) => t.user?.id === p.id)) : list;
+  }
+  if (table === "project_intakes") return currentKey() === "empty" ? [] : INTAKES;
+  if (table === "project_roles") return ROLES;
+  if (table === "services") return ["Projeto Arquitetônico", "Projeto Estrutural", "Projeto Elétrico", "Projeto Hidrossanitário", "Design de Interiores", "SPDA"].map((name) => ({ name }));
+  if (table === "service_packages") return [{ name: "Projetos Complementares" }];
+  if (table === "project_team") {
+    return PROJECTS.flatMap((x) => x.team.filter((t: any) => t.active).map((t: any) => ({ active: true, user_id: t.user.id, project_role: t.project_role, project: { id: x.id, name: x.name, status: x.status, delivery_tenant_id: x.delivery_tenant_id } })));
+  }
   if (table === "profiles") return profiles.filter((x) => global || x.tenant_id === p.tenant_id || x.id === p.id);
   if (table === "tenants") return tenants.filter((t) => global || t.id === p.tenant_id);
-  if (table === "clients") return clients.filter((c) => global || c.tenant_id === p.tenant_id);
+  if (table === "clients") {
+    return clients.filter((c) => global || c.tenant_id === p.tenant_id).map((c) => ({
+      phone: null, document: null, company_name: null, created_at: "2026-05-01T12:00:00Z", ...c,
+      projects: [{ count: PROJECTS.filter((x) => x.client?.id === c.id).length }],
+    }));
+  }
   return [];
 }
 
@@ -207,7 +311,9 @@ function from(table: string) {
   const q: any = {
     select: () => q,
     order: () => q,
-    eq: (col: string, val: any) => { filters.push([col, val]); return q; },
+    eq: (col: string, val: any) => { if (!col.includes(".")) filters.push([col, val]); return q; },
+    in: () => q,
+    limit: () => q,
     single: () => { single = true; return q; },
     maybeSingle: () => { single = true; return q; },
     insert: () => { mode = "insert"; return q; },
