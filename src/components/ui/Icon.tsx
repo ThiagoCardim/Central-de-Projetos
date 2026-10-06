@@ -38,6 +38,9 @@ const PATHS = {
   target: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.75" /></>,
   user: <><circle cx="12" cy="8.5" r="3.5" /><path d="M5 19.5c.8-3.3 3.6-5.25 7-5.25s6.2 1.95 7 5.25" /></>,
   more: <><circle cx="6" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="18" cy="12" r="1" /></>,
+  grip: <><circle cx="9" cy="6" r="1" /><circle cx="15" cy="6" r="1" /><circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="9" cy="18" r="1" /><circle cx="15" cy="18" r="1" /></>,
+  parallel: <><path d="M7 4v16M17 4v16" /><path d="M4 8h6M14 8h6" /></>,
+  sequence: <><path d="M12 4v13" /><path d="m7 12 5 5 5-5" /></>,
 } as const;
 
 export type IconName = keyof typeof PATHS;

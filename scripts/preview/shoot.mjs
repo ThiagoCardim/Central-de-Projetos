@@ -76,6 +76,11 @@ const scenes = [
   { name: "templates", url: "/servicos?as=global_admin", vp: DESKTOP, full: true },
   { name: "templates-int", url: "/servicos?as=global_admin", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("button", { name: /Interiores/ }).first().click(); await p.waitForTimeout(400); } },
   { name: "templates-editor", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1200 }, action: async (p) => { await p.getByRole("button", { name: "Alterar padrão YouCon" }).click(); await p.waitForTimeout(600); } },
+  { name: "templates-editor-par", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1700 }, action: async (p) => { await p.getByRole("button", { name: "Alterar padrão YouCon" }).click(); await p.waitForTimeout(600); await p.locator(".drawer__body").evaluate((el) => el.scrollTo(0, 700)); } },
+  { name: "library-drag", url: "/servicos?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Biblioteca de etapas" }).click();
+    await p.locator(".lib-list .drag-grip").nth(0).dragTo(p.locator(".lib-list li").nth(3)); await p.waitForTimeout(400); } },
+  { name: "editor-drag", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1200 }, action: async (p) => { await p.getByRole("button", { name: "Alterar padrão YouCon" }).click(); await p.waitForTimeout(600);
+    await p.locator(".tpl-edit .drag-grip").nth(1).dragTo(p.locator(".tpl-edit__row").nth(0)); await p.waitForTimeout(400); } },
   { name: "library", url: "/servicos?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Biblioteca de etapas" }).click(); } },
   { name: "user-photo", url: "/acessos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByText("Camila Rocha", { exact: true }).click(); } },
   { name: "m-sched", url: "/projetos/pr1/cronograma?as=leader", vp: MOBILE, full: true, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); } },

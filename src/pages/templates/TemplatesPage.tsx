@@ -12,6 +12,7 @@ import type {
   CatalogService, ClientType, DurationType, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency, TemplateTask,
 } from "@/types/domain";
 import { cx, formatDate, plural } from "@/utils/format";
+import { groupIndexes, parallelFromDeps, useDragSort } from "@/components/ui/sortable";
 import { DURATION_TYPE_LABEL } from "@/pages/schedule/model";
 
 type Tab = "templates" | "library";
@@ -251,30 +252,40 @@ function TemplateTaskList({ template }: { template: ScheduleTemplate }) {
   const deps = useAsync(() => api.templateDependencies(template.id), [template.id]);
   const cross = (taskId: string) => (deps.data ?? []).filter((d) => d.template_task_id === taskId && d.predecessor_service_code);
   const tasks = template.tasks.filter((t) => t.active);
+  const internal = (id: string) => (deps.data ?? []).filter((d) => d.template_task_id === id && d.predecessor_task_id).map((d) => d.predecessor_task_id!);
+  const parallel = deps.data ? parallelFromDeps(tasks.map((t) => t.id), internal) : tasks.map(() => false);
+  const groups = groupIndexes(parallel);
+  const groupSize = (g: number) => groups.filter((x) => x === g).length;
   const fixedTotal = tasks.reduce((n, t) => n + (t.duration_type === "fixed" ? t.default_duration_days ?? 0 : 0), 0);
   const undefinedCount = tasks.filter((t) => t.duration_type === "fixed" && !t.default_duration_days).length;
   return (
     <>
       <ol className="tpl-steps">
-        {tasks.map((t, i) => (
-          <li key={t.id}>
-            <span className="tpl-steps__n num">{i + 1}</span>
-            <span className="grow">
-              <span className="tpl-steps__name">{t.name}</span>
-              <span className="tpl-steps__meta">
-                {t.include_if_service_codes?.length ? `Só se contratado: ${t.include_if_service_codes.join(", ").replaceAll("_", " ")} · ` : ""}
-                {cross(t.id).map((d) => `Aguarda ${d.predecessor_task_code?.replaceAll("_", " ")} (${d.predecessor_service_code?.replaceAll("_", " ")})`).join(" · ")}
-                {!t.client_visible ? " · interna" : ""}
+        {tasks.map((t, i) => {
+          const g = groups[i]; const inGroup = groupSize(g) > 1;
+          return (
+            <li key={t.id} className={cx(inGroup && "is-par", inGroup && groups[i - 1] !== g && "is-par-first", inGroup && groups[i + 1] !== g && "is-par-last")}>
+              <span className="tpl-steps__n num">{g + 1}</span>
+              <span className="grow">
+                <span className="tpl-steps__name">{t.name}</span>
+                <span className="tpl-steps__meta">
+                  {[
+                    inGroup && groups[i - 1] !== g ? `${groupSize(g)} etapas simultâneas` : "",
+                    t.include_if_service_codes?.length ? `Só se contratado: ${t.include_if_service_codes.join(", ").replaceAll("_", " ")}` : "",
+                    ...cross(t.id).map((d) => `Aguarda ${d.predecessor_task_code?.replaceAll("_", " ")} (${d.predecessor_service_code?.replaceAll("_", " ")})`),
+                    !t.client_visible ? "interna" : "",
+                  ].filter(Boolean).join(" · ")}
+                </span>
               </span>
-            </span>
-            <span className={cx("tpl-steps__dur", t.duration_type === "fixed" && !t.default_duration_days && "text-warning")}>
-              {t.duration_type === "fixed" ? (t.default_duration_days ? `${t.default_duration_days} d.u.` : "A definir") : DURATION_TYPE_LABEL[t.duration_type]}
-            </span>
-          </li>
-        ))}
+              <span className={cx("tpl-steps__dur", t.duration_type === "fixed" && !t.default_duration_days && "text-warning")}>
+                {t.duration_type === "fixed" ? (t.default_duration_days ? `${t.default_duration_days} d.u.` : "A definir") : DURATION_TYPE_LABEL[t.duration_type]}
+              </span>
+            </li>
+          );
+        })}
       </ol>
       <p className="subtext card__note">
-        {plural(tasks.length, "etapa", "etapas")} · {fixedTotal} dias úteis de prazos fixos
+        {plural(tasks.length, "etapa", "etapas")} em {plural(new Set(groups).size, "fase", "fases")} · {fixedTotal} dias úteis somando prazos fixos
         {undefinedCount ? ` · ${plural(undefinedCount, "etapa", "etapas")} com prazo a definir` : ""}
       </p>
     </>
@@ -285,6 +296,7 @@ function TemplateTaskList({ template }: { template: ScheduleTemplate }) {
 interface DraftRow {
   key: string; id: string | null; name: string; duration_type: DurationType; duration: string; client_visible: boolean;
   include_if: string[] | null; cross: string; // "service_code.task_code" ou ""
+  parallel: boolean; // simultânea à etapa anterior
 }
 
 function TemplateEditor({ template, service, onClose, onDone }: {
@@ -308,18 +320,20 @@ function TemplateEditor({ template, service, onClose, onDone }: {
       const d = deps.data!.find((x: TemplateDependency) => x.template_task_id === id && x.predecessor_service_code);
       return d ? `${d.predecessor_service_code}.${d.predecessor_task_code}` : "";
     };
-    setRows(template.tasks.filter((t) => t.active).map((t: TemplateTask) => ({
+    const active = template.tasks.filter((t) => t.active);
+    const internal = (id: string) => deps.data!.filter((d) => d.template_task_id === id && d.predecessor_task_id).map((d) => d.predecessor_task_id!);
+    const par = parallelFromDeps(active.map((t) => t.id), internal);
+    setRows(active.map((t: TemplateTask, i) => ({
       key: t.id, id: t.id, name: t.name, duration_type: t.duration_type, duration: t.default_duration_days ? String(t.default_duration_days) : "",
-      client_visible: t.client_visible, include_if: t.include_if_service_codes, cross: crossOf(t.id),
+      client_visible: t.client_visible, include_if: t.include_if_service_codes, cross: crossOf(t.id), parallel: par[i],
     })));
   }, [deps.data, rows, template.tasks]);
 
   const update = (key: string, patch: Partial<DraftRow>) => setRows((rs) => rs!.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const move = (i: number, d: -1 | 1) => setRows((rs) => {
-    const next = [...rs!]; const j = i + d; if (j < 0 || j >= next.length) return next;
-    [next[i], next[j]] = [next[j], next[i]]; return next;
-  });
-  const add = () => setRows((rs) => [...rs!, { key: crypto.randomUUID(), id: null, name: "", duration_type: "fixed", duration: "", client_visible: true, include_if: null, cross: "" }]);
+  const sort = useDragSort(rows ?? [], (next) => setRows(next));
+  const add = () => setRows((rs) => [...rs!, { key: crypto.randomUUID(), id: null, name: "", duration_type: "fixed", duration: "", client_visible: true, include_if: null, cross: "", parallel: false }]);
+  const groups = groupIndexes((rows ?? []).map((r) => r.parallel));
+  const groupSize = (g: number) => groups.filter((x) => x === g).length;
   const fromLibrary = (key: string, value: string) => {
     const l = (library.data ?? []).find((x: TaskLibraryItem) => x.name.toLowerCase() === value.trim().toLowerCase());
     update(key, l ? { name: value, ...(l.default_duration_days ? { duration: String(l.default_duration_days) } : {}),
@@ -329,7 +343,7 @@ function TemplateEditor({ template, service, onClose, onDone }: {
   const payload = () => rows!.map((r) => ({
     id: r.id, name: r.name.trim(), duration_type: r.duration_type,
     duration_days: r.duration_type === "fixed" && r.duration ? Number(r.duration) : null,
-    client_visible: r.client_visible, include_if: r.include_if,
+    client_visible: r.client_visible, include_if: r.include_if, parallel: r.parallel,
     cross_deps: r.cross ? [{ service_code: r.cross.split(".")[0], task_code: r.cross.split(".")[1] }] : [],
   }));
 
@@ -370,14 +384,16 @@ function TemplateEditor({ template, service, onClose, onDone }: {
         {!rows ? <Skeleton height={240} /> : (
           <fieldset className="form__group">
             <legend className="label">Etapas, em ordem</legend>
-            <p className="subtext">Cada etapa começa quando a anterior termina. Prazos em dias úteis; em branco = a definir.</p>
+            <p className="subtext">Arraste pela alça para mudar a ordem. Cada etapa começa quando a fase anterior termina; marque “Simultânea à anterior” para etapas que correm em paralelo. Prazos em dias úteis; em branco = a definir.</p>
             <ol className="tpl-edit">
-              {rows.map((r, i) => (
-                <li key={r.key} className="tpl-edit__row">
+              {rows.map((r, i) => {
+                const g = groups[i]; const inGroup = groupSize(g) > 1;
+                return (
+                <li key={r.key} {...sort.row(i)}
+                  className={cx("tpl-edit__row", inGroup && "is-par", sort.dragging === i && "is-dragging", sort.over === i && sort.dragging !== i && "is-over")}>
                   <div className="tpl-edit__order">
-                    <Button variant="ghost" size="sm" iconOnly icon="chevronDown" className="flip" disabled={i === 0} onClick={() => move(i, -1)}>Subir</Button>
-                    <span className="num muted">{i + 1}</span>
-                    <Button variant="ghost" size="sm" iconOnly icon="chevronDown" disabled={i === rows.length - 1} onClick={() => move(i, 1)}>Descer</Button>
+                    <span className="drag-grip" {...sort.grip(i, `Mover ${r.name || "etapa"}`)}><Icon name="grip" size={16} /></span>
+                    <span className="tpl-edit__phase num" title={`Fase ${g + 1}`}>{g + 1}</span>
                   </div>
                   <div className="tpl-edit__fields">
                     <Input aria-label={`Nome da etapa ${i + 1}`} list={listId} value={r.name} placeholder="Nome (escolha da biblioteca ou digite)"
@@ -399,10 +415,16 @@ function TemplateEditor({ template, service, onClose, onDone }: {
                       ))}
                     </Select>
                     {r.include_if?.length ? <span className="subtext">Só entra se contratado: {r.include_if.join(", ").replaceAll("_", " ")}</span> : null}
+                    {i > 0 && (
+                      <Segmented<"seq" | "par"> label={`Quando ${r.name || "esta etapa"} começa`} value={r.parallel ? "par" : "seq"}
+                        onChange={(v) => update(r.key, { parallel: v === "par" })}
+                        options={[{ value: "seq", label: "Depois da anterior" }, { value: "par", label: "Simultânea à anterior" }]} />
+                    )}
                   </div>
                   <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => setRows((rs) => rs!.filter((x) => x.key !== r.key))}>Remover etapa</Button>
                 </li>
-              ))}
+                );
+              })}
             </ol>
             <div><Button variant="outline" size="sm" icon="plus" onClick={add}>Adicionar etapa</Button></div>
           </fieldset>
@@ -468,8 +490,17 @@ function LibraryManager() {
   const lib = useAsync(() => api.listTaskLibrary(true), []);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<TaskLibraryItem | "new" | null>(null);
+  const [order, setOrder] = useState<TaskLibraryItem[]>([]);
+  useEffect(() => { setOrder(lib.data ?? []); }, [lib.data]);
 
-  const list = (lib.data ?? []).filter((l) => !q || l.name.toLowerCase().includes(q.toLowerCase()));
+  const sortable = canAdd && !q;
+  const sort = useDragSort(order, async (next) => {
+    const prev = order;
+    setOrder(next);
+    try { await api.reorderTaskLibrary(next.map((l) => l.id)); }
+    catch (e) { setOrder(prev); toast((e as Error).message, "error"); }
+  });
+  const list = q ? order.filter((l) => l.name.toLowerCase().includes(q.toLowerCase())) : order;
   const canEditItem = (l: TaskLibraryItem) => isGlobal || (canAdd && l.created_by === permissions?.profile_id);
 
   return (
@@ -478,14 +509,19 @@ function LibraryManager() {
         <SearchInput placeholder="Buscar etapa" aria-label="Buscar etapa" value={q} onChange={(e) => setQ(e.target.value)} />
         {canAdd && <Button icon="plus" onClick={() => setEditing("new")}>Registrar etapa</Button>}
       </div>
-      <p className="subtext">Etapas registradas aqui aparecem como opção ao montar os padrões YouCon e ao incluir uma etapa extra num projeto.</p>
+      <p className="subtext">
+        Etapas registradas aqui aparecem como opção, nesta ordem, ao montar os padrões YouCon e ao incluir uma etapa extra num projeto.
+        {sortable ? " Arraste pela alça para organizar." : ""} A sequência e as etapas simultâneas de cada serviço são definidas em Padrões YouCon.
+      </p>
       {lib.error ? <LoadError message={lib.error} onRetry={lib.reload} /> : lib.loading && !lib.data ? <Skeleton height={300} radius={16} /> :
         list.length === 0 ? <Card><EmptyState icon="search" title={q ? "Nenhuma etapa encontrada." : "Nenhuma etapa registrada."} /></Card> : (
           <Card flush>
-            <ul className="tasklist">
-              {list.map((l) => (
-                <li key={l.id}>
+            <ol className="tasklist lib-list">
+              {list.map((l, i) => (
+                <li key={l.id} {...(sortable ? sort.row(i) : {})}
+                  className={cx(sortable && sort.dragging === i && "is-dragging", sortable && sort.over === i && sort.dragging !== i && "is-over")}>
                   <div className={cx("task", !l.active && "is-muted")}>
+                    {sortable && <span className="drag-grip" {...sort.grip(i, `Mover ${l.name}`)}><Icon name="grip" size={16} /></span>}
                     <span className="task__main">
                       <span className="task__name">{l.name}</span>
                       {l.description && <span className="task__meta truncate">{l.description}</span>}
@@ -498,7 +534,7 @@ function LibraryManager() {
                   </div>
                 </li>
               ))}
-            </ul>
+            </ol>
           </Card>
         )}
       {editing && (

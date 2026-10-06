@@ -199,6 +199,7 @@ function rpc(name: string, _args?: any) {
       return delay({ data: { impacted_count: 3, status: _args?.p_status }, error: null }, 300);
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
       return delay({ data: null, error: null }, 300);
+    case "reorder_task_library": return delay({ data: null, error: null }, 200);
     case "add_project_task": return delay({ data: { task_id: "tr-arq-alteracoes", impacted_count: 2 }, error: null }, 300);
     case "create_template_draft": return delay({ data: "t-arq2", error: null }, 300);
     case "generate_project_schedule": case "set_project_area": case "activate_project_service":
@@ -364,7 +365,7 @@ const CHANGES: any[] = [
 
 const LIBRARY = ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo", "Projeto Executivo", "Imagens 3D", "Vídeo 3D", "Detalhamento",
   "Renderização", "Compatibilização", "Projeto Legal", "Verificação"].map((name, i) => ({ id: `lib-${i}`, name, description: null, family_id: null,
-  default_duration_days: i < 5 ? [20, 7, 20, 30, 10][i] : null, duration_type: "fixed", active: true, created_by: null, created_at: "2026-10-05T12:00:00Z" }));
+  default_duration_days: i < 5 ? [20, 7, 20, 30, 10][i] : null, duration_type: "fixed", active: true, created_by: null, created_at: "2026-10-05T12:00:00Z", sort_order: (i + 1) * 10 }));
 
 const FAMILIES = [["arquitetura", "Arquitetura"], ["engenharia", "Engenharia"], ["orcamentos", "Orçamentos"], ["interiores", "Interiores"], ["aprovacoes", "Aprovações e Trâmites"],
   ["b2b_desenvolvimento", "B2B / Desenvolvimento"], ["obra", "Obra"]].map(([code, name], i) => ({ id: `f-${code}`, code, name, sort_order: (i + 1) * 10, active: true }));
@@ -400,7 +401,11 @@ const TEMPLATES: any[] = [
     notes: null, published_at: "2026-10-05", created_at: "2026-10-05",
     tasks: tplTasks("t-int2", [["planejamento", "Planejamento", 15], ["envio_briefing", "Envio do Briefing", 7], ["layout_modelagem", "Layout + Modelagem", 15]]) },
 ];
-const TEMPLATE_DEPS = [{ id: "td1", template_task_id: "t-est-producao_arquitetura", predecessor_task_id: null, predecessor_service_code: "projeto_arquitetonico", predecessor_task_code: "estudo_preliminar" }];
+const TEMPLATE_DEPS: any[] = [{ id: "td1", template_task_id: "t-est-producao_arquitetura", predecessor_task_id: null, predecessor_service_code: "projeto_arquitetonico", predecessor_task_code: "estudo_preliminar", active: true }];
+// Arquitetura v2: fase 5 com "Alterações" e "Imagens 3D e Vídeo" simultâneas
+const seqDep = (tid: string, a: string, b: string) => TEMPLATE_DEPS.push({ id: `${tid}-${a}-${b}`, template_task_id: `${tid}-${a}`, predecessor_task_id: `${tid}-${b}`, predecessor_service_code: null, predecessor_task_code: null, active: true });
+seqDep("t-arq2", "levantamento", "planejamento"); seqDep("t-arq2", "envio_briefing", "levantamento"); seqDep("t-arq2", "estudo_preliminar", "envio_briefing");
+seqDep("t-arq2", "alteracoes", "estudo_preliminar"); seqDep("t-arq2", "imagens_3d_video", "estudo_preliminar");
 
 PROJECTS.forEach((p) => p.services.forEach((x: any) => {
   const r = p.id === "pr1" ? RESP[x.service.id] : undefined;

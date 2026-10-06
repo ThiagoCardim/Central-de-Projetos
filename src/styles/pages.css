@@ -444,3 +444,20 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .photo__actions .field__hint { width: 100%; }
 .photo label.btn { cursor: pointer; }
 .photo label.btn:has(+ input:focus-visible) { box-shadow: var(--focus); }
+
+/* Arrastar para reordenar e fases simultâneas */
+.drag-grip { display: grid; place-items: center; width: 24px; height: 28px; flex: none; border-radius: 6px; color: var(--text-3); cursor: grab; touch-action: none; }
+.drag-grip:hover { color: var(--text); background: var(--surface); }
+.drag-grip:active { cursor: grabbing; }
+.drag-grip:focus-visible { outline: none; box-shadow: var(--focus); }
+.is-dragging { opacity: 0.45; }
+.is-over { box-shadow: inset 0 2px 0 var(--brand); }
+.lib-list .task { padding-left: var(--s3); }
+.tpl-edit__phase { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--card); border: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text-2); }
+.tpl-edit__row.is-par { border-left: 3px solid var(--brand); }
+.tpl-edit__row .segmented { align-self: flex-start; }
+.tpl-steps li.is-par { position: relative; padding-left: 14px; }
+.tpl-steps li.is-par::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--brand); }
+.tpl-steps li.is-par-first::before { top: 9px; border-radius: 2px 2px 0 0; }
+.tpl-steps li.is-par-last::before { bottom: 9px; border-radius: 0 0 2px 2px; }
+.tpl-steps li.is-par:not(.is-par-first) { border-top-style: dashed; }

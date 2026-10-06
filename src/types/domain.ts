@@ -395,4 +395,5 @@ export interface ScheduleTemplate {
 export interface TaskLibraryItem {
   id: string; name: string; description: string | null; family_id: string | null;
   default_duration_days: number | null; duration_type: DurationType; active: boolean; created_by: string | null; created_at: string;
+  sort_order: number | null;
 }

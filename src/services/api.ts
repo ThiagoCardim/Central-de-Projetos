@@ -249,7 +249,7 @@ export const api = {
 
   // ---------- Biblioteca de etapas ----------
   async listTaskLibrary(includeInactive = false): Promise<TaskLibraryItem[]> {
-    let q = supabase.from("task_library").select("id, name, description, family_id, default_duration_days, duration_type, active, created_by, created_at").order("name");
+    let q = supabase.from("task_library").select("id, name, description, family_id, default_duration_days, duration_type, active, created_by, created_at, sort_order").order("sort_order", { ascending: true, nullsFirst: false }).order("name");
     if (!includeInactive) q = q.eq("active", true);
     const { data, error } = await q;
     if (error) throw toUserError(error);
@@ -283,6 +283,7 @@ export const api = {
     await rpc<void>("set_profile_avatar", { p_profile: profileId, p_url: url });
     return url;
   },
+  reorderTaskLibrary: (ids: string[]) => rpc<void>("reorder_task_library", { p_ids: ids }),
   removeAvatar: (profileId: string) => rpc<void>("set_profile_avatar", { p_profile: profileId, p_url: null }),
 
   // ---------- Serviços e templates ----------
@@ -300,14 +301,15 @@ export const api = {
       .select("id, service_id, name, version, client_type, area_min, area_max, status, active, notes, published_at, created_at, tasks:template_tasks(id, template_id, code, name, description, sort_order, default_duration_days, duration_type, include_if_service_codes, client_visible, active)")
       .eq("service_id", serviceId).order("version", { ascending: false });
     if (error) throw toUserError(error);
-    const list = data as unknown as ScheduleTemplate[];
-    list.forEach((t) => t.tasks.sort((a, b) => a.sort_order - b.sort_order));
+    // Rascunhos descartados ficam arquivados sem publicação: não aparecem como versão.
+    const list = (data as unknown as ScheduleTemplate[]).filter((t) => !(t.status === "archived" && !t.published_at));
+    list.forEach((t) => { t.tasks = t.tasks.filter((x) => x.active).sort((a, b) => a.sort_order - b.sort_order); });
     return list;
   },
   async templateDependencies(templateId: string): Promise<TemplateDependency[]> {
     const { data, error } = await supabase.from("template_task_dependencies")
       .select("id, template_task_id, predecessor_task_id, predecessor_service_code, predecessor_task_code, task:template_tasks!template_task_dependencies_template_task_id_fkey!inner(template_id)")
-      .eq("task.template_id", templateId);
+      .eq("task.template_id", templateId).eq("active", true);
     if (error) throw toUserError(error);
     return (data ?? []).map(({ task: _t, ...d }) => d) as unknown as TemplateDependency[];
   },

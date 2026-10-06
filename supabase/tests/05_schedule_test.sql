@@ -280,9 +280,10 @@ select public.save_template_draft(:'draft', 'Projeto Arquitetônico', jsonb_buil
   jsonb_build_object('id', (select id from public.template_tasks where template_id = :'draft' and code = 'estudo_preliminar'), 'name', 'Estudo Preliminar', 'duration_days', 20),
   jsonb_build_object('id', (select id from public.template_tasks where template_id = :'draft' and code = 'alteracoes'), 'name', 'Alterações', 'duration_days', 30)
 ));
-select tst.ok((select count(*) from public.template_tasks where template_id = :'draft') = 5, 'Rascunho salvo (uma etapa removida, uma incluída)');
+select tst.ok((select count(*) from public.template_tasks where template_id = :'draft' and active) = 5, 'Rascunho salvo (uma etapa removida, uma incluída)');
+select tst.ok(exists (select 1 from public.template_tasks where template_id = :'draft' and code = 'imagens_3d_video' and not active), 'Etapa retirada fica desativada no rascunho');
 select tst.ok((select code from public.template_tasks where template_id = :'draft' and name = 'Levantamento no local') = 'levantamento_no_local', 'Código gerado a partir do nome');
-select tst.ok((select count(*) from public.template_task_dependencies d join public.template_tasks t on t.id = d.template_task_id where t.template_id = :'draft') = 4,
+select tst.ok((select count(*) from public.template_task_dependencies d join public.template_tasks t on t.id = d.template_task_id where t.template_id = :'draft' and d.active) = 4,
   'Sequência refeita');
 select public.publish_template(:'draft', 'Inclui levantamento no local');
 reset role; select tst.login('');
@@ -303,6 +304,35 @@ select public.save_template_draft(:'d2', null, '[{"name":"Planejamento","duratio
 select tst.throws(format('select public.publish_template(%L)', :'d2'), 'Faixas de área sobrepostas são recusadas');
 select public.discard_template_draft(:'d2');
 reset role; select tst.login('');
-select tst.ok(not exists (select 1 from public.schedule_templates where id = :'d2'), 'Rascunho descartado');
+select tst.ok((select status from public.schedule_templates where id = :'d2') = 'archived' and (select published_at from public.schedule_templates where id = :'d2') is null, 'Rascunho descartado fica arquivado sem publicação');
+
+
+-- Etapas simultâneas no padrão
+select tst.login('ga@hq'); set role authenticated;
+select public.create_template_draft((select id from public.services where code = 'gestao_obra_integrada'), (select id from public.schedule_templates where name = 'Gestão de Obra Integrada' and active)) as d3 \gset
+select public.save_template_draft(:'d3', null, jsonb_build_array(
+  jsonb_build_object('name', 'Orçamento Detalhado', 'duration_days', 30),
+  jsonb_build_object('name', 'Cronograma Físico-financeiro', 'duration_days', 15, 'parallel', true),
+  jsonb_build_object('name', 'Compras', 'duration_days', 10, 'parallel', true),
+  jsonb_build_object('name', 'Gestão de Obra', 'duration_type', 'ongoing')));
+select public.publish_template(:'d3', 'Etapas iniciais em paralelo');
+reset role; select tst.login('');
+select tst.ok((select count(*) from public.template_task_dependencies d join public.template_tasks t on t.id = d.template_task_id
+               where t.template_id = :'d3' and d.active and t.name = 'Gestão de Obra') = 3, 'Etapa após um grupo espera todas as simultâneas');
+select tst.ok(not exists (select 1 from public.template_task_dependencies d join public.template_tasks t on t.id = d.template_task_id
+               where t.template_id = :'d3' and d.active and t.name in ('Cronograma Físico-financeiro', 'Compras')), 'Etapas simultâneas começam juntas');
+
+set role service_role;
+select public.ingest_crm_webhook('pipefy', '{"card_id": "2009", "cliente": {"nome": "Obra Teste", "email": "obra@exemplo.com", "tipo": "B2C"},
+  "projeto": {"nome": "Obra"}, "servicos": "Gestão de Obra Integrada", "data_fechamento": "01/10/2026"}'::jsonb);
+reset role;
+select tst.login('lid@hq'); set role authenticated;
+select public.assign_project_team(tst.pid('2009'), jsonb_build_array(jsonb_build_object('project_role', 'project_lead', 'user_id', (select id from public.profiles where email = 'lid@hq'))));
+reset role; select tst.login('');
+select tst.ok((select count(distinct planned_start_date) from public.project_tasks where project_id = tst.pid('2009')
+               and name in ('Orçamento Detalhado', 'Cronograma Físico-financeiro', 'Compras')) = 1, 'No projeto, etapas simultâneas começam no mesmo dia');
+select tst.ok((select planned_start_date from public.project_tasks where project_id = tst.pid('2009') and name = 'Gestão de Obra') =
+              public.next_business_day((select max(planned_end_date) from public.project_tasks where project_id = tst.pid('2009') and name <> 'Gestão de Obra') + 1, '00000000-0000-4000-8000-000000000101'),
+  'Etapa seguinte começa depois da mais longa do grupo');
 
 \echo '✔ Etapa 3 — motor de cronograma'
