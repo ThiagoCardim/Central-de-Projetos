@@ -258,7 +258,9 @@ export interface ProjectDetail extends Omit<ProjectListItem, "services" | "clien
   commercial: { name: string } | null;
   services: {
     id: string; status: ProjectServiceStatus; active: boolean; contracted_at: string | null; contract_source: string | null;
-    service: { id: string; name: string; code: string; family: { name: string; default_project_role: string | null } | null } | null;
+    responsible_user_id: string | null;
+    responsible: { id: string; name: string; avatar_url: string | null; employment_type: EmploymentType | null } | null;
+    service: { id: string; name: string; code: string; family: { name: string; default_project_role: string | null; sort_order?: number } | null } | null;
   }[];
   team: {
     id: string; project_role: string; employment_type: EmploymentType | null; active: boolean; assigned_at: string;
@@ -280,4 +282,117 @@ export interface ClientListItem extends ClientRecord {
   company_name: string | null;
   created_at: string;
   projects: { count: number }[];
+}
+
+/* ==========================================================================
+   Etapa 3 — Cronograma modular e templates
+   ========================================================================== */
+export type DurationType = "fixed" | "dependent" | "external" | "ongoing";
+export type DependencyType = "finish_to_start" | "start_to_start" | "finish_to_finish";
+export type TemplateStatus = "draft" | "published" | "archived";
+
+export interface ScheduleTrack {
+  id: string;
+  project_service_id: string;
+  status: TrackStatus;
+  status_note: string | null;
+  planned_start_date: string | null;
+  planned_end_date: string | null;
+  actual_start_date: string | null;
+  actual_end_date: string | null;
+  created_at: string;
+  template: { name: string; version: number } | null;
+  project_service: {
+    id: string; status: ProjectServiceStatus;
+    service: { id: string; name: string; code: string; family: { name: string; sort_order: number } | null } | null;
+  } | null;
+}
+
+export interface ScheduleTask {
+  id: string;
+  schedule_track_id: string;
+  code: string | null;
+  name: string;
+  description: string | null;
+  sequence: number;
+  duration_type: DurationType;
+  planned_duration_days: number | null;
+  planned_start_date: string | null;
+  planned_end_date: string | null;
+  actual_start_date: string | null;
+  actual_end_date: string | null;
+  status: TaskStatus;
+  status_changed_at: string;
+  responsible_user_id: string | null;
+  waiting_reason: string | null;
+  notes: string | null;
+  start_not_before: string | null;
+  auto_skipped: boolean;
+  client_visible: boolean;
+}
+
+export interface TaskDependency {
+  id: string;
+  task_id: string;
+  depends_on_task_id: string;
+  dependency_type: DependencyType;
+  lag_days: number;
+  source: "template" | "manual";
+}
+
+export interface ProjectSchedule {
+  tracks: ScheduleTrack[];
+  tasks: ScheduleTask[];
+  dependencies: TaskDependency[];
+}
+
+export interface TaskChange {
+  id: string;
+  task_id: string | null;
+  change_type: "reschedule" | "duration" | "responsible" | "status" | "dependency" | "created" | "recalculated";
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  reason: string | null;
+  impacted_task_ids: string[];
+  created_at: string;
+  author: { name: string } | null;
+}
+
+export interface SchedulePreviewItem {
+  id: string; name: string; service: string;
+  before_start: string | null; before_end: string | null; after_start: string | null; after_end: string | null;
+}
+export interface SchedulePreview {
+  task: SchedulePreviewItem & { before_duration: number | null; after_duration: number | null };
+  impacted: SchedulePreviewItem[];
+  impacted_count: number;
+  forecast_before: string | null;
+  forecast_after: string | null;
+}
+
+export interface ServiceFamily { id: string; code: string; name: string; sort_order: number; active: boolean }
+export interface CatalogService {
+  id: string; family_id: string; code: string; name: string; description: string | null;
+  available_for_b2c: boolean; available_for_b2b: boolean; has_schedule_template: boolean; requires_area_rule: boolean;
+  sort_order: number; active: boolean; aliases: string[];
+}
+export interface TemplateTask {
+  id: string; template_id: string; code: string; name: string; description: string | null; sort_order: number;
+  default_duration_days: number | null; duration_type: DurationType; include_if_service_codes: string[] | null;
+  client_visible: boolean; active: boolean;
+}
+export interface TemplateDependency {
+  id: string; template_task_id: string; predecessor_task_id: string | null;
+  predecessor_service_code: string | null; predecessor_task_code: string | null;
+}
+export interface ScheduleTemplate {
+  id: string; service_id: string; name: string; version: number; client_type: ClientType | null;
+  area_min: number | null; area_max: number | null; status: TemplateStatus; active: boolean; notes: string | null;
+  published_at: string | null; created_at: string;
+  tasks: TemplateTask[];
+}
+
+export interface TaskLibraryItem {
+  id: string; name: string; description: string | null; family_id: string | null;
+  default_duration_days: number | null; duration_type: DurationType; active: boolean; created_by: string | null; created_at: string;
 }

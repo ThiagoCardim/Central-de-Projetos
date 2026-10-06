@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/primitives";
 import { Drawer, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
-import type { ProjectDetail, ProjectListItem, ProjectRole, ProjectStatus, StaffMember, Tenant } from "@/types/domain";
+import type { EmploymentType, ProjectDetail, ProjectListItem, ProjectStatus, StaffMember, Tenant } from "@/types/domain";
 import {
   ALLOCATION_METHOD_LABEL, CLIENT_TYPE_LABEL, EMPLOYMENT_LABEL, formatDate, formatDateTime, PROJECT_STATUS_LABEL,
   PROJECT_STATUS_TONE, ROLE_LABEL, SERVICE_STATUS_LABEL,
@@ -126,7 +126,6 @@ export function ProjectDetailPage() {
   const action = useSearchParam("acao");
   const navigate = useNavigate();
   const { data: p, error, loading, reload } = useAsync(() => api.getProject(id ?? ""), [id]);
-  const roles = useAsync(() => api.listProjectRoles(), []);
   const [teamOpen, setTeamOpen] = useState(false);
   const [allocOpen, setAllocOpen] = useState(false);
   useDocumentTitle(p?.name ?? "Projeto");
@@ -156,8 +155,6 @@ export function ProjectDetailPage() {
     );
   }
 
-  const activeTeam = p.team.filter((t) => t.active);
-  const roleName = (code: string) => roles.data?.find((r) => r.code === code)?.name ?? code;
   const pendingServices = p.services.filter((s) => s.active && s.status === "pending_review");
 
   return (
@@ -177,6 +174,9 @@ export function ProjectDetailPage() {
             )}
             {canAssign && p.status !== "awaiting_team_assignment" && (
               <Button variant="outline" icon="userPlus" onClick={() => setTeamOpen(true)}>Editar equipe</Button>
+            )}
+            {["in_progress", "on_hold", "completed"].includes(p.status) && (
+              <Link to={`/projetos/${p.id}/cronograma`} className="btn btn--primary"><Icon name="calendar" /> Cronograma</Link>
             )}
           </>
         }
@@ -201,29 +201,12 @@ export function ProjectDetailPage() {
                 </li>
               ))}
             </ul>
-            <p className="subtext card__note">O cronograma de cada serviço é gerado na Etapa 3, a partir dos templates YouCon.</p>
+            {(p.status === "in_progress" || p.status === "on_hold" || p.status === "completed")
+              ? <div className="card__note"><Link to={`/projetos/${p.id}/cronograma`} className="btn btn--secondary btn--sm">Abrir cronograma</Link></div>
+              : <p className="subtext card__note">O cronograma é gerado a partir dos padrões YouCon quando a equipe for confirmada.</p>}
           </Card>
 
-          <Card title="Equipe" count={activeTeam.length || undefined}>
-            {activeTeam.length === 0 ? (
-              <EmptyState compact icon="users" title="Equipe ainda não definida."
-                text={canAssign ? "Defina um responsável por função para iniciar o projeto." : "O líder da unidade executora definirá a equipe."} />
-            ) : (
-              <ul className="team-list">
-                {[...activeTeam].sort((a, b) => (roles.data?.findIndex((r) => r.code === a.project_role) ?? 0)
-                                                - (roles.data?.findIndex((r) => r.code === b.project_role) ?? 0)).map((t) => (
-                  <li key={t.id}>
-                    <span className="label team-list__role">{roleName(t.project_role)}</span>
-                    <span className="ident">
-                      <Avatar name={t.user?.name ?? "?"} src={t.user?.avatar_url} size="sm" />
-                      <span className="ident__name truncate">{t.user?.name ?? "Pessoa de outra unidade"}{t.user?.id === profile?.id && <span className="muted"> (você)</span>}</span>
-                    </span>
-                    {t.employment_type && <Badge tag outline>{EMPLOYMENT_LABEL[t.employment_type]}</Badge>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+          <TeamCard project={p} canAssign={canAssign} me={profile?.id ?? null} onEdit={() => setTeamOpen(true)} />
         </div>
 
         <div className="stack" style={{ gap: 16 }}>
@@ -279,7 +262,7 @@ export function ProjectDetailPage() {
       </div>
 
       {canAssign && (
-        <TeamDrawer open={teamOpen} project={p} roles={roles.data ?? []}
+        <TeamDrawer open={teamOpen} project={p}
           onClose={() => { setTeamOpen(false); if (action) navigate(`/projetos/${p.id}`, { replace: true }); }}
           onSaved={() => { setTeamOpen(false); void reload(); if (action) navigate(`/projetos/${p.id}`, { replace: true }); }} />
       )}
@@ -322,48 +305,112 @@ function ProjectStateBand({ p, canAssign, canDistribute, onAssign, onDistribute,
 }
 
 /* ==========================================================================
-   Atribuição de equipe por função
+   Equipe: Líder + responsável direto por serviço + colaboradores indiretos
    ========================================================================== */
-function TeamDrawer({ open, project, roles, onClose, onSaved }: {
-  open: boolean; project: ProjectDetail; roles: ProjectRole[]; onClose: () => void; onSaved: () => void;
+type ProjectService = ProjectDetail["services"][number];
+
+function activeServices(project: ProjectDetail): ProjectService[] {
+  return project.services.filter((s) => s.active && s.status !== "cancelled")
+    .sort((a, b) => (a.service?.family?.sort_order ?? 99) - (b.service?.family?.sort_order ?? 99));
+}
+
+function TeamCard({ project, canAssign, me }: { project: ProjectDetail; canAssign: boolean; me: string | null; onEdit?: () => void }) {
+  const team = project.team.filter((t) => t.active && t.user);
+  const lead = team.find((t) => t.project_role === "project_lead")?.user ?? null;
+  const services = activeServices(project);
+  const directIds = new Set(services.map((s) => s.responsible_user_id).filter(Boolean));
+  const indirect = team.filter((t) => t.project_role === "support" && t.user && !directIds.has(t.user.id) && t.user.id !== lead?.id);
+  const empty = team.length === 0;
+  const Person = ({ u }: { u: { id: string; name: string; avatar_url: string | null; employment_type: EmploymentType | null } }) => (
+    <span className="ident">
+      <Avatar name={u.name} src={u.avatar_url} size="sm" />
+      <span className="ident__name truncate">{u.name}{u.id === me && <span className="muted"> (você)</span>}</span>
+      {u.employment_type && <Badge tag outline>{EMPLOYMENT_LABEL[u.employment_type]}</Badge>}
+    </span>
+  );
+
+  return (
+    <Card title="Equipe" count={team.length ? new Set(team.map((t) => t.user!.id)).size : undefined}>
+      {empty ? (
+        <EmptyState compact icon="users" title="Equipe ainda não definida."
+          text={canAssign ? "Defina o Líder do Projeto e o responsável direto de cada serviço para iniciar." : "O líder da unidade executora definirá a equipe."} />
+      ) : (
+        <div className="stack" style={{ gap: 16 }}>
+          <ul className="team-list">
+            <li><span className="label team-list__role">Líder do projeto</span>{lead ? <Person u={lead} /> : <span className="text-warning">A definir</span>}</li>
+          </ul>
+          <div>
+            <p className="label team-list__group">Responsáveis diretos · contato com o cliente</p>
+            <ul className="team-list">
+              {services.map((s) => (
+                <li key={s.id}>
+                  <span className="team-list__role team-list__svc">{s.service?.name}</span>
+                  {s.responsible ? <Person u={s.responsible} /> : <span className="text-warning">Sem responsável</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {indirect.length > 0 && (
+            <div>
+              <p className="label team-list__group">Colaboradores indiretos</p>
+              <ul className="team-list">
+                {indirect.map((t) => <li key={t.id}><span className="team-list__role team-list__svc">Etapas específicas</span><Person u={t.user!} /></li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TeamDrawer({ open, project, onClose, onSaved }: {
+  open: boolean; project: ProjectDetail; onClose: () => void; onSaved: () => void;
 }) {
   const toast = useToast();
   const staff = useAsync(() => (open && project.delivery_tenant_id ? api.listStaff(project.delivery_tenant_id) : Promise.resolve([] as StaffMember[])),
     [open, project.delivery_tenant_id]);
-  const [picks, setPicks] = useState<Record<string, string>>({});
-  const [extraRoles, setExtraRoles] = useState<string[]>([]);
+  const services = useMemo(() => activeServices(project), [project]);
+  const [lead, setLead] = useState("");
+  const [byService, setByService] = useState<Record<string, string>>({});
+  const [indirect, setIndirect] = useState<string[]>([]);
+  const [adding, setAdding] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Funções sugeridas a partir das famílias dos serviços contratados.
-  const suggested = useMemo(() => {
-    const set = new Set<string>(["project_lead"]);
-    project.services.filter((s) => s.active).forEach((s) => {
-      const r = s.service?.family?.default_project_role;
-      if (r) set.add(r);
-    });
-    project.team.filter((t) => t.active).forEach((t) => set.add(t.project_role));
-    return set;
-  }, [project]);
-
   useEffect(() => {
     if (!open) return;
+    const team = project.team.filter((t) => t.active && t.user);
+    setLead(team.find((t) => t.project_role === "project_lead")?.user?.id ?? "");
+    // Responsável direto salvo; para projetos da Etapa 2, sugere quem tinha a função da família do serviço.
     const initial: Record<string, string> = {};
-    project.team.filter((t) => t.active && t.user).forEach((t) => { initial[t.project_role] = t.user!.id; });
-    setPicks(initial); setExtraRoles([]); setErr(null);
-  }, [open, project]);
+    const legacyProject = !services.some((s) => s.responsible_user_id);
+    services.forEach((s) => {
+      const legacy = legacyProject ? team.find((t) => t.project_role === s.service?.family?.default_project_role)?.user?.id : undefined;
+      initial[s.id] = s.responsible_user_id ?? legacy ?? "";
+    });
+    setByService(initial);
+    const direct = new Set(Object.values(initial).filter(Boolean));
+    setIndirect(team.filter((t) => t.project_role === "support" && !direct.has(t.user!.id)).map((t) => t.user!.id));
+    setAdding(""); setErr(null);
+  }, [open, project, services]);
 
-  const visibleRoles = roles.filter((r) => suggested.has(r.code) || extraRoles.includes(r.code));
-  const hiddenRoles = roles.filter((r) => !suggested.has(r.code) && !extraRoles.includes(r.code));
   const isStart = project.status === "awaiting_team_assignment";
+  const people = staff.data ?? [];
+  const label = (m: StaffMember) => `${m.name} · ${m.employment_type ? EMPLOYMENT_LABEL[m.employment_type] : ROLE_LABEL[m.role]}`;
+  const missing = services.filter((s) => !byService[s.id]).length;
 
   async function save() {
-    if (!picks.project_lead) { setErr("Escolha o Líder do Projeto."); return; }
+    if (!lead) { setErr("Escolha o Líder do Projeto."); return; }
     setSaving(true); setErr(null);
     try {
-      const assignments = Object.entries(picks).filter(([, u]) => u).map(([project_role, user_id]) => ({ project_role, user_id }));
+      const assignments = [
+        { project_role: "project_lead", user_id: lead },
+        ...services.filter((s) => byService[s.id]).map((s) => ({ project_service_id: s.id, user_id: byService[s.id] })),
+        ...indirect.map((u) => ({ project_role: "support", user_id: u })),
+      ];
       const res = await api.assignTeam(project.id, assignments);
-      toast(res.started ? "Equipe confirmada. Projeto iniciado." : "Equipe atualizada.");
+      toast(res.started ? "Equipe confirmada. Projeto iniciado e cronograma gerado." : "Equipe atualizada.");
       onSaved();
     } catch (e) {
       setErr((e as Error).message);
@@ -371,8 +418,6 @@ function TeamDrawer({ open, project, roles, onClose, onSaved }: {
       setSaving(false);
     }
   }
-
-  const option = (m: StaffMember) => `${m.name} · ${m.employment_type ? EMPLOYMENT_LABEL[m.employment_type] : ROLE_LABEL[m.role]}`;
 
   return (
     <Drawer open={open} onClose={onClose}
@@ -390,44 +435,76 @@ function TeamDrawer({ open, project, roles, onClose, onSaved }: {
         <Card className="mini-summary">
           <dl className="kv">
             <div><dt>Cliente</dt><dd>{project.client?.name ?? "—"} · {CLIENT_TYPE_LABEL[project.client_type]}</dd></div>
-            <div><dt>Serviços</dt><dd>{project.services.filter((s) => s.active).map((s) => s.service?.name).join(", ")}</dd></div>
             <div><dt>Fechamento</dt><dd>{formatDate(project.contracted_at, true)}{project.city ? ` · ${project.city}` : ""}</dd></div>
           </dl>
         </Card>
 
         {staff.error ? <LoadError message={staff.error} onRetry={staff.reload} /> :
-         staff.loading ? <Skeleton height={160} /> :
-         (staff.data ?? []).length === 0 ? (
+         staff.loading ? <Skeleton height={200} /> :
+         people.length === 0 ? (
           <Alert tone="warning" title="Nenhuma pessoa ativa na unidade executora">
             Convide líderes e colaboradores em Controle de Acessos antes de definir a equipe.
           </Alert>
         ) : (
-          <fieldset className="form__group">
-            <legend className="label">Responsável por função</legend>
-            {visibleRoles.map((r) => (
-              <Field key={r.code} label={r.name} required={r.code === "project_lead"}>
-                {({ id }) => (
-                  <Select id={id} value={picks[r.code] ?? ""} onChange={(e) => setPicks((p) => ({ ...p, [r.code]: e.target.value }))}>
-                    <option value="">{r.code === "project_lead" ? "Selecione" : "Sem responsável"}</option>
-                    {(staff.data ?? []).map((m) => <option key={m.id} value={m.id}>{option(m)}</option>)}
-                  </Select>
-                )}
-              </Field>
-            ))}
-            {hiddenRoles.length > 0 && (
-              <div className="row" style={{ flexWrap: "wrap" }}>
-                <span className="subtext">Adicionar função:</span>
-                {hiddenRoles.map((r) => (
-                  <Button key={r.code} size="sm" variant="outline" icon="plus" onClick={() => setExtraRoles((x) => [...x, r.code])}>{r.name}</Button>
-                ))}
+          <>
+            <Field label="Líder do Projeto" required>
+              {({ id }) => (
+                <Select id={id} value={lead} onChange={(e) => setLead(e.target.value)}>
+                  <option value="">Selecione</option>
+                  {people.map((m) => <option key={m.id} value={m.id}>{label(m)}</option>)}
+                </Select>
+              )}
+            </Field>
+
+            <fieldset className="form__group">
+              <legend className="label">Responsáveis diretos</legend>
+              <p className="subtext">Quem conduz cada serviço e fala com o cliente. As etapas do serviço já nascem com esta pessoa; cada etapa pode ter outro responsável depois.</p>
+              {services.map((s) => (
+                <Field key={s.id} label={s.service?.name ?? "Serviço"} hint={s.status === "pending_review" ? "Serviço novo, ainda não incluído no cronograma" : s.service?.family?.name}>
+                  {({ id, describedBy }) => (
+                    <Select id={id} aria-describedby={describedBy} value={byService[s.id] ?? ""}
+                      onChange={(e) => setByService((x) => ({ ...x, [s.id]: e.target.value }))}>
+                      <option value="">Sem responsável</option>
+                      {people.map((m) => <option key={m.id} value={m.id}>{label(m)}</option>)}
+                    </Select>
+                  )}
+                </Field>
+              ))}
+              {missing > 0 && <p className="subtext text-warning">{missing === 1 ? "1 serviço sem responsável direto." : `${missing} serviços sem responsável direto.`} Você pode definir depois.</p>}
+            </fieldset>
+
+            <fieldset className="form__group">
+              <legend className="label">Colaboradores indiretos <span className="muted">· opcional</span></legend>
+              <p className="subtext">Para sub-etapas específicas (executivo, imagens e vídeo 3D, detalhamento…). Também é possível vincular alguém direto numa etapa do cronograma.</p>
+              {indirect.length > 0 && (
+                <ul className="team-list">
+                  {indirect.map((u) => {
+                    const m = people.find((x) => x.id === u);
+                    return (
+                      <li key={u}>
+                        <span className="ident grow"><Avatar name={m?.name ?? "?"} src={m?.avatar_url} size="sm" /><span className="ident__name truncate">{m?.name ?? "Pessoa da equipe"}</span></span>
+                        <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => setIndirect((xs) => xs.filter((x) => x !== u))}>Remover</Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <div className="row">
+                <Select aria-label="Adicionar colaborador indireto" value={adding} onChange={(e) => setAdding(e.target.value)}>
+                  <option value="">Adicionar pessoa…</option>
+                  {people.filter((m) => m.id !== lead && !indirect.includes(m.id) && !Object.values(byService).includes(m.id))
+                    .map((m) => <option key={m.id} value={m.id}>{label(m)}</option>)}
+                </Select>
+                <Button variant="outline" size="sm" icon="plus" disabled={!adding}
+                  onClick={() => { setIndirect((xs) => [...xs, adding]); setAdding(""); }}>Adicionar</Button>
               </div>
-            )}
-          </fieldset>
+            </fieldset>
+          </>
         )}
         <p className="subtext">
           {isStart
-            ? "Ao confirmar: os vínculos são criados, o projeto passa para \"Em andamento\", cada pessoa recebe um aviso e o cliente passa a acompanhar o projeto."
-            : "Quem sair da equipe perde o acesso ao projeto. O histórico fica na auditoria."}
+            ? "Ao confirmar: os vínculos são criados, o projeto passa para \"Em andamento\", o cronograma é gerado e cada pessoa recebe um aviso."
+            : "Quem sair da equipe perde o acesso ao projeto. Etapas abertas acompanham a troca do responsável direto; etapas com responsável próprio ficam como estão."}
         </p>
       </div>
     </Drawer>

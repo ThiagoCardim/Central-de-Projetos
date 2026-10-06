@@ -3,8 +3,10 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
-  ProjectDetail, ProjectListItem, ProjectRole, RecordStatus, StaffMember, Tenant, TenantOverview, UserRole,
+  CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
+  SchedulePreview, ServiceFamily, StaffMember, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
+  TenantOverview, UserRole,
 } from "@/types/domain";
 
 async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
@@ -137,7 +139,7 @@ export const api = {
         origin:tenants!projects_origin_tenant_id_fkey(name),
         commercial:tenants!projects_commercial_tenant_id_fkey(name),
         delivery:tenants!projects_delivery_tenant_id_fkey(name),
-        services:project_services(id, status, active, contracted_at, contract_source, service:services(id, name, code, family:service_families(name, default_project_role))),
+        services:project_services(id, status, active, contracted_at, contract_source, responsible_user_id, responsible:profiles!project_services_responsible_user_id_fkey(id, name, avatar_url, employment_type), service:services(id, name, code, family:service_families(name, default_project_role, sort_order))),
         team:project_team(id, project_role, employment_type, active, assigned_at, user:profiles!project_team_user_id_fkey(id, name, avatar_url, employment_type)),
         allocations:project_allocations(id, allocation_method, allocation_status, allocated_at, notes, created_at, delivery:tenants!project_allocations_delivery_tenant_id_fkey(name))`)
       .eq("id", id).maybeSingle();
@@ -181,6 +183,163 @@ export const api = {
       : await supabase.from("clients").insert({ id: crypto.randomUUID(), ...row });
     if (error) throw toUserError(error);
   },
+
+  // ---------- Cronograma ----------
+  async getProjectSchedule(projectId: string): Promise<ProjectSchedule> {
+    const [tracks, tasks, deps] = await Promise.all([
+      supabase.from("project_schedule_tracks")
+        .select(`id, project_service_id, status, status_note, planned_start_date, planned_end_date, actual_start_date, actual_end_date, created_at,
+          template:schedule_templates(name, version),
+          project_service:project_services(id, status, service:services(id, name, code, family:service_families(name, sort_order)))`)
+        .eq("project_id", projectId).order("created_at"),
+      supabase.from("project_tasks")
+        .select("id, schedule_track_id, code, name, description, sequence, duration_type, planned_duration_days, planned_start_date, planned_end_date, actual_start_date, actual_end_date, status, status_changed_at, responsible_user_id, waiting_reason, notes, start_not_before, auto_skipped, client_visible")
+        .eq("project_id", projectId).order("sequence"),
+      supabase.from("task_dependencies")
+        .select("id, task_id, depends_on_task_id, dependency_type, lag_days, source, task:project_tasks!task_dependencies_task_id_fkey!inner(project_id)")
+        .eq("task.project_id", projectId),
+    ]);
+    for (const r of [tracks, tasks, deps]) if (r.error) throw toUserError(r.error);
+    return {
+      tracks: tracks.data as unknown as ScheduleTrack[],
+      tasks: tasks.data as unknown as ScheduleTask[],
+      dependencies: (deps.data ?? []).map(({ task: _t, ...d }) => d) as unknown as TaskDependency[],
+    };
+  },
+  async taskHistory(taskId: string): Promise<TaskChange[]> {
+    const { data, error } = await supabase.from("task_changes")
+      .select("id, task_id, change_type, before, after, reason, impacted_task_ids, created_at, author:profiles!task_changes_changed_by_fkey(name)")
+      .eq("task_id", taskId).order("created_at", { ascending: false }).limit(50);
+    if (error) throw toUserError(error);
+    return data as unknown as TaskChange[];
+  },
+  /** Etapas abertas de todos os projetos visíveis (view com alertas calculados). */
+  async openTaskAlerts(): Promise<TaskAlert[]> {
+    const { data, error } = await supabase.from("task_alerts")
+      .select("*").not("status", "in", "(completed,cancelled)").order("planned_end_date", { ascending: true, nullsFirst: false }).limit(500);
+    if (error) throw toUserError(error);
+    return data as TaskAlert[];
+  },
+  async saveTaskNotes(taskId: string, notes: string): Promise<void> {
+    const { error } = await supabase.from("project_tasks").update({ notes: notes.trim() || null }).eq("id", taskId);
+    if (error) throw toUserError(error);
+  },
+  generateSchedule: (projectId: string) => rpc<{ tracks_created: number; tasks_created: number; tracks_pending: number }>("generate_project_schedule", { p_project: projectId }),
+  setProjectArea: (projectId: string, area: number) => rpc<{ tasks_created: number }>("set_project_area", { p_project: projectId, p_area: area }),
+  activateProjectService: (id: string) => rpc<{ tracks_created?: number }>("activate_project_service", { p_project_service: id }),
+  previewTaskChange: (taskId: string, start: string | null, duration: number | null) =>
+    rpc<SchedulePreview>("preview_task_change", { p_task: taskId, p_start: start, p_duration: duration }),
+  rescheduleTask: (taskId: string, start: string | null, duration: number | null, reason: string) =>
+    rpc<{ impacted_count: number }>("reschedule_task", { p_task: taskId, p_start: start, p_duration: duration, p_reason: reason }),
+  setTaskStatus: (taskId: string, status: TaskStatus, reason?: string | null) =>
+    rpc<{ impacted_count: number; status: TaskStatus }>("set_task_status", { p_task: taskId, p_status: status, p_reason: reason ?? null }),
+  setTaskResponsible: (taskId: string, userId: string | null) => rpc<void>("set_task_responsible", { p_task: taskId, p_user: userId }),
+  addTaskDependency: (taskId: string, dependsOn: string, reason: string) =>
+    rpc<{ impacted_count: number }>("add_task_dependency", { p_task: taskId, p_depends_on: dependsOn, p_reason: reason }),
+  removeTaskDependency: (taskId: string, dependsOn: string, reason: string) =>
+    rpc<{ impacted_count: number }>("remove_task_dependency", { p_task: taskId, p_depends_on: dependsOn, p_reason: reason }),
+
+  addProjectTask: (input: { track_id: string; after_id: string | null; name: string; description?: string | null; duration: number | null;
+    duration_type: "fixed" | "external" | "ongoing"; responsible_id: string | null; in_sequence: boolean; reason: string; save_to_library: boolean }) =>
+    rpc<{ task_id: string; impacted_count: number }>("add_project_task", {
+      p_track: input.track_id, p_after: input.after_id, p_name: input.name, p_description: input.description ?? null,
+      p_duration: input.duration, p_duration_type: input.duration_type, p_responsible: input.responsible_id,
+      p_in_sequence: input.in_sequence, p_reason: input.reason, p_save_to_library: input.save_to_library,
+    }),
+
+  // ---------- Biblioteca de etapas ----------
+  async listTaskLibrary(includeInactive = false): Promise<TaskLibraryItem[]> {
+    let q = supabase.from("task_library").select("id, name, description, family_id, default_duration_days, duration_type, active, created_by, created_at").order("name");
+    if (!includeInactive) q = q.eq("active", true);
+    const { data, error } = await q;
+    if (error) throw toUserError(error);
+    return data as TaskLibraryItem[];
+  },
+  async saveTaskLibraryItem(input: { id?: string; name: string; description?: string | null; family_id?: string | null;
+    default_duration_days?: number | null; duration_type: "fixed" | "external" | "ongoing"; active?: boolean; created_by?: string | null }): Promise<void> {
+    const row = {
+      name: input.name.trim(), description: input.description?.trim() || null, family_id: input.family_id || null,
+      duration_type: input.duration_type, default_duration_days: input.duration_type === "fixed" ? input.default_duration_days ?? null : null,
+      ...(input.active === undefined ? {} : { active: input.active }),
+    };
+    const { error } = input.id
+      ? await supabase.from("task_library").update(row).eq("id", input.id)
+      : await supabase.from("task_library").insert({ ...row, created_by: input.created_by ?? null });
+    if (error) {
+      if (error.code === "23505") throw new UserFacingError("Já existe uma etapa com este nome na biblioteca.");
+      throw toUserError(error);
+    }
+  },
+
+  // ---------- Foto de perfil ----------
+  async uploadAvatar(profileId: string, file: File): Promise<string> {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new UserFacingError("Use uma imagem JPG, PNG ou WebP.");
+    if (file.size > 2 * 1024 * 1024) throw new UserFacingError("A foto deve ter até 2 MB.");
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const path = `${profileId}/foto.${ext}`;
+    const up = await supabase.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
+    if (up.error) throw new UserFacingError("Não foi possível enviar a foto. Tente novamente.");
+    const url = `${supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
+    await rpc<void>("set_profile_avatar", { p_profile: profileId, p_url: url });
+    return url;
+  },
+  removeAvatar: (profileId: string) => rpc<void>("set_profile_avatar", { p_profile: profileId, p_url: null }),
+
+  // ---------- Serviços e templates ----------
+  async listCatalog(): Promise<{ families: ServiceFamily[]; services: CatalogService[] }> {
+    const [f, s] = await Promise.all([
+      supabase.from("service_families").select("id, code, name, sort_order, active").order("sort_order"),
+      supabase.from("services").select("id, family_id, code, name, description, available_for_b2c, available_for_b2b, has_schedule_template, requires_area_rule, sort_order, active, aliases").order("sort_order"),
+    ]);
+    if (f.error) throw toUserError(f.error);
+    if (s.error) throw toUserError(s.error);
+    return { families: f.data as ServiceFamily[], services: s.data as CatalogService[] };
+  },
+  async listTemplates(serviceId: string): Promise<ScheduleTemplate[]> {
+    const { data, error } = await supabase.from("schedule_templates")
+      .select("id, service_id, name, version, client_type, area_min, area_max, status, active, notes, published_at, created_at, tasks:template_tasks(id, template_id, code, name, description, sort_order, default_duration_days, duration_type, include_if_service_codes, client_visible, active)")
+      .eq("service_id", serviceId).order("version", { ascending: false });
+    if (error) throw toUserError(error);
+    const list = data as unknown as ScheduleTemplate[];
+    list.forEach((t) => t.tasks.sort((a, b) => a.sort_order - b.sort_order));
+    return list;
+  },
+  async templateDependencies(templateId: string): Promise<TemplateDependency[]> {
+    const { data, error } = await supabase.from("template_task_dependencies")
+      .select("id, template_task_id, predecessor_task_id, predecessor_service_code, predecessor_task_code, task:template_tasks!template_task_dependencies_template_task_id_fkey!inner(template_id)")
+      .eq("task.template_id", templateId);
+    if (error) throw toUserError(error);
+    return (data ?? []).map(({ task: _t, ...d }) => d) as unknown as TemplateDependency[];
+  },
+  /** Etapas dos templates vigentes de todos os serviços (para dependências entre serviços). */
+  async activeTemplateTasks(): Promise<{ service_code: string; service_name: string; code: string; name: string }[]> {
+    const { data, error } = await supabase.from("template_tasks")
+      .select("code, name, sort_order, template:schedule_templates!inner(active, service:services(code, name))")
+      .eq("template.active", true).order("sort_order");
+    if (error) throw toUserError(error);
+    const seen = new Set<string>();
+    const out: { service_code: string; service_name: string; code: string; name: string }[] = [];
+    for (const r of (data ?? []) as unknown as { code: string; name: string; template: { service: { code: string; name: string } | null } }[]) {
+      const sc = r.template.service?.code;
+      if (!sc || seen.has(`${sc}.${r.code}`)) continue;
+      seen.add(`${sc}.${r.code}`);
+      out.push({ service_code: sc, service_name: r.template.service!.name, code: r.code, name: r.name });
+    }
+    return out;
+  },
+  async updateService(id: string, patch: Partial<Pick<CatalogService, "available_for_b2c" | "available_for_b2b" | "requires_area_rule" | "description" | "aliases" | "active">>): Promise<void> {
+    const { error } = await supabase.from("services").update(patch).eq("id", id);
+    if (error) throw toUserError(error);
+  },
+  createTemplateDraft: (input: { service_id?: string | null; from?: string | null; client_type?: ClientType | null; area_min?: number | null; area_max?: number | null; name?: string | null }) =>
+    rpc<string>("create_template_draft", {
+      p_service: input.service_id ?? null, p_from: input.from ?? null, p_client_type: input.client_type ?? null,
+      p_area_min: input.area_min ?? null, p_area_max: input.area_max ?? null, p_name: input.name ?? null,
+    }),
+  saveTemplateDraft: (templateId: string, name: string, tasks: unknown[]) =>
+    rpc<void>("save_template_draft", { p_template: templateId, p_name: name, p_tasks: tasks }),
+  publishTemplate: (templateId: string, notes: string) => rpc<void>("publish_template", { p_template: templateId, p_notes: notes || null }),
+  discardTemplateDraft: (templateId: string) => rpc<void>("discard_template_draft", { p_template: templateId }),
 
   // ---------- Equipe ----------
   async teamWorkload(tenantId: string | null): Promise<{ user_id: string; project_role: string; project: { id: string; name: string; status: string } | null }[]> {

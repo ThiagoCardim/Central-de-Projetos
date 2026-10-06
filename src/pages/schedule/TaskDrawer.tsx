@@ -1,0 +1,424 @@
+import { useEffect, useMemo, useState } from "react";
+import { api } from "@/services/api";
+import { useAsync } from "@/hooks";
+import { Alert, Avatar, Badge, Button, Field, Input, Select, Skeleton, StatusBadge } from "@/components/ui/primitives";
+import { Drawer, useToast } from "@/components/ui/overlays";
+import { Icon } from "@/components/ui/Icon";
+import type { ProjectSchedule, ScheduleTask, SchedulePreview, StaffMember, TaskChange, TaskStatus } from "@/types/domain";
+import { cx, EMPLOYMENT_LABEL, formatDate, formatDateTime, plural, TASK_STATUS_LABEL } from "@/utils/format";
+import {
+  CHANGE_LABEL, displayStatus, durationText, isClosed, isStarted, predecessorsOf, REASON_PLACEHOLDER, serviceName,
+  statusActions, successorsOf, type StatusAction,
+} from "./model";
+
+interface Props {
+  task: ScheduleTask | null;
+  schedule: ProjectSchedule;
+  staff: StaffMember[];
+  me: string | null;
+  canManage: boolean;      // gestor do projeto
+  managementMode: boolean; // modo gestão ligado
+  onClose: () => void;
+  onChanged: () => void;
+  onOpenTask: (id: string) => void;
+}
+
+export function TaskDrawer({ task, schedule, staff, me, canManage, managementMode, onClose, onChanged, onOpenTask }: Props) {
+  if (!task) return null;
+  return (
+    <Drawer open onClose={onClose} title={task.name}
+      subtitle={<>{serviceName(schedule.tracks.find((t) => t.id === task.schedule_track_id))}</>}>
+      <TaskBody key={task.id} task={task} schedule={schedule} staff={staff} me={me} canManage={canManage}
+        managementMode={managementMode} onChanged={onChanged} onOpenTask={onOpenTask} />
+    </Drawer>
+  );
+}
+
+function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChanged, onOpenTask }: Omit<Props, "onClose" | "task"> & { task: ScheduleTask }) {
+  const toast = useToast();
+  const isResponsible = !!me && task.responsible_user_id === me;
+  const canAct = canManage || isResponsible;
+  const manage = canManage && managementMode;
+  const person = (id: string | null) => staff.find((s) => s.id === id);
+  const shown = displayStatus(task);
+
+  return (
+    <div className="stack tdrawer">
+      <div className="row" style={{ flexWrap: "wrap" }}>
+        <StatusBadge status={shown} />
+        {shown === "overdue" && task.status !== "overdue" && <Badge>{TASK_STATUS_LABEL[task.status]}</Badge>}
+        {!task.client_visible && <Badge tag outline title="O cliente não vê esta etapa">Interna</Badge>}
+      </div>
+
+      {task.auto_skipped && (
+        <Alert tone="info" title="Etapa dispensada">O serviço do qual ela depende não foi contratado. Se for contratado depois, a etapa volta automaticamente.</Alert>
+      )}
+      {task.waiting_reason && !task.auto_skipped && (
+        <Alert tone="warning" title={task.status === "cancelled" ? "Motivo do cancelamento" : "Motivo da espera"}>
+          {task.waiting_reason}
+          <span className="tdrawer__private"> · visível só para a equipe</span>
+        </Alert>
+      )}
+
+      <dl className="kv">
+        <div><dt>Responsável</dt><dd>
+          {manage ? <ResponsibleSelect task={task} staff={staff} onChanged={onChanged} /> :
+            task.responsible_user_id ? <span className="row"><Avatar name={person(task.responsible_user_id)?.name ?? "?"} size="sm" />{person(task.responsible_user_id)?.name ?? "Pessoa da equipe"}</span>
+              : <span className="text-warning">Sem responsável</span>}
+        </dd></div>
+        <div><dt>Duração</dt><dd>{durationText(task)}</dd></div>
+        <div><dt>Início previsto</dt><dd className="num">{task.planned_start_date ? formatDate(task.planned_start_date, true) : "A definir"}</dd></div>
+        <div><dt>Término previsto</dt><dd className="num">{task.planned_end_date ? formatDate(task.planned_end_date, true) : task.duration_type === "ongoing" ? "Contínua" : "A definir"}</dd></div>
+        {task.actual_start_date && <div><dt>Início real</dt><dd className="num">{formatDate(task.actual_start_date, true)}</dd></div>}
+        {task.actual_end_date && <div><dt>Término real</dt><dd className="num">{formatDate(task.actual_end_date, true)}</dd></div>}
+        {task.start_not_before && <div><dt>Não iniciar antes de</dt><dd className="num">{formatDate(task.start_not_before, true)}</dd></div>}
+      </dl>
+      {!task.planned_end_date && task.duration_type === "fixed" && !isClosed(task) && (
+        <p className="subtext">Prazo ainda não definido pela YouCon para esta etapa{canManage ? ". Defina a duração em “Ajustar prazo” para calcular as datas seguintes." : "."}</p>
+      )}
+
+      {canAct && <StatusActions task={task} manager={canManage} onChanged={onChanged} toast={toast} />}
+
+      {manage && !isClosed(task) && <ReschedulePanel task={task} onChanged={onChanged} toast={toast} />}
+
+      <Dependencies task={task} schedule={schedule} manage={manage} onChanged={onChanged} onOpenTask={onOpenTask} toast={toast} />
+
+      {canAct && <Notes task={task} onChanged={onChanged} toast={toast} />}
+
+      <History task={task} schedule={schedule} staff={staff} />
+    </div>
+  );
+}
+
+type Toast = ReturnType<typeof useToast>;
+
+function ResponsibleSelect({ task, staff, onChanged }: { task: ScheduleTask; staff: StaffMember[]; onChanged: () => void }) {
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  return (
+    <Select aria-label="Responsável pela etapa" value={task.responsible_user_id ?? ""} disabled={saving}
+      onChange={async (e) => {
+        setSaving(true);
+        try {
+          await api.setTaskResponsible(task.id, e.target.value || null);
+          toast(e.target.value ? "Responsável definido. A pessoa recebe um aviso." : "Responsável removido.");
+          onChanged();
+        } catch (err) { toast((err as Error).message, "error"); } finally { setSaving(false); }
+      }}>
+      <option value="">Sem responsável</option>
+      {staff.map((m) => <option key={m.id} value={m.id}>{m.name}{m.employment_type ? ` · ${EMPLOYMENT_LABEL[m.employment_type]}` : ""}</option>)}
+    </Select>
+  );
+}
+
+function StatusActions({ task, manager, onChanged, toast }: { task: ScheduleTask; manager: boolean; onChanged: () => void; toast: Toast }) {
+  const actions = statusActions(task, manager);
+  const [pending, setPending] = useState<StatusAction | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState<TaskStatus | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  if (actions.length === 0) return null;
+
+  async function run(a: StatusAction, why?: string) {
+    setBusy(a.status); setErr(null);
+    try {
+      const res = await api.setTaskStatus(task.id, a.status, why ?? null);
+      toast(a.status === "completed"
+        ? (res.impacted_count ? `Etapa concluída. ${plural(res.impacted_count, "etapa seguinte foi recalculada", "etapas seguintes foram recalculadas")}.` : "Etapa concluída.")
+        : `Status atualizado: ${TASK_STATUS_LABEL[a.status]}.`);
+      setPending(null); setReason("");
+      onChanged();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+  }
+
+  return (
+    <section className="tdrawer__section" aria-label="Ações">
+      <h3 className="label">Ações</h3>
+      {err && <Alert tone="danger">{err}</Alert>}
+      {pending ? (
+        <div className="stack">
+          <Field label={pending.label} required hint="Fica no histórico interno. O cliente não vê este texto.">
+            {({ id, describedBy }) => (
+              <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={3} autoFocus
+                placeholder={REASON_PLACEHOLDER[pending.status]} value={reason} onChange={(e) => setReason(e.target.value)} />
+            )}
+          </Field>
+          <div className="row">
+            <Button variant={pending.status === "cancelled" ? "danger" : "primary"} size="sm" loading={busy === pending.status}
+              disabled={reason.trim().length < 3} onClick={() => run(pending, reason)}>Confirmar</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setPending(null); setReason(""); }}>Voltar</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          {actions.map((a) => (
+            <Button key={a.status} size="sm" variant={a.variant ?? "secondary"} loading={busy === a.status}
+              onClick={() => (a.needsReason ? setPending(a) : run(a))}>{a.label}</Button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReschedulePanel({ task, onChanged, toast }: { task: ScheduleTask; onChanged: () => void; toast: Toast }) {
+  const [openPanel, setOpenPanel] = useState(false);
+  const [start, setStart] = useState("");
+  const [duration, setDuration] = useState("");
+  const [preview, setPreview] = useState<SchedulePreview | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState<"preview" | "save" | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const canStart = !isStarted(task);
+  const canDuration = task.duration_type === "fixed" || task.duration_type === "external";
+
+  useEffect(() => { setPreview(null); }, [start, duration]);
+  if (!canStart && !canDuration) return null;
+
+  const parsed = () => ({ s: start || null, d: duration ? Number(duration) : null });
+
+  async function doPreview() {
+    const { s, d } = parsed();
+    if (!s && !d) { setErr("Informe a nova data de início ou a nova duração."); return; }
+    setBusy("preview"); setErr(null);
+    try { setPreview(await api.previewTaskChange(task.id, s, d)); }
+    catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+  }
+  async function doSave() {
+    const { s, d } = parsed();
+    setBusy("save"); setErr(null);
+    try {
+      const r = await api.rescheduleTask(task.id, s, d, reason);
+      toast(r.impacted_count ? `Prazo alterado. ${plural(r.impacted_count, "etapa recalculada", "etapas recalculadas")}.` : "Prazo alterado.");
+      setOpenPanel(false); setStart(""); setDuration(""); setReason(""); setPreview(null);
+      onChanged();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+  }
+
+  if (!openPanel) {
+    return (
+      <section className="tdrawer__section">
+        <Button variant="outline" size="sm" icon="calendar" onClick={() => setOpenPanel(true)}>Ajustar prazo deste projeto</Button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="tdrawer__section resched" aria-label="Ajustar prazo">
+      <div className="row-between"><h3 className="label">Ajustar prazo deste projeto</h3>
+        <Button variant="ghost" size="sm" onClick={() => setOpenPanel(false)}>Fechar</Button></div>
+      <p className="subtext">Muda só este projeto. Para alterar o padrão YouCon, use Serviços e Cronogramas.</p>
+      {err && <Alert tone="danger">{err}</Alert>}
+      <div className="form__cols">
+        {canStart && (
+          <Field label="Não iniciar antes de" hint={task.planned_start_date ? `Hoje previsto: ${formatDate(task.planned_start_date, true)}` : undefined}>
+            {({ id, describedBy }) => <Input id={id} type="date" aria-describedby={describedBy} value={start} onChange={(e) => setStart(e.target.value)} />}
+          </Field>
+        )}
+        {canDuration && (
+          <Field label="Duração (dias úteis)" hint={task.planned_duration_days ? `Atual: ${task.planned_duration_days}` : "Atual: a definir"}>
+            {({ id, describedBy }) => <Input id={id} type="number" inputMode="numeric" min={1} max={2000} aria-describedby={describedBy}
+              value={duration} onChange={(e) => setDuration(e.target.value)} />}
+          </Field>
+        )}
+      </div>
+      {!preview ? (
+        <div><Button size="sm" variant="secondary" loading={busy === "preview"} onClick={doPreview}>Ver impacto</Button></div>
+      ) : (
+        <div className="stack">
+          <div className="impact">
+            <p className="impact__head">
+              <strong>{task.name}</strong>: {formatDate(preview.task.before_start)} – {formatDate(preview.task.before_end)}
+              <Icon name="chevronRight" size={14} />
+              <strong>{formatDate(preview.task.after_start)} – {formatDate(preview.task.after_end)}</strong>
+            </p>
+            {preview.impacted_count === 0 ? (
+              <p className="subtext">Nenhuma outra etapa muda.</p>
+            ) : (
+              <>
+                <p className={cx("impact__count")}>Esta alteração impactará {plural(preview.impacted_count, "etapa", "etapas")}.</p>
+                <ul className="impact__list">
+                  {preview.impacted.slice(0, 8).map((i) => (
+                    <li key={i.id}>
+                      <span className="grow truncate">{i.name} <span className="muted">· {i.service}</span></span>
+                      <span className="num muted">{formatDate(i.before_end)}</span>
+                      <Icon name="chevronRight" size={12} />
+                      <span className="num">{formatDate(i.after_end)}</span>
+                    </li>
+                  ))}
+                  {preview.impacted.length > 8 && <li className="muted">e mais {preview.impacted.length - 8}</li>}
+                </ul>
+              </>
+            )}
+            {preview.forecast_before !== preview.forecast_after && (
+              <p className="subtext">Previsão de conclusão: {formatDate(preview.forecast_before, true)} → <strong>{formatDate(preview.forecast_after, true)}</strong></p>
+            )}
+          </div>
+          <Field label="Motivo da alteração" required hint="Obrigatório. Fica registrado com quem alterou e quando.">
+            {({ id, describedBy }) => <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={2}
+              value={reason} onChange={(e) => setReason(e.target.value)} />}
+          </Field>
+          <div className="row">
+            <Button size="sm" loading={busy === "save"} disabled={reason.trim().length < 3} onClick={doSave}>Confirmar alteração</Button>
+            <Button size="sm" variant="ghost" onClick={() => setPreview(null)}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Dependencies({ task, schedule, manage, onChanged, onOpenTask, toast }: {
+  task: ScheduleTask; schedule: ProjectSchedule; manage: boolean; onChanged: () => void; onOpenTask: (id: string) => void; toast: Toast;
+}) {
+  const byId = useMemo(() => new Map(schedule.tasks.map((t) => [t.id, t])), [schedule.tasks]);
+  const trackName = (trackId: string) => serviceName(schedule.tracks.find((t) => t.id === trackId));
+  const preds = predecessorsOf(task.id, schedule.dependencies);
+  const succs = successorsOf(task.id, schedule.dependencies);
+  const [adding, setAdding] = useState(false);
+  const [target, setTarget] = useState("");
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const options = schedule.tasks.filter((t) => t.id !== task.id && !preds.some((p) => p.depends_on_task_id === t.id) && t.status !== "cancelled");
+
+  async function save() {
+    setBusy(true); setErr(null);
+    try {
+      const r = removing
+        ? await api.removeTaskDependency(task.id, removing, reason)
+        : await api.addTaskDependency(task.id, target, reason);
+      toast(`${removing ? "Dependência removida" : "Dependência criada"}. ${plural(r.impacted_count, "etapa recalculada", "etapas recalculadas")}.`);
+      setAdding(false); setRemoving(null); setTarget(""); setReason("");
+      onChanged();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  const Item = ({ id, removable }: { id: string; removable?: boolean }) => {
+    const t = byId.get(id);
+    if (!t) return null;
+    return (
+      <li>
+        <button type="button" className="deplink" onClick={() => onOpenTask(t.id)}>
+          <span className={cx("task__dot", `tone-${t.status === "completed" ? "success" : t.status === "cancelled" ? "neutral" : "brand"}`)} aria-hidden="true" />
+          <span className="grow truncate">{t.name} <span className="muted">· {trackName(t.schedule_track_id)}</span></span>
+          <span className="muted num">{t.status === "completed" ? "Concluída" : formatDate(t.planned_end_date)}</span>
+        </button>
+        {removable && manage && (
+          <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => { setRemoving(t.id); setAdding(false); setReason(""); }}>
+            Remover dependência
+          </Button>
+        )}
+      </li>
+    );
+  };
+
+  return (
+    <section className="tdrawer__section" aria-label="Dependências">
+      <div className="row-between">
+        <h3 className="label">Dependências</h3>
+        {manage && !adding && !removing && <Button variant="ghost" size="sm" icon="plus" onClick={() => setAdding(true)}>Adicionar</Button>}
+      </div>
+      {preds.length === 0 && succs.length === 0 && <p className="subtext">Esta etapa não depende de outras.</p>}
+      {preds.length > 0 && (<><p className="subtext">Começa depois de</p><ul className="deps">{preds.map((d) => <Item key={d.id} id={d.depends_on_task_id} removable />)}</ul></>)}
+      {succs.length > 0 && (<><p className="subtext">Libera</p><ul className="deps">{succs.map((d) => <Item key={d.id} id={d.task_id} />)}</ul></>)}
+
+      {(adding || removing) && (
+        <div className="stack resched">
+          {err && <Alert tone="danger">{err}</Alert>}
+          {adding && (
+            <Field label="Esta etapa começa depois de">
+              {({ id }) => (
+                <Select id={id} value={target} onChange={(e) => setTarget(e.target.value)}>
+                  <option value="">Selecione a etapa</option>
+                  {schedule.tracks.map((tr) => (
+                    <optgroup key={tr.id} label={serviceName(tr)}>
+                      {options.filter((o) => o.schedule_track_id === tr.id).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </optgroup>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          )}
+          {removing && <p>Remover dependência de <strong>{byId.get(removing)?.name}</strong>? As datas serão recalculadas.</p>}
+          <Field label="Motivo" required>
+            {({ id }) => <Input id={id} value={reason} onChange={(e) => setReason(e.target.value)} />}
+          </Field>
+          <div className="row">
+            <Button size="sm" loading={busy} disabled={reason.trim().length < 3 || (adding && !target)} onClick={save}>
+              {removing ? "Remover e recalcular" : "Adicionar e recalcular"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setRemoving(null); setErr(null); }}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Notes({ task, onChanged, toast }: { task: ScheduleTask; onChanged: () => void; toast: Toast }) {
+  const [value, setValue] = useState(task.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const dirty = (task.notes ?? "") !== value;
+  return (
+    <section className="tdrawer__section" aria-label="Observações">
+      <Field label="Observações" hint="Visível para a equipe do projeto.">
+        {({ id, describedBy }) => <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={3}
+          value={value} onChange={(e) => setValue(e.target.value)} />}
+      </Field>
+      {dirty && (
+        <div className="row">
+          <Button size="sm" variant="secondary" loading={saving} onClick={async () => {
+            setSaving(true);
+            try { await api.saveTaskNotes(task.id, value); toast("Observação salva."); onChanged(); }
+            catch (e) { toast((e as Error).message, "error"); } finally { setSaving(false); }
+          }}>Salvar observação</Button>
+          <Button size="sm" variant="ghost" onClick={() => setValue(task.notes ?? "")}>Descartar</Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function History({ task, schedule, staff }: { task: ScheduleTask; schedule: ProjectSchedule; staff: StaffMember[] }) {
+  const { data, loading, error } = useAsync(() => api.taskHistory(task.id), [task.id, task.status, task.planned_end_date, task.responsible_user_id]);
+  const nameOf = (id: unknown) => staff.find((s) => s.id === id)?.name ?? (id ? "Pessoa da equipe" : "Ninguém");
+  const taskName = (id: unknown) => schedule.tasks.find((t) => t.id === id)?.name ?? "etapa";
+
+  const describe = (c: TaskChange): string | null => {
+    const b = c.before ?? {}; const a = c.after ?? {};
+    switch (c.change_type) {
+      case "status": return `${TASK_STATUS_LABEL[b.status as TaskStatus] ?? "—"} → ${TASK_STATUS_LABEL[a.status as TaskStatus] ?? "—"}`;
+      case "responsible": return `${nameOf(b.responsible_user_id)} → ${nameOf(a.responsible_user_id)}`;
+      case "reschedule": case "duration":
+        return `${formatDate(b.planned_start_date as string)}–${formatDate(b.planned_end_date as string)} → ${formatDate(a.planned_start_date as string)}–${formatDate(a.planned_end_date as string)}`
+          + (b.planned_duration_days !== a.planned_duration_days ? ` (${b.planned_duration_days ?? "?"} → ${a.planned_duration_days ?? "?"} dias úteis)` : "");
+      case "dependency": return a.added ? `Passa a depender de ${taskName(a.added)}` : b.removed ? `Deixa de depender de ${taskName(b.removed)}` : null;
+      default: return null;
+    }
+  };
+
+  return (
+    <section className="tdrawer__section" aria-label="Histórico">
+      <h3 className="label">Histórico</h3>
+      {error ? <p className="subtext">{error}</p> : loading && !data ? <Skeleton height={48} /> :
+        (data ?? []).length === 0 ? <p className="subtext">Sem alterações desde a geração do cronograma.</p> : (
+          <ul className="history">
+            {data!.map((c) => (
+              <li key={c.id}>
+                <span className="history__what">{CHANGE_LABEL[c.change_type] ?? c.change_type}</span>
+                <span className="history__when num">{formatDateTime(c.created_at)}</span>
+                {describe(c) && <span className="history__note">{describe(c)}</span>}
+                {c.reason && <span className="history__note">Motivo: {c.reason}</span>}
+                <span className="history__note muted">
+                  {c.author?.name ?? "Sistema"}{c.impacted_task_ids.length > 0 ? ` · ${plural(c.impacted_task_ids.length, "etapa impactada", "etapas impactadas")}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+    </section>
+  );
+}

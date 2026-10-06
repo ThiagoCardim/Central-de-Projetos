@@ -44,7 +44,7 @@ export function computeNextStep(d: HomeDashboard, perms: Permissions | null): Ne
       tone: "danger", icon: "alert",
       headline: `${plural(ops.counts.tasks_overdue, "etapa atrasada", "etapas atrasadas")} em ${plural(ops.counts.projects_at_risk, "projeto", "projetos")}.`,
       context: worst ? `Mais crítica: ${worst.task_name}, ${worst.project_name} (${worst.overdue_days} ${worst.overdue_days === 1 ? "dia" : "dias"}).` : undefined,
-      action: { label: "Ver cronograma", disabledReason: "Cronograma disponível na Etapa 3" },
+      action: { label: "Ver etapas atrasadas", to: "/cronograma?filtro=overdue" },
     };
   }
   if (ops && ops.awaiting_team.length > 0) {

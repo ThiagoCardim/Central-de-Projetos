@@ -186,6 +186,23 @@ function rpc(name: string, _args?: any) {
     case "get_home_dashboard": return delay({ data: dashboard(), error: null }, 350);
     case "tenant_overview": return delay({ data: overview(), error: null });
     case "admin_create_tenant": return delay({ data: "new-id", error: null });
+    case "preview_task_change": return delay({ data: {
+      task: { id: _args?.p_task, name: "Estudo Preliminar", service: "Projeto Arquitetônico", before_start: d(-30), before_end: d(-2), after_start: d(-30), after_end: d(3),
+        before_duration: 20, after_duration: 25 },
+      impacted: [
+        { id: "a", name: "Alterações", service: "Projeto Arquitetônico", before_start: d(-1), before_end: d(41), after_start: d(4), after_end: d(46) },
+        { id: "b", name: "Imagens 3D e Vídeo", service: "Projeto Arquitetônico", before_start: d(42), before_end: d(55), after_start: d(47), after_end: d(60) },
+        { id: "c", name: "Tempo de Produção da Arquitetura", service: "Projeto Estrutural", before_start: d(-40), before_end: d(-2), after_start: d(-40), after_end: d(3) },
+        { id: "e", name: "Revisão APR x ARQ x ENG", service: "Projeto Estrutural", before_start: d(-1), before_end: d(0), after_start: d(4), after_end: d(5) },
+      ], impacted_count: 4, forecast_before: d(55), forecast_after: d(60) }, error: null }, 300);
+    case "reschedule_task": case "set_task_status": case "add_task_dependency": case "remove_task_dependency":
+      return delay({ data: { impacted_count: 3, status: _args?.p_status }, error: null }, 300);
+    case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
+      return delay({ data: null, error: null }, 300);
+    case "add_project_task": return delay({ data: { task_id: "tr-arq-alteracoes", impacted_count: 2 }, error: null }, 300);
+    case "create_template_draft": return delay({ data: "t-arq2", error: null }, 300);
+    case "generate_project_schedule": case "set_project_area": case "activate_project_service":
+      return delay({ data: { tracks_created: 1, tasks_created: 7, tracks_pending: 0 }, error: null }, 300);
     case "assign_project_team": return delay({ data: { started: true, added: 2, removed: 0 }, error: null }, 400);
     case "allocate_project": case "ignore_intake": return delay({ data: null, error: null }, 400);
     case "reprocess_intake": case "create_manual_intake":
@@ -199,6 +216,7 @@ const svc = (id: string, name: string, family: string, role: string, status = "a
   ({ id: `ps-${id}`, status, active: true, contracted_at: contracted, contract_source: "pipefy",
      service: { id, name, code: id, family: { name: family, default_project_role: role } } });
 
+const RESP: Record<string, [string, string, string]> = { arq: ["p-c1", "Beatriz Nogueira", "clt"], est: ["p-pj", "Camila Rocha", "pj"], int: ["p-c2", "Lucas Ferreira", "clt"] };
 const PROJECTS: any[] = [
   { id: "pr8", code: "YC-2026-0023", name: "Casa de campo", status: "awaiting_team_assignment", client_type: "b2c", project_type: "Residencial",
     city: "Caldas", state: "MG", address: "Estrada da Serra, km 4", area_m2: 286.5, contracted_at: d(-2), created_at: d(-2) + "T14:10:00Z", started_at: null,
@@ -220,12 +238,15 @@ const PROJECTS: any[] = [
     external_source: "pipefy", external_id: "998877", origin_tenant_id: HQ, commercial_tenant_id: HQ, delivery_tenant_id: HQ,
     client: { id: "c-1", tenant_id: HQ, name: "Fernanda Souza", client_type: "b2c", email: "fernanda.souza@gmail.com", phone: null, document: null, company_name: null, status: "ativo" },
     origin: { name: "YouCon Franqueadora" }, commercial: { name: "YouCon Franqueadora" }, delivery: { name: "YouCon Franqueadora" },
-    services: [svc("arq", "Projeto Arquitetônico", "Arquitetura", "architecture", "active", d(-48)), svc("int", "Design de Interiores", "Interiores", "interiors", "active", d(-48)),
+    services: [svc("arq", "Projeto Arquitetônico", "Arquitetura", "architecture", "active", d(-48)), svc("est", "Projeto Estrutural", "Engenharia", "engineering", "active", d(-48)),
+               svc("int", "Design de Interiores", "Interiores", "interiors", "active", d(-48)),
                svc("ele", "Projeto Elétrico", "Engenharia", "engineering", "pending_review", d(-3))],
     team: [
       { id: "tm1", project_role: "project_lead", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-ld", name: "Rafael Andrade", avatar_url: null, employment_type: "clt" } },
       { id: "tm2", project_role: "architecture", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, employment_type: "clt" } },
       { id: "tm3", project_role: "engineering", employment_type: "pj", active: true, assigned_at: d(-3), user: { id: "p-pj", name: "Camila Rocha", avatar_url: null, employment_type: "pj" } },
+      { id: "tm5", project_role: "interiors", employment_type: "clt", active: true, assigned_at: d(-3), user: { id: "p-c2", name: "Lucas Ferreira", avatar_url: null, employment_type: "clt" } },
+      { id: "tm6", project_role: "support", employment_type: "pj", active: true, assigned_at: d(-3), user: { id: "p-pj2", name: "Eduardo Prado", avatar_url: null, employment_type: "pj" } },
     ],
     allocations: [{ id: "al3", allocation_method: "automatic_headquarters", allocation_status: "confirmed", allocated_at: d(-48) + "T10:00:00Z", notes: null, created_at: d(-48) + "T10:00:00Z", delivery: { name: "YouCon Franqueadora" } }] },
   { id: "pr3", code: "YC-2026-0019", name: "Clínica Vida", status: "in_progress", client_type: "b2b", project_type: "Comercial",
@@ -277,6 +298,132 @@ const ROLES = [
   { code: "consulting", name: "Consultoria", sort_order: 6, required: false, active: true },
 ];
 
+
+// ---------- Etapa 3: cronograma simulado ----------
+const addBiz = (start: string, days: number) => {
+  const dt = new Date(`${start}T12:00:00`);
+  while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() + 1);
+  let left = days - 1;
+  while (left > 0) { dt.setDate(dt.getDate() + 1); if (dt.getDay() !== 0 && dt.getDay() !== 6) left--; }
+  return dt.toISOString().slice(0, 10);
+};
+const nextBiz = (date: string) => addBiz(new Date(new Date(`${date}T12:00:00`).getTime() + 86400000).toISOString().slice(0, 10), 1);
+
+const TRACKS: any[] = [];
+const TASKS: any[] = [];
+const DEPS: any[] = [];
+function track(id: string, projectId: string, psId: string, svc: { id: string; name: string; code: string; family: string; fs: number }, status: string, tpl: any, start: string,
+  defs: [string, string, number | null, string?, string?][], done = 0, resp: (string | null)[] = []) {
+  TRACKS.push({ id, project_id: projectId, project_service_id: psId, status, status_note: status === "awaiting_area" ? "Área necessária para definir cronograma." : null,
+    planned_start_date: null, planned_end_date: null, actual_start_date: null, actual_end_date: null, created_at: start + "T10:00:00Z",
+    template: tpl, project_service: { id: psId, status: "active", service: { id: svc.id, name: svc.name, code: svc.code, family: { name: svc.family, sort_order: svc.fs } } } });
+  let cur = start; let prev: string | null = null; let unknown = false;
+  defs.forEach(([code, name, days, type = "fixed", st], i) => {
+    const tid = `${id}-${code}`;
+    const s0 = unknown ? null : cur;
+    const e0 = s0 && days ? addBiz(s0, days) : null;
+    if (!e0 && type !== "ongoing") unknown = true;
+    const status = st ?? (i < done ? "completed" : i === done ? "in_progress" : i === done + 1 ? "not_started" : "not_started");
+    TASKS.push({ id: tid, schedule_track_id: id, project_id: projectId, code, name, description: null, sequence: (i + 1) * 10, duration_type: type,
+      planned_duration_days: days, planned_start_date: s0, planned_end_date: e0, actual_start_date: i <= done && status !== "not_started" && s0 ? s0 : null,
+      actual_end_date: status === "completed" ? e0 : null, status, status_changed_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+      responsible_user_id: resp[i] === undefined ? resp[0] ?? null : resp[i], waiting_reason: status === "waiting_client" ? "Aguardando planta do condomínio" : null,
+      notes: null, start_not_before: null, auto_skipped: false, client_visible: true });
+    if (prev) DEPS.push({ id: `d-${tid}`, task_id: tid, depends_on_task_id: prev, dependency_type: "finish_to_start", lag_days: 0, source: "template" });
+    prev = tid; if (e0) cur = nextBiz(e0);
+  });
+  const tt = TASKS.filter((t) => t.schedule_track_id === id);
+  const tr = TRACKS.find((t) => t.id === id);
+  tr.planned_start_date = tt[0]?.planned_start_date ?? null;
+  tr.planned_end_date = tt.every((t) => t.planned_end_date) ? tt.at(-1)?.planned_end_date ?? null : null;
+}
+track("tr-arq", "pr1", "ps-arq", { id: "arq", name: "Projeto Arquitetônico", code: "projeto_arquitetonico", family: "Arquitetura", fs: 10 }, "in_progress",
+  { name: "Projeto Arquitetônico", version: 1 }, d(-46),
+  [["planejamento", "Planejamento", 20], ["envio_briefing", "Envio do Briefing", 7], ["estudo_preliminar", "Estudo Preliminar", 20], ["alteracoes", "Alterações", 30], ["imagens_3d_video", "Imagens 3D e Vídeo", 10]],
+  2, ["p-c1", "p-c1", "p-c1", "p-c1", "p-pj"]);
+track("tr-int", "pr1", "ps-int", { id: "int", name: "Design de Interiores", code: "design_interiores", family: "Interiores", fs: 40 }, "in_progress",
+  { name: "Design de Interiores — até 500 m²", version: 1 }, d(-12),
+  [["planejamento", "Planejamento", 10], ["envio_briefing", "Envio do Briefing", 5, "fixed", "waiting_client"], ["projeto_interiores", "Projeto de Interiores", 10],
+   ["alteracao", "Alteração", 15], ["renderizacao", "Renderização", 10], ["detalhamento", "Detalhamento", 15], ["assessoria", "Assessoria", 5]], 1, ["p-c2"]);
+track("tr-est", "pr1", "ps-est", { id: "est", name: "Projeto Estrutural", code: "projeto_estrutural", family: "Engenharia", fs: 20 }, "planned",
+  { name: "Projeto Estrutural", version: 1 }, d(-46),
+  [["briefing_arq_apr_eng", "Briefing Arq + Apr + Eng", 3, "fixed", "completed"], ["producao_arquitetura", "Tempo de Produção da Arquitetura", 25, "dependent", "in_progress"],
+   ["revisao_apr_arq_eng", "Revisão APR x ARQ x ENG", 2], ["planejamento", "Planejamento", 10], ["producao_disciplina", "Produção da disciplina", null],
+   ["compatibilizacao", "Compatibilização", null], ["executivo", "Executivo", null]], 0, ["p-pj"]);
+DEPS.push({ id: "d-x1", task_id: "tr-est-producao_arquitetura", depends_on_task_id: "tr-arq-estudo_preliminar", dependency_type: "finish_to_start", lag_days: 0, source: "template" });
+// atraso proposital para a visão geral
+{ const t = TASKS.find((x) => x.id === "tr-arq-estudo_preliminar"); t.planned_end_date = d(-2); }
+
+const CHANGES: any[] = [
+  { id: "c1", task_id: "tr-arq-estudo_preliminar", change_type: "duration", before: { planned_start_date: d(-30), planned_end_date: d(-6), planned_duration_days: 15 },
+    after: { planned_start_date: d(-30), planned_end_date: d(-2), planned_duration_days: 20 }, reason: "Cliente pediu uma rodada extra de layout", impacted_task_ids: ["a", "b", "c"],
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(), author: { name: "Rafael Andrade" } },
+  { id: "c2", task_id: "tr-arq-estudo_preliminar", change_type: "status", before: { status: "ready" }, after: { status: "in_progress" }, reason: null, impacted_task_ids: [],
+    created_at: new Date(Date.now() - 9 * 86400000).toISOString(), author: { name: "Beatriz Nogueira" } },
+];
+
+const LIBRARY = ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo", "Projeto Executivo", "Imagens 3D", "Vídeo 3D", "Detalhamento",
+  "Renderização", "Compatibilização", "Projeto Legal", "Verificação"].map((name, i) => ({ id: `lib-${i}`, name, description: null, family_id: null,
+  default_duration_days: i < 5 ? [20, 7, 20, 30, 10][i] : null, duration_type: "fixed", active: true, created_by: null, created_at: "2026-10-05T12:00:00Z" }));
+
+const FAMILIES = [["arquitetura", "Arquitetura"], ["engenharia", "Engenharia"], ["orcamentos", "Orçamentos"], ["interiores", "Interiores"], ["aprovacoes", "Aprovações e Trâmites"],
+  ["b2b_desenvolvimento", "B2B / Desenvolvimento"], ["obra", "Obra"]].map(([code, name], i) => ({ id: `f-${code}`, code, name, sort_order: (i + 1) * 10, active: true }));
+const CATALOG = [
+  ["arq", "f-arquitetura", "projeto_arquitetonico", "Projeto Arquitetônico", true, true, true],
+  ["est", "f-engenharia", "projeto_estrutural", "Projeto Estrutural", true, true, true],
+  ["ele", "f-engenharia", "projeto_eletrico", "Projeto Elétrico", true, true, true],
+  ["spda", "f-engenharia", "spda", "SPDA", false, true, true],
+  ["oe", "f-orcamentos", "orcamento_estimativo", "Orçamento Estimativo", true, true, false],
+  ["int", "f-interiores", "design_interiores", "Design de Interiores", true, true, true],
+  ["apr", "f-aprovacoes", "aprovacao_projeto_legal", "Aprovação / Projeto Legal", true, true, true],
+].map(([id, family_id, code, name, b2c, b2b, has], i) => ({ id, family_id, code, name, description: null, available_for_b2c: b2c, available_for_b2b: b2b,
+  has_schedule_template: has, requires_area_rule: code === "design_interiores", sort_order: i * 10, active: true, aliases: code === "projeto_arquitetonico" ? ["Arquitetura"] : [] }));
+const tplTasks = (tid: string, defs: [string, string, number | null, string?][]) => defs.map(([code, name, days, type = "fixed"], i) => ({
+  id: `${tid}-${code}`, template_id: tid, code, name, description: null, sort_order: (i + 1) * 10, default_duration_days: days, duration_type: type,
+  include_if_service_codes: code === "compatibilizacao_interiores" ? ["design_interiores"] : null, client_visible: true, active: true }));
+const TEMPLATES: any[] = [
+  { id: "t-arq2", service_id: "arq", name: "Projeto Arquitetônico", version: 2, client_type: null, area_min: null, area_max: null, status: "published", active: true,
+    notes: "Inclui levantamento no local", published_at: d(-20), created_at: d(-21),
+    tasks: tplTasks("t-arq2", [["planejamento", "Planejamento", 20], ["levantamento", "Levantamento no local", 3], ["envio_briefing", "Envio do Briefing", 7],
+      ["estudo_preliminar", "Estudo Preliminar", 20], ["alteracoes", "Alterações", 30], ["imagens_3d_video", "Imagens 3D e Vídeo", 10]]) },
+  { id: "t-arq1", service_id: "arq", name: "Projeto Arquitetônico", version: 1, client_type: null, area_min: null, area_max: null, status: "archived", active: false,
+    notes: "Versão inicial — padrão YouCon", published_at: "2026-10-05", created_at: "2026-10-05", tasks: [] },
+  { id: "t-est", service_id: "est", name: "Projeto Estrutural", version: 1, client_type: null, area_min: null, area_max: null, status: "published", active: true,
+    notes: "Versão inicial — padrão YouCon", published_at: "2026-10-05", created_at: "2026-10-05",
+    tasks: tplTasks("t-est", [["briefing_arq_apr_eng", "Briefing Arq + Apr + Eng", 3], ["producao_arquitetura", "Tempo de Produção da Arquitetura", null, "dependent"],
+      ["revisao_apr_arq_eng", "Revisão APR x ARQ x ENG", 2], ["planejamento", "Planejamento", 10], ["producao_disciplina", "Produção da disciplina", null],
+      ["compatibilizacao", "Compatibilização", null], ["executivo", "Executivo", null], ["compatibilizacao_interiores", "Compatibilização para interiores", null]]) },
+  { id: "t-int1", service_id: "int", name: "Design de Interiores — até 500 m²", version: 1, client_type: null, area_min: null, area_max: 500, status: "published", active: true,
+    notes: null, published_at: "2026-10-05", created_at: "2026-10-05",
+    tasks: tplTasks("t-int1", [["planejamento", "Planejamento", 10], ["envio_briefing", "Envio do Briefing", 5], ["projeto_interiores", "Projeto de Interiores", 10], ["alteracao", "Alteração", 15]]) },
+  { id: "t-int2", service_id: "int", name: "Design de Interiores — acima de 500 m²", version: 1, client_type: null, area_min: 500, area_max: null, status: "published", active: true,
+    notes: null, published_at: "2026-10-05", created_at: "2026-10-05",
+    tasks: tplTasks("t-int2", [["planejamento", "Planejamento", 15], ["envio_briefing", "Envio do Briefing", 7], ["layout_modelagem", "Layout + Modelagem", 15]]) },
+];
+const TEMPLATE_DEPS = [{ id: "td1", template_task_id: "t-est-producao_arquitetura", predecessor_task_id: null, predecessor_service_code: "projeto_arquitetonico", predecessor_task_code: "estudo_preliminar" }];
+
+PROJECTS.forEach((p) => p.services.forEach((x: any) => {
+  const r = p.id === "pr1" ? RESP[x.service.id] : undefined;
+  x.responsible_user_id = r?.[0] ?? null;
+  x.responsible = r ? { id: r[0], name: r[1], avatar_url: null, employment_type: r[2] } : null;
+  x.service.family.sort_order = x.service.family.name === "Arquitetura" ? 10 : x.service.family.name === "Engenharia" ? 20 : 40;
+}));
+
+function alertsView() {
+  const today = new Date().toISOString().slice(0, 10);
+  return TASKS.map((t) => {
+    const p = PROJECTS.find((x) => x.id === t.project_id);
+    const tr = TRACKS.find((x) => x.id === t.schedule_track_id);
+    const due = t.planned_end_date ? Math.round((new Date(`${t.planned_end_date}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime()) / 86400000) : null;
+    const open = !["completed", "cancelled"].includes(t.status);
+    return { task_id: t.id, project_id: t.project_id, task_name: t.name, status: t.status, responsible_user_id: t.responsible_user_id,
+      planned_start_date: t.planned_start_date, planned_end_date: t.planned_end_date, project_name: p?.name, project_code: p?.code, service_name: tr?.project_service.service.name,
+      due_in_days: due, overdue_days: open && due != null && due < 0 ? -due : null, waiting_days: ["waiting_client", "waiting_dependency", "waiting_third_party"].includes(t.status) ? 5 : null,
+      is_overdue: open && due != null && due < 0, is_blocked: ["waiting_dependency", "waiting_third_party"].includes(t.status), is_waiting_client: t.status === "waiting_client",
+      is_unassigned: open && !t.responsible_user_id };
+  });
+}
+
 function visibleRows(table: string): any[] {
   const p = me();
   if (!p) return [];
@@ -288,7 +435,21 @@ function visibleRows(table: string): any[] {
   }
   if (table === "project_intakes") return currentKey() === "empty" ? [] : INTAKES;
   if (table === "project_roles") return ROLES;
-  if (table === "services") return ["Projeto Arquitetônico", "Projeto Estrutural", "Projeto Elétrico", "Projeto Hidrossanitário", "Design de Interiores", "SPDA"].map((name) => ({ name }));
+  if (table === "project_schedule_tracks") return TRACKS;
+  if (table === "project_tasks") return TASKS;
+  if (table === "task_dependencies") return DEPS;
+  if (table === "task_changes") return CHANGES;
+  if (table === "task_alerts") return alertsView().filter((a) => {
+    if (p.role === "collaborator") return a.responsible_user_id === p.id;
+    return true;
+  });
+  if (table === "task_library") return LIBRARY;
+  if (table === "service_families") return FAMILIES;
+  if (table === "schedule_templates") return TEMPLATES;
+  if (table === "template_task_dependencies") return TEMPLATE_DEPS;
+  if (table === "template_tasks") return TEMPLATES.filter((t) => t.active).flatMap((t) => t.tasks.map((x: any) => ({ ...x,
+    template: { active: true, service: CATALOG.find((c) => c.id === t.service_id) } })));
+  if (table === "services") return CATALOG;
   if (table === "service_packages") return [{ name: "Projetos Complementares" }];
   if (table === "project_team") {
     return PROJECTS.flatMap((x) => x.team.filter((t: any) => t.active).map((t: any) => ({ active: true, user_id: t.user.id, project_role: t.project_role, project: { id: x.id, name: x.name, status: x.status, delivery_tenant_id: x.delivery_tenant_id } })));
@@ -313,13 +474,14 @@ function from(table: string) {
     order: () => q,
     eq: (col: string, val: any) => { if (!col.includes(".")) filters.push([col, val]); return q; },
     in: () => q,
+    not: (col: string, _op: string, val: string) => { const vals = val.replace(/[()]/g, "").split(","); filters.push([col, { notIn: vals }]); return q; },
     limit: () => q,
     single: () => { single = true; return q; },
     maybeSingle: () => { single = true; return q; },
     insert: () => { mode = "insert"; return q; },
     update: () => { mode = "update"; return q; },
     then: (resolve: any, reject: any) => {
-      let rows = visibleRows(table).filter((r) => filters.every(([c, v]) => r[c] === v));
+      let rows = visibleRows(table).filter((r) => filters.every(([c, v]) => (v && typeof v === "object" && v.notIn) ? !v.notIn.includes(r[c]) : r[c] === v));
       const result = mode !== "select" ? { data: null, error: null } : { data: single ? rows[0] ?? null : rows, error: null };
       return delay(result).then(resolve, reject);
     },

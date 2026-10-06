@@ -15,6 +15,8 @@ import { UnitsPage } from "@/pages/units/UnitsPage";
 import { IntakePage } from "@/pages/intake/IntakePage";
 import { ProjectDetailPage, ProjectsPage } from "@/pages/projects/ProjectsPages";
 import { ClientsPage, TeamPage } from "@/pages/clients/ClientsTeamPages";
+import { MySchedulePage, ProjectSchedulePage } from "@/pages/schedule/SchedulePages";
+import { TemplatesPage } from "@/pages/templates/TemplatesPage";
 
 function Boot() {
   return <div className="boot" aria-busy="true" aria-label="Carregando"><BrandMark className="boot__mark" /></div>;
@@ -88,6 +90,9 @@ export function App() {
             { path: "/entrada", element: <Protected requires="viewIntake"><IntakePage /></Protected> },
             { path: "/projetos", element: <Protected requires="staff"><ProjectsPage /></Protected> },
             { path: "/projetos/:id", element: <Protected requires="staff"><ProjectDetailPage /></Protected> },
+            { path: "/projetos/:id/cronograma", element: <Protected requires="staff"><ProjectSchedulePage /></Protected> },
+            { path: "/cronograma", element: <Protected requires="staff"><MySchedulePage /></Protected> },
+            { path: "/servicos", element: <Protected requires="manager"><TemplatesPage /></Protected> },
             { path: "/clientes", element: <Protected requires="manager"><ClientsPage /></Protected> },
             { path: "/equipe", element: <Protected requires="manager"><TeamPage /></Protected> },
             { path: "*", element: <NotFound /> },

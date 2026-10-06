@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "@/services/auth";
 import { api } from "@/services/api";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
@@ -394,6 +394,8 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
 
           <fieldset className="form__group">
             <legend className="label">Identificação</legend>
+            {editing ? <PhotoField profile={editing} onChanged={onStatusChanged} />
+              : <p className="subtext">A foto de perfil pode ser adicionada depois do convite.</p>}
             <Field label="Nome completo" required error={errors.name}>
               {({ id, describedBy, invalid }) => (
                 <Input id={id} value={form.name} onChange={(e) => set("name", e.target.value)} autoComplete="off"
@@ -516,5 +518,41 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
         onCancel={() => setConfirmStatus(false)}
       />
     </>
+  );
+}
+
+/** Foto de perfil: a própria pessoa ou quem administra os usuários da unidade. */
+function PhotoField({ profile, onChanged }: { profile: Profile; onChanged: () => void }) {
+  const toast = useToast();
+  const [url, setUrl] = useState(profile.avatar_url);
+  const [busy, setBusy] = useState(false);
+  const inputId = useId();
+  useEffect(() => { setUrl(profile.avatar_url); }, [profile.id, profile.avatar_url]);
+
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try { const u = await api.uploadAvatar(profile.id, file); setUrl(u); toast("Foto atualizada."); onChanged(); }
+    catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
+  }
+  return (
+    <div className="photo">
+      <Avatar name={profile.name} src={url} size="lg" />
+      <div className="photo__actions">
+        <label htmlFor={inputId} className={cx("btn btn--secondary btn--sm", busy && "is-busy")} aria-disabled={busy || undefined}>
+          <Icon name="user" /> {busy ? "Enviando…" : url ? "Trocar foto" : "Adicionar foto"}
+        </label>
+        <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={busy}
+          onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
+        {url && (
+          <Button variant="ghost" size="sm" disabled={busy} onClick={async () => {
+            setBusy(true);
+            try { await api.removeAvatar(profile.id); setUrl(null); toast("Foto removida."); onChanged(); }
+            catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
+          }}>Remover</Button>
+        )}
+        <span className="field__hint">JPG, PNG ou WebP, até 2 MB.</span>
+      </div>
+    </div>
   );
 }
