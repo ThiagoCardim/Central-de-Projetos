@@ -16,7 +16,7 @@ import { TaskDrawer } from "./TaskDrawer";
 import { AddTaskDrawer } from "./AddTaskDrawer";
 import {
   displayStatus, durationText, forecastOf, isBlocked, isClosed, isOverdue, isWaitingClient, matchesFilters, progressOf,
-  QUICK_FILTERS, serviceName, sortTracks, todayISO, TRACK_STATUS_LABEL, TRACK_STATUS_TONE,
+  QUICK_FILTERS, serviceName, sortTracks, stepFilterKey, todayISO, TRACK_STATUS_LABEL, TRACK_STATUS_TONE,
   type QuickFilter, type ScheduleFilters,
 } from "./model";
 
@@ -40,7 +40,7 @@ export function ProjectSchedulePage() {
     try { return (localStorage.getItem(VIEW_KEY) as View) || "tracks"; } catch { return "tracks"; }
   });
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* sem armazenamento */ } };
-  const [filters, setFilters] = useState<ScheduleFilters>({ quick: "all", service: "", responsible: "", showDone: true });
+  const [filters, setFilters] = useState<ScheduleFilters>({ quick: "all", service: "", responsible: "", step: "", showDone: true });
   const [mode, setMode] = useState<"view" | "manage">("view");
   const [selected, setSelected] = useState<string | null>(taskParam);
   const [addTrack, setAddTrack] = useState<string | null>(null);
@@ -104,7 +104,7 @@ export function ProjectSchedulePage() {
               </div>
 
               {view !== "overview" && (
-                <Filters filters={filters} setFilters={setFilters} tracks={s.tracks} staff={staff.data ?? []} />
+                <Filters filters={filters} setFilters={setFilters} tracks={s.tracks} tasks={s.tasks} staff={staff.data ?? []} />
               )}
 
               {view === "overview" && <Overview schedule={s} staff={staff.data ?? []} onOpen={setSelected}
@@ -233,21 +233,37 @@ function Summary({ schedule }: { schedule: ProjectSchedule }) {
 }
 
 /* ---------- Filtros ---------- */
-function Filters({ filters, setFilters, tracks, staff }: {
-  filters: ScheduleFilters; setFilters: (f: ScheduleFilters) => void; tracks: ScheduleTrack[]; staff: StaffMember[];
+function Filters({ filters, setFilters, tracks, tasks, staff }: {
+  filters: ScheduleFilters; setFilters: (f: ScheduleFilters) => void; tracks: ScheduleTrack[]; tasks: ScheduleTask[]; staff: StaffMember[];
 }) {
-  const active = filters.quick !== "all" || !!filters.service || !!filters.responsible;
+  const active = filters.quick !== "all" || !!filters.service || !!filters.responsible || !!filters.step;
+  // Etapas do projeto (do serviço escolhido, se houver), sem repetir nomes, na ordem do cronograma.
+  const steps = useMemo(() => {
+    const seen = new Map<string, string>();
+    tasks.filter((t) => t.status !== "cancelled" && (!filters.service || t.schedule_track_id === filters.service))
+      .sort((a, b) => (a.planned_start_date ?? "9999").localeCompare(b.planned_start_date ?? "9999") || a.sequence - b.sequence)
+      .forEach((t) => { const k = stepFilterKey(t.name); if (!seen.has(k)) seen.set(k, t.name); });
+    return [...seen.entries()];
+  }, [tasks, filters.service]);
+  const changeService = (service: string) => {
+    const keepStep = !filters.step || tasks.some((t) => (!service || t.schedule_track_id === service) && stepFilterKey(t.name) === filters.step);
+    setFilters({ ...filters, service, step: keepStep ? filters.step : "" });
+  };
   return (
-    <FilterBar active={active} onClear={() => setFilters({ ...filters, quick: "all", service: "", responsible: "" })}>
+    <FilterBar active={active} onClear={() => setFilters({ ...filters, quick: "all", service: "", responsible: "", step: "" })}>
       <div className="chips" role="group" aria-label="Filtro rápido">
         {QUICK_FILTERS.map((q) => (
           <button key={q.value} type="button" className="chip" aria-pressed={filters.quick === q.value}
             onClick={() => setFilters({ ...filters, quick: q.value })}>{q.label}</button>
         ))}
       </div>
-      <Select aria-label="Serviço" value={filters.service} onChange={(e) => setFilters({ ...filters, service: e.target.value })}>
+      <Select aria-label="Serviço" value={filters.service} onChange={(e) => changeService(e.target.value)}>
         <option value="">Todos os serviços</option>
         {sortTracks(tracks).map((t) => <option key={t.id} value={t.id}>{serviceName(t)}</option>)}
+      </Select>
+      <Select aria-label="Etapa" value={filters.step} onChange={(e) => setFilters({ ...filters, step: e.target.value })}>
+        <option value="">Todas as etapas</option>
+        {steps.map(([k, name]) => <option key={k} value={k}>{name}</option>)}
       </Select>
       <Select aria-label="Responsável" value={filters.responsible} onChange={(e) => setFilters({ ...filters, responsible: e.target.value })}>
         <option value="">Todos os responsáveis</option>
@@ -344,7 +360,7 @@ function TracksView({ schedule, staff, filters, me, onOpen, onAdd }: {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const today = todayISO();
   const tracks = sortTracks(schedule.tracks).filter((tr) => !filters.service || tr.id === filters.service);
-  const filtered = filters.quick !== "all" || !!filters.responsible;
+  const filtered = filters.quick !== "all" || !!filters.responsible || !!filters.step;
   const visible = tracks.map((tr) => ({ tr, tasks: schedule.tasks.filter((t) => t.schedule_track_id === tr.id && matchesFilters(t, filters, me, today)) }))
     .filter((x) => !filtered || x.tasks.length > 0);
 

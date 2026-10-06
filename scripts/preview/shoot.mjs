@@ -68,6 +68,7 @@ const scenes = [
     await p.getByRole("button", { name: "Ajustar prazo deste projeto" }).click();
     await p.getByLabel("Duração (dias úteis)").fill("25"); await p.getByRole("button", { name: "Ver impacto" }).click(); await p.waitForTimeout(500); } },
   { name: "sched-add", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: "Adicionar etapa" }).first().click(); } },
+  { name: "sched-step-filter", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Lista" }).click(); await p.getByLabel("Etapa", { exact: true }).selectOption({ label: "Planejamento" }); await p.waitForTimeout(300); } },
   { name: "sched-clt", url: "/projetos/pr1/cronograma?as=clt&etapa=tr-arq-estudo_preliminar", vp: DESKTOP },
   { name: "mysched-leader", url: "/cronograma?as=leader", vp: DESKTOP, full: true },
   { name: "mysched-clt", url: "/cronograma?as=clt", vp: DESKTOP, full: true },

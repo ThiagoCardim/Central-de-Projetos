@@ -72,10 +72,14 @@ export const QUICK_FILTERS: { value: QuickFilter; label: string }[] = [
   { value: "unassigned", label: "Sem responsável" },
 ];
 
-export interface ScheduleFilters { quick: QuickFilter; service: string; responsible: string; showDone: boolean }
+export interface ScheduleFilters { quick: QuickFilter; service: string; responsible: string; step: string; showDone: boolean }
+
+/** Chave do filtro por etapa: o mesmo nome em serviços diferentes conta como a mesma etapa. */
+export const stepFilterKey = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 export function matchesFilters(t: ScheduleTask, f: ScheduleFilters, me: string | null, today = todayISO()): boolean {
   if (f.service && t.schedule_track_id !== f.service) return false;
+  if (f.step && stepFilterKey(t.name) !== f.step) return false;
   if (f.responsible === "none" && t.responsible_user_id) return false;
   if (f.responsible && f.responsible !== "none" && t.responsible_user_id !== f.responsible) return false;
   if (!f.showDone && t.status === "cancelled" && t.auto_skipped) return false;
