@@ -365,7 +365,7 @@ const CHANGES: any[] = [
     created_at: new Date(Date.now() - 9 * 86400000).toISOString(), author: { name: "Beatriz Nogueira" } },
 ];
 
-const LIBRARY = ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo", "Projeto Executivo", "Imagens 3D", "Vídeo 3D", "Detalhamento",
+const LIBRARY: any[] = ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo", "Projeto Executivo", "Imagens 3D", "Vídeo 3D", "Detalhamento",
   "Renderização", "Compatibilização", "Projeto Legal", "Verificação"].map((name, i) => ({ id: `lib-${i}`, name, description: null, family_id: null,
   default_duration_days: i < 5 ? [20, 7, 20, 30, 10][i] : null, duration_type: "fixed", active: true, created_by: null, created_at: "2026-10-05T12:00:00Z", sort_order: (i + 1) * 10 }));
 LIBRARY[LIBRARY.length - 1].active = false;
@@ -486,6 +486,7 @@ function from(table: string) {
   const filters: [string, any][] = [];
   let mode: "select" | "insert" | "update" = "select";
   let single = false;
+  let payload: any = null;
   const q: any = {
     select: () => q,
     order: () => q,
@@ -495,10 +496,15 @@ function from(table: string) {
     limit: () => q,
     single: () => { single = true; return q; },
     maybeSingle: () => { single = true; return q; },
-    insert: () => { mode = "insert"; return q; },
+    insert: (row: any) => { mode = "insert"; payload = row; return q; },
     update: () => { mode = "update"; return q; },
     then: (resolve: any, reject: any) => {
       let rows = visibleRows(table).filter((r) => filters.every(([c, v]) => (v && typeof v === "object" && v.notIn) ? !v.notIn.includes(r[c]) : r[c] === v));
+      if (mode === "insert" && table === "task_library" && single) {
+        const item = { id: `lib-new-${Date.now()}`, description: null, family_id: null, active: true, created_at: new Date().toISOString(), sort_order: 9999, ...payload };
+        LIBRARY.push(item);
+        return delay({ data: item, error: null }).then(resolve, reject);
+      }
       const result = mode !== "select" ? { data: null, error: null } : { data: single ? rows[0] ?? null : rows, error: null };
       return delay(result).then(resolve, reject);
     },

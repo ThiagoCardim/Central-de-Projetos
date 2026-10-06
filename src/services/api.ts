@@ -271,6 +271,19 @@ export const api = {
     }
   },
 
+  /** Registra uma etapa nova na biblioteca e devolve o item (usado pelo seletor de etapas). */
+  async createTaskLibraryItem(input: { name: string; duration_type: "fixed" | "external" | "ongoing"; default_duration_days?: number | null; created_by?: string | null }): Promise<TaskLibraryItem> {
+    const { data, error } = await supabase.from("task_library").insert({
+      name: input.name.trim(), duration_type: input.duration_type, created_by: input.created_by ?? null,
+      default_duration_days: input.duration_type === "fixed" ? input.default_duration_days ?? null : null,
+    }).select("id, name, description, family_id, default_duration_days, duration_type, active, created_by, created_at, sort_order").single();
+    if (error) {
+      if (error.code === "23505") throw new UserFacingError("Já existe uma etapa com este nome na biblioteca (talvez entre as excluídas).");
+      throw toUserError(error);
+    }
+    return data as TaskLibraryItem;
+  },
+
   // ---------- Foto de perfil ----------
   async uploadAvatar(profileId: string, file: File): Promise<string> {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new UserFacingError("Use uma imagem JPG, PNG ou WebP.");

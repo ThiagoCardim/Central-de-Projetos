@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "@/services/auth";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
@@ -12,6 +12,7 @@ import type {
   CatalogService, ClientType, DurationType, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
 } from "@/types/domain";
 import { cx, formatDate, plural } from "@/utils/format";
+import { StepPicker } from "@/components/ui/StepPicker";
 import { DURATION_TYPE_LABEL } from "@/pages/schedule/model";
 import { groupIndexes, parallelFromDeps, useDragSort } from "@/components/ui/sortable";
 
@@ -392,7 +393,7 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
   template: ScheduleTemplate; service: CatalogService; onClose: () => void; onSaved: () => void; onDone: () => void;
 }) {
   const toast = useToast();
-  const listId = useId();
+  const { permissions } = useAuth();
   const library = useAsync(() => api.listTaskLibrary(), []);
   const crossOptions = useAsync(() => api.activeTemplateTasks(), []);
   const deps = useAsync(() => api.templateDependencies(template.id), [template.id]);
@@ -406,6 +407,7 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
   const [leaving, setLeaving] = useState(false);
   const [drag, setDrag] = useState<{ p: number; s: number } | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     if (!deps.data || phases) return;
@@ -422,10 +424,14 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
 
   const mutate = (fn: (ps: EPhase[]) => EPhase[]) => { setPhases((ps) => fn(ps!.map((p) => ({ ...p, steps: [...p.steps] })))); setDirty(true); };
   const updateStep = (pi: number, si: number, patch: Partial<EStep>) => mutate((ps) => { ps[pi].steps[si] = { ...ps[pi].steps[si], ...patch }; return ps; });
-  const fromLibrary = (pi: number, si: number, value: string) => {
-    const l = (library.data ?? []).find((x: TaskLibraryItem) => x.name.toLowerCase() === value.trim().toLowerCase());
-    updateStep(pi, si, l ? { name: value, ...(l.default_duration_days ? { days: String(l.default_duration_days) } : {}),
-      ...(l.duration_type !== "dependent" ? { duration_type: l.duration_type } : {}) } : { name: value });
+  const fromLibrary = (pi: number, si: number, l: TaskLibraryItem) =>
+    updateStep(pi, si, { name: l.name, ...(l.default_duration_days ? { days: String(l.default_duration_days) } : {}),
+      ...(l.duration_type !== "dependent" ? { duration_type: l.duration_type } : {}) });
+  const createInLibrary = async (input: { name: string; duration_type: "fixed" | "external" | "ongoing"; default_duration_days: number | null }) => {
+    const item = await api.createTaskLibraryItem({ ...input, created_by: permissions?.profile_id ?? null });
+    library.setData([...(library.data ?? []), item]);
+    toast(`“${item.name}” registrada na biblioteca.`);
+    return item;
   };
   const addPhaseAt = (index: number) => mutate((ps) => { ps.splice(index, 0, { key: crypto.randomUUID(), steps: [newStep()] }); return ps; });
   const movePhase = (i: number, d: -1 | 1) => mutate((ps) => { const j = i + d; if (j < 0 || j >= ps.length) return ps; [ps[i], ps[j]] = [ps[j], ps[i]]; return ps; });
@@ -451,6 +457,10 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
   })));
 
   async function save(thenPublish: boolean) {
+    if (phases!.some((ph) => ph.steps.some((x) => !x.name.trim()))) {
+      setMissing(true); setPublishing(false); setErr("Selecione a etapa em todas as linhas (ou remova as linhas vazias).");
+      return;
+    }
     setBusy(thenPublish ? "publish" : "save"); setErr(null);
     try {
       await api.saveTemplateDraft(template.id, name, payload());
@@ -490,7 +500,6 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
         </div>
         {err && <Alert tone="danger" title="Não foi salvo">{err}</Alert>}
         <Field label="Nome do padrão">{({ id }) => <Input id={id} value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} />}</Field>
-        <datalist id={listId}>{(library.data ?? []).map((l) => <option key={l.id} value={l.name} />)}</datalist>
 
         {!phases ? <Skeleton height={280} /> : (
           <div className="ph-list">
@@ -526,8 +535,8 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
                           <div className="es__main">
                             <span className="drag-grip" role="button" tabIndex={0} aria-label={`Mover ${s.name || "etapa"}`} title="Arraste para mover"
                               onPointerDown={() => setDrag({ p: pi, s: si })}><Icon name="grip" size={16} /></span>
-                            <Input className="es__name" aria-label="Nome da etapa" list={listId} value={s.name} placeholder="Nome da etapa (biblioteca ou novo)"
-                              onChange={(e) => fromLibrary(pi, si, e.target.value)} />
+                            <StepPicker className="es__name" library={library.data ?? []} value={s.name} label={`Etapa ${si + 1} da fase ${pi + 1}`}
+                              invalid={missing && !s.name.trim()} onPick={(l) => fromLibrary(pi, si, l)} onCreate={permissions?.is_manager ? createInLibrary : undefined} />
                             <Select className="es__type" aria-label="Tipo de prazo" value={s.duration_type}
                               onChange={(e) => updateStep(pi, si, { duration_type: e.target.value as DurationType, showCross: e.target.value === "dependent" || s.showCross })}>
                               <option value="fixed">Dias úteis</option>

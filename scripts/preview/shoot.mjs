@@ -84,6 +84,18 @@ const scenes = [
   { name: "templates-editor", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1300 }, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700); } },
   { name: "editor-drag", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1300 }, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700);
     await p.locator(".es .drag-grip").nth(5).dragTo(p.locator(".es").nth(3)); await p.waitForTimeout(400); } },
+  { name: "picker-open", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700);
+    await p.locator(".es .step-pick").nth(1).click(); await p.waitForTimeout(300); } },
+  { name: "picker-search", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700);
+    await p.locator(".es .step-pick").nth(1).click(); await p.keyboard.type("imag"); await p.waitForTimeout(300); } },
+  { name: "picker-new", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700);
+    await p.locator(".es .step-pick").nth(1).click(); await p.keyboard.type("Alteração"); await p.locator(".step-pop__new").click(); await p.waitForTimeout(300); } },
+  { name: "picker-created", url: "/servicos?as=global_admin", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700);
+    await p.locator(".es .step-pick").nth(1).click(); await p.keyboard.type("Maquete física"); await p.locator(".step-pop__new").click(); await p.getByRole("button", { name: "Adicionar e selecionar" }).click(); await p.waitForTimeout(600); } },
+  { name: "picker-add-task", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: "Adicionar etapa" }).first().click(); await p.waitForTimeout(400);
+    await p.locator(".drawer .step-pick").click(); await p.waitForTimeout(300); } },
+  { name: "m-picker", url: "/servicos?as=global_admin", vp: MOBILE, action: async (p) => { await p.getByRole("button", { name: "Editar padrão" }).click(); await p.waitForTimeout(700);
+    await p.locator(".es .step-pick").nth(0).click(); await p.waitForTimeout(300); } },
   { name: "library", url: "/servicos?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Biblioteca de etapas" }).click(); } },
   { name: "library-drag", url: "/servicos?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Biblioteca de etapas" }).click();
     await p.locator(".lib-list .drag-grip").nth(0).dragTo(p.locator(".lib-list li").nth(3)); await p.waitForTimeout(400); } },
