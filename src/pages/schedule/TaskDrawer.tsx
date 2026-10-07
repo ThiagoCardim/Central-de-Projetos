@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import type { ProjectSchedule, ScheduleTask, SchedulePreview, StaffMember, TaskChange, TaskStatus } from "@/types/domain";
 import { cx, EMPLOYMENT_LABEL, formatDate, formatDateTime, plural, TASK_STATUS_LABEL } from "@/utils/format";
 import { ImpactPreview } from "./ImpactPreview";
+import { EMPTY_REASON, ReasonField, reasonIsValid, useChangeReasons } from "./ReasonField";
 import {
   CHANGE_LABEL, displayStatus, durationText, isClosed, isStarted, predecessorsOf, REASON_PLACEHOLDER, serviceName,
   statusActions, successorsOf, type StatusAction,
@@ -167,7 +168,8 @@ function ReschedulePanel({ task, onChanged, toast }: { task: ScheduleTask; onCha
   const [start, setStart] = useState("");
   const [duration, setDuration] = useState("");
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(EMPTY_REASON);
+  const [reasons, reasonsErr] = useChangeReasons();
   const [busy, setBusy] = useState<"preview" | "save" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const canStart = !isStarted(task);
@@ -189,9 +191,9 @@ function ReschedulePanel({ task, onChanged, toast }: { task: ScheduleTask; onCha
     const { s, d } = parsed();
     setBusy("save"); setErr(null);
     try {
-      const r = await api.rescheduleTask(task.id, s, d, reason);
+      const r = await api.rescheduleTaskWithReason(task.id, s, d, reason.reasonId, reason.text);
       toast(r.impacted_count ? `Prazo alterado. ${plural(r.impacted_count, "etapa recalculada", "etapas recalculadas")}.` : "Prazo alterado.");
-      setOpenPanel(false); setStart(""); setDuration(""); setReason(""); setPreview(null);
+      setOpenPanel(false); setStart(""); setDuration(""); setReason(EMPTY_REASON); setPreview(null);
       onChanged();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   }
@@ -228,12 +230,10 @@ function ReschedulePanel({ task, onChanged, toast }: { task: ScheduleTask; onCha
       ) : (
         <div className="stack">
           <ImpactPreview name={task.name} preview={preview} />
-          <Field label="Motivo da alteração" required hint="Obrigatório. Fica registrado com quem alterou e quando.">
-            {({ id, describedBy }) => <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={2}
-              value={reason} onChange={(e) => setReason(e.target.value)} />}
-          </Field>
+          {reasonsErr ? <Alert tone="danger">{reasonsErr}</Alert>
+            : <ReasonField value={reason} onChange={setReason} reasons={reasons} />}
           <div className="row">
-            <Button size="sm" loading={busy === "save"} disabled={reason.trim().length < 3} onClick={doSave}>Confirmar alteração</Button>
+            <Button size="sm" loading={busy === "save"} disabled={!reasonIsValid(reason, reasons)} onClick={doSave}>Confirmar alteração</Button>
             <Button size="sm" variant="ghost" onClick={() => setPreview(null)}>Cancelar</Button>
           </div>
         </div>

@@ -361,6 +361,33 @@ export interface TaskChange {
   author: { name: string } | null;
 }
 
+/** Motivo padronizado de alteração de prazo. */
+export interface ChangeReason {
+  id: string;
+  label: string;
+  description: string | null;
+  client_visible: boolean;
+  is_other: boolean;
+  sort_order: number;
+  active: boolean;
+}
+
+/** Alteração de prazo exibida ao cliente. */
+export interface ClientScheduleChange {
+  id: string;
+  project_id: string;
+  project_name: string;
+  task_name: string;
+  service_name: string | null;
+  change_type: "reschedule" | "duration";
+  reason: string | null;
+  reason_detail: string | null;
+  before_start: string | null; before_end: string | null;
+  after_start: string | null; after_end: string | null;
+  impacted_count: number;
+  changed_at: string;
+}
+
 export interface SchedulePreviewItem {
   id: string; name: string; service: string;
   before_start: string | null; before_end: string | null; after_start: string | null; after_end: string | null;

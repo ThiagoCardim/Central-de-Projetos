@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AppNotification, AutomationRule, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -284,6 +284,13 @@ export const api = {
     rpc<SchedulePreview>("preview_task_change", { p_task: taskId, p_start: start, p_duration: duration }),
   rescheduleTask: (taskId: string, start: string | null, duration: number | null, reason: string) =>
     rpc<{ impacted_count: number }>("reschedule_task", { p_task: taskId, p_start: start, p_duration: duration, p_reason: reason }),
+  /** Reprograma com motivo da lista; "Outro motivo" exige texto, nos demais o texto é uma observação opcional. */
+  rescheduleTaskWithReason: (taskId: string, start: string | null, duration: number | null, reasonId: string, reasonText: string | null) =>
+    rpc<{ impacted_count: number }>("reschedule_task_with_reason", {
+      p_task: taskId, p_start: start, p_duration: duration, p_reason_id: reasonId, p_reason_text: reasonText?.trim() || null,
+    }),
+  clientScheduleChanges: (projectId?: string | null, limit = 50) =>
+    rpc<ClientScheduleChange[]>("client_schedule_changes", { p_project: projectId ?? null, p_limit: limit }),
   setTaskStatus: (taskId: string, status: TaskStatus, reason?: string | null) =>
     rpc<{ impacted_count: number; status: TaskStatus }>("set_task_status", { p_task: taskId, p_status: status, p_reason: reason ?? null }),
   setTaskResponsible: (taskId: string, userId: string | null) => rpc<void>("set_task_responsible", { p_task: taskId, p_user: userId }),
@@ -335,6 +342,30 @@ export const api = {
       throw toUserError(error);
     }
     return data as TaskLibraryItem;
+  },
+
+  // ---------- Motivos de alteração de prazo ----------
+  async listChangeReasons(includeInactive = false): Promise<ChangeReason[]> {
+    let q = supabase.from("schedule_change_reasons").select("id, label, description, client_visible, is_other, sort_order, active")
+      .order("sort_order").order("label");
+    if (!includeInactive) q = q.eq("active", true);
+    const { data, error } = await q;
+    if (error) throw toUserError(error);
+    return data as ChangeReason[];
+  },
+  async saveChangeReason(input: { id?: string; label: string; client_visible: boolean; active?: boolean; sort_order?: number; created_by?: string | null }): Promise<void> {
+    const row = {
+      label: input.label.trim(), client_visible: input.client_visible,
+      ...(input.active === undefined ? {} : { active: input.active }),
+      ...(input.sort_order === undefined ? {} : { sort_order: input.sort_order }),
+    };
+    const { error } = input.id
+      ? await supabase.from("schedule_change_reasons").update(row).eq("id", input.id)
+      : await supabase.from("schedule_change_reasons").insert({ ...row, created_by: input.created_by ?? null });
+    if (error) {
+      if (error.code === "23505") throw new UserFacingError("Já existe um motivo com este nome (talvez entre os desativados).");
+      throw toUserError(error);
+    }
   },
 
   // ---------- Foto de perfil ----------

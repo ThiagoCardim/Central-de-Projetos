@@ -9,14 +9,15 @@ import {
 import { ConfirmDialog, Drawer, Modal, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import type {
-  CatalogService, ClientType, DurationType, LeadershipArea, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
+  CatalogService, ChangeReason, ClientType, DurationType, LeadershipArea, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
 } from "@/types/domain";
 import { cx, formatDate, plural } from "@/utils/format";
 import { StepPicker } from "@/components/ui/StepPicker";
+import { loadChangeReasons } from "@/pages/schedule/ReasonField";
 import { DURATION_TYPE_LABEL } from "@/pages/schedule/model";
 import { groupIndexes, parallelFromDeps, useDragSort } from "@/components/ui/sortable";
 
-type Tab = "templates" | "library";
+type Tab = "templates" | "library" | "reasons";
 
 export function TemplatesPage() {
   useDocumentTitle("Serviços e Cronogramas");
@@ -30,8 +31,9 @@ export function TemplatesPage() {
       <Tabs<Tab> label="Seções" value={tab} onChange={setTab} tabs={[
         { value: "templates", label: "Padrões por serviço" },
         { value: "library", label: "Biblioteca de etapas" },
+        { value: "reasons", label: "Motivos de alteração" },
       ]} />
-      {tab === "templates" ? <TemplatesManager canEdit={canEdit} /> : <LibraryManager />}
+      {tab === "templates" ? <TemplatesManager canEdit={canEdit} /> : tab === "library" ? <LibraryManager /> : <ReasonsManager />}
     </div>
   );
 }
@@ -847,6 +849,111 @@ function LibraryDrawer({ item, onClose, onSaved }: { item: TaskLibraryItem | nul
           try { await api.setTaskLibraryActive(item.id, false); onSaved("Etapa excluída da biblioteca."); }
           catch (e) { setErr((e as Error).message); setConfirmDelete(false); } finally { setBusy(false); }
         }} />
+    </Drawer>
+  );
+}
+
+/* ==========================================================================
+   Motivos de alteração de prazo
+   ========================================================================== */
+function ReasonsManager() {
+  const { permissions } = useAuth();
+  const toast = useToast();
+  const isGlobal = permissions?.role === "global_admin";
+  const data = useAsync(() => api.listChangeReasons(true), []);
+  const [editing, setEditing] = useState<ChangeReason | "new" | null>(null);
+  const active = (data.data ?? []).filter((r) => r.active);
+  const removed = (data.data ?? []).filter((r) => !r.active);
+  const reload = () => { void data.reload(); void loadChangeReasons(true).catch(() => undefined); };
+
+  return (
+    <div className="stack">
+      <div className="row-between">
+        <p className="subtext">Quem altera um prazo escolhe um destes motivos. “Outro motivo” libera um texto livre.</p>
+        {isGlobal && <Button icon="plus" onClick={() => setEditing("new")}>Novo motivo</Button>}
+      </div>
+      <Alert tone="info">
+        Motivos visíveis aparecem para o cliente no histórico de alterações de prazo do projeto, com as datas antes e depois.
+        Motivos internos ficam só no histórico da equipe.
+      </Alert>
+      {data.error ? <LoadError message={data.error} onRetry={data.reload} /> : data.loading && !data.data ? <Skeleton height={300} radius={16} /> : (
+        <Card flush>
+          <ol className="tasklist">
+            {active.map((r) => (
+              <li key={r.id}>
+                <div className="task">
+                  <span className="task__main">
+                    <span className="task__name">{r.label}</span>
+                    {r.is_other && <span className="task__meta">Exige descrição em texto livre</span>}
+                  </span>
+                  <span className="task__side">
+                    {r.client_visible ? <Badge tone="success" dot>Visível ao cliente</Badge> : <Badge dot>Interno</Badge>}
+                    {isGlobal && <Button variant="ghost" size="sm" iconOnly icon="edit" onClick={() => setEditing(r)}>Editar</Button>}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+      {removed.length > 0 && (
+        <details className="versions">
+          <summary><Icon name="clock" size={16} /> Motivos desativados <span className="muted">· {removed.length}</span></summary>
+          <ul className="history">
+            {removed.map((r) => (
+              <li key={r.id}><span className="history__what">{r.label}</span>
+                {isGlobal && (
+                  <span className="history__when"><Button size="sm" variant="ghost" icon="refresh" onClick={async () => {
+                    try { await api.saveChangeReason({ id: r.id, label: r.label, client_visible: r.client_visible, active: true }); toast("Motivo reativado."); reload(); }
+                    catch (e) { toast((e as Error).message, "error"); }
+                  }}>Reativar</Button></span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {editing && (
+        <ReasonDrawer item={editing === "new" ? null : editing} onClose={() => setEditing(null)}
+          onSaved={(msg) => { setEditing(null); toast(msg); reload(); }} />
+      )}
+    </div>
+  );
+}
+
+function ReasonDrawer({ item, onClose, onSaved }: { item: ChangeReason | null; onClose: () => void; onSaved: (msg: string) => void }) {
+  const { permissions } = useAuth();
+  const [label, setLabel] = useState(item?.label ?? "");
+  const [visible, setVisible] = useState<"yes" | "no">(item && !item.client_visible ? "no" : "yes");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [confirmOff, setConfirmOff] = useState(false);
+  async function save(active?: boolean) {
+    setBusy(true); setErr(null);
+    try {
+      await api.saveChangeReason({ id: item?.id, label, client_visible: visible === "yes", active, created_by: permissions?.profile_id ?? null });
+      onSaved(active === false ? "Motivo desativado." : item ? "Motivo atualizado." : "Motivo criado.");
+    } catch (e) { setErr((e as Error).message); setConfirmOff(false); } finally { setBusy(false); }
+  }
+  return (
+    <Drawer open onClose={onClose} title={item ? "Editar motivo" : "Novo motivo"} subtitle="Motivos de alteração de prazo"
+      footer={<>
+        {item && !item.is_other && <Button variant="danger-ghost" icon="x" onClick={() => setConfirmOff(true)}>Desativar</Button>}
+        <span className="spacer" /><Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button loading={busy} disabled={label.trim().length < 3} onClick={() => save()}>Salvar</Button></>}>
+      <div className="form">
+        {err && <Alert tone="danger">{err}</Alert>}
+        <Field label="Motivo" required hint="Escreva como o cliente deve ler, se for visível a ele.">
+          {({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} value={label} maxLength={120}
+            onChange={(e) => setLabel(e.target.value)} placeholder="Ex.: Aguardando aprovação do condomínio" />}
+        </Field>
+        <Segmented<"yes" | "no"> label="Aparece para o cliente?" value={visible} onChange={setVisible}
+          options={[{ value: "yes", label: "Sim, visível" }, { value: "no", label: "Não, interno" }]} />
+        {item?.is_other && <p className="subtext">“Outro motivo” é fixo: sempre pede uma descrição em texto livre.</p>}
+      </div>
+      <ConfirmDialog open={confirmOff} danger title={`Desativar “${item?.label}”?`}
+        message="O motivo deixa de aparecer como opção. Alterações já registradas com ele continuam no histórico. Você pode reativá-lo depois."
+        confirmLabel="Desativar" loading={busy} onCancel={() => setConfirmOff(false)} onConfirm={() => save(false)} />
     </Drawer>
   );
 }

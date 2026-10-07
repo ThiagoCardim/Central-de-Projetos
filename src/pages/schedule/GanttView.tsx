@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import type { ProjectSchedule, SchedulePreview, ScheduleTask, ScheduleTrack, StaffMember } from "@/types/domain";
 import { cx, formatDate, plural, TASK_STATUS_LABEL } from "@/utils/format";
 import { ImpactPreview } from "./ImpactPreview";
+import { EMPTY_REASON, ReasonField, reasonIsValid, useChangeReasons } from "./ReasonField";
 import {
   displayStatus, durationText, isClosed, isStarted, matchesFilters, serviceName, sortTracks, todayISO, type ScheduleFilters,
 } from "./model";
@@ -475,7 +476,8 @@ function ChangeModal({ change, onClose, onDone }: { change: Change; onClose: () 
   const toast = useToast();
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(EMPTY_REASON);
+  const [reasons, reasonsErr] = useChangeReasons();
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -492,7 +494,7 @@ function ChangeModal({ change, onClose, onDone }: { change: Change; onClose: () 
   async function confirm() {
     setBusy(true); setErr(null);
     try {
-      const r = await api.rescheduleTask(change.task.id, change.start, change.duration, reason);
+      const r = await api.rescheduleTaskWithReason(change.task.id, change.start, change.duration, reason.reasonId, reason.text);
       toast(r.impacted_count ? `Prazo alterado. ${plural(r.impacted_count, "etapa recalculada", "etapas recalculadas")}.` : "Prazo alterado.");
       onDone();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
@@ -505,7 +507,7 @@ function ChangeModal({ change, onClose, onDone }: { change: Change; onClose: () 
     <Modal open wide onClose={onClose} title="Confirmar alteração de prazo"
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-        <Button loading={busy} disabled={!preview || !!unchanged || reason.trim().length < 3} onClick={confirm}>Confirmar alteração</Button>
+        <Button loading={busy} disabled={!preview || !!unchanged || !reasonIsValid(reason, reasons)} onClick={confirm}>Confirmar alteração</Button>
       </>}>
       <p>{what}.</p>
       {err && <Alert tone="danger" title="Não foi possível aplicar">{err}</Alert>}
@@ -514,10 +516,8 @@ function ChangeModal({ change, onClose, onDone }: { change: Change; onClose: () 
         <>
           {unchanged && <Alert tone="info">As dependências desta etapa não permitem essa data: o cronograma ficaria igual. Escolha outra data.</Alert>}
           <ImpactPreview name={change.task.name} preview={preview} />
-          <Field label="Motivo da alteração" required hint="Obrigatório. Fica no histórico com quem alterou e quando.">
-            {({ id, describedBy }) => <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={2} autoFocus
-              value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex.: cliente pediu mais prazo para aprovar o estudo" />}
-          </Field>
+          {reasonsErr ? <Alert tone="danger">{reasonsErr}</Alert>
+            : <ReasonField value={reason} onChange={setReason} reasons={reasons} autoFocus />}
         </>
       )}
     </Modal>

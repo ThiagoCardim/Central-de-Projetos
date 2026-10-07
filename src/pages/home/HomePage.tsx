@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { api } from "@/services/api";
 import { useAsync, useDocumentTitle } from "@/hooks";
@@ -10,7 +10,7 @@ import {
 import { Icon } from "@/components/ui/Icon";
 import { AwaitingTeamCard, StepTimeline, TaskList } from "@/components/domain/cards";
 import { computeNextStep, type NextStep } from "./nextStep";
-import type { ClientProject, HomeDashboard, Permissions } from "@/types/domain";
+import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
 import {
   cx, EMPLOYMENT_LABEL, firstName, formatDate, formatToday, greeting, PROJECT_STATUS_LABEL, ROLE_LABEL, TENANT_TYPE_LABEL,
 } from "@/utils/format";
@@ -264,6 +264,8 @@ function UnitsCard({ d }: { d: HomeDashboard }) {
    Cliente: visão simples e visual
    ========================================================================== */
 function ClientHome({ projects }: { projects: ClientProject[] }) {
+  // Histórico de alterações de prazo (com motivo) dos projetos do cliente.
+  const changes = useAsync(() => api.clientScheduleChanges(null, 100), []);
   if (projects.length === 0) {
     return (
       <Card>
@@ -274,12 +276,15 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
   }
   return (
     <div className="stack client">
-      {projects.map((p) => <ClientProjectCard key={p.id} project={p} />)}
+      {projects.map((p) => (
+        <ClientProjectCard key={p.id} project={p}
+          changes={changes.data ? changes.data.filter((c) => c.project_id === p.id) : null} />
+      ))}
     </div>
   );
 }
 
-function ClientProjectCard({ project: p }: { project: ClientProject }) {
+function ClientProjectCard({ project: p, changes }: { project: ClientProject; changes: ClientScheduleChange[] | null }) {
   return (
     <Card as="article" className="cproject" aria-label={p.name}>
       <header className="cproject__head">
@@ -319,7 +324,51 @@ function ClientProjectCard({ project: p }: { project: ClientProject }) {
           </section>
         ))}
       </div>
+      {changes && changes.length > 0 && <ClientChanges changes={changes} />}
     </Card>
+  );
+}
+
+/** Alterações de prazo com o motivo registrado pela equipe. */
+function ClientChanges({ changes }: { changes: ClientScheduleChange[] }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? changes : changes.slice(0, 3);
+  return (
+    <section className="cchanges" aria-label="Alterações de prazo">
+      <header className="row-between">
+        <h3 className="cchanges__title"><Icon name="calendar" size={16} /> Alterações de prazo</h3>
+        <span className="subtext">{changes.length === 1 ? "1 registro" : `${changes.length} registros`}</span>
+      </header>
+      <ol className="cchanges__list">
+        {shown.map((c) => {
+          const later = c.before_end && c.after_end ? c.after_end > c.before_end : null;
+          return (
+            <li key={c.id} className="cchange">
+              <div className="cchange__top">
+                <strong>{c.task_name}</strong>
+                {c.service_name && <span className="subtext">{c.service_name}</span>}
+                <span className="cchange__when">{formatDate(c.changed_at.slice(0, 10), true)}</span>
+              </div>
+              <p className="cchange__dates">
+                Término previsto:{" "}
+                <span className="cchange__before">{c.before_end ? formatDate(c.before_end, true) : "a definir"}</span>
+                <Icon name="chevronRight" size={14} />
+                <span className={cx("cchange__after", later === true && "is-later", later === false && "is-earlier")}>
+                  {c.after_end ? formatDate(c.after_end, true) : "a definir"}
+                </span>
+              </p>
+              <p className="cchange__reason"><span className="label">Motivo</span> {c.reason ?? "Não informado"}
+                {c.reason_detail ? <span className="cchange__detail"> · {c.reason_detail}</span> : null}</p>
+            </li>
+          );
+        })}
+      </ol>
+      {changes.length > 3 && (
+        <Button variant="ghost" size="sm" onClick={() => setAll((a) => !a)}>
+          {all ? "Mostrar menos" : `Ver todas as ${changes.length} alterações`}
+        </Button>
+      )}
+    </section>
   );
 }
 

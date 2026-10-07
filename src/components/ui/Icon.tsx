@@ -36,6 +36,7 @@ const PATHS = {
   sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M9.5 4.5v15" /></>,
   edit: <><path d="M15.5 5.5 18.5 8.5 9 18H6v-3z" /><path d="m13.5 7.5 3 3" /></>,
   refresh: <><path d="M19.5 12a7.5 7.5 0 0 1-13.4 4.6" /><path d="M4.5 12a7.5 7.5 0 0 1 13.4-4.6" /><path d="M18.5 3.5v4h-4M5.5 20.5v-4h4" /></>,
+  eye: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.75" /></>,
   lock: <><rect x="5" y="10.5" width="14" height="9.5" rx="2" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></>,
   flag: <><path d="M5.5 20.5V4.5" /><path d="M5.5 5h11l-2 4 2 4h-11" /></>,
   target: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.75" /></>,

@@ -200,6 +200,8 @@ function rpc(name: string, _args?: any) {
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
       return delay({ data: null, error: null }, 300);
     case "reorder_task_library": return delay({ data: null, error: null }, 200);
+    case "reschedule_task_with_reason": return delay({ data: { impacted_count: 3 }, error: null }, 300);
+    case "client_schedule_changes": return delay({ data: [...CLIENT_CHANGES].sort((a, b) => b.changed_at.localeCompare(a.changed_at)), error: null }, 150);
     case "my_notifications": return delay({ data: NOTIFS, error: null }, 100);
     case "automation_save": {
       const pl = _args.p_payload;
@@ -443,6 +445,30 @@ const LIBRARY: any[] = ["Planejamento", "Envio do Briefing", "Estudo Preliminar"
   default_duration_days: i < 5 ? [20, 7, 20, 30, 10][i] : null, duration_type: "fixed", active: true, created_by: null, created_at: "2026-10-05T12:00:00Z", sort_order: (i + 1) * 10 }));
 LIBRARY[LIBRARY.length - 1].active = false;
 
+const REASONS: any[] = ([
+  ["Solicitação do cliente", true], ["Aguardando aprovação ou retorno do cliente", true],
+  ["Atraso no envio de informações ou documentos pelo cliente", true], ["Alteração de escopo solicitada pelo cliente", true],
+  ["Inclusão de novo serviço (aditivo)", true], ["Prazo de órgão público ou concessionária", true],
+  ["Dependência de fornecedor ou terceiro", true], ["Revisão técnica ou compatibilização entre projetos", true],
+  ["Reorganização interna da equipe", false], ["Antecipação de prazo", true], ["Outro motivo", true],
+] as [string, boolean][]).map(([label, vis], i, all) => ({ id: `rs-${i}`, label, description: null, client_visible: vis,
+  is_other: i === all.length - 1, sort_order: i === all.length - 1 ? 1000 : (i + 1) * 10, active: true }));
+
+const CLIENT_CHANGES: any[] = [
+  { id: "cc1", project_id: "pr1", project_name: "Residência Souza", task_name: "Estudo Preliminar", service_name: "Projeto Arquitetônico",
+    change_type: "duration", reason: "Aguardando aprovação ou retorno do cliente", reason_detail: "Reunião de apresentação remarcada para o dia 14",
+    before_start: d(-30), before_end: d(-2), after_start: d(-30), after_end: d(3), impacted_count: 4, changed_at: d(-3) + "T14:20:00Z" },
+  { id: "cc2", project_id: "pr1", project_name: "Residência Souza", task_name: "Planejamento", service_name: "Design de Interiores",
+    change_type: "reschedule", reason: "Inclusão de novo serviço (aditivo)", reason_detail: null,
+    before_start: d(-20), before_end: d(5), after_start: d(-10), after_end: d(15), impacted_count: 6, changed_at: d(-12) + "T10:05:00Z" },
+  { id: "cc3", project_id: "pr1", project_name: "Residência Souza", task_name: "Envio do Briefing", service_name: "Projeto Arquitetônico",
+    change_type: "duration", reason: "Família em viagem durante as duas primeiras semanas", reason_detail: null,
+    before_start: d(-44), before_end: d(-40), after_start: d(-44), after_end: d(-33), impacted_count: 9, changed_at: d(-41) + "T09:00:00Z" },
+  { id: "cc4", project_id: "pr1", project_name: "Residência Souza", task_name: "Cálculo estrutural", service_name: "Projeto Estrutural",
+    change_type: "duration", reason: "Antecipação de prazo", reason_detail: null,
+    before_start: d(10), before_end: d(40), after_start: d(10), after_end: d(35), impacted_count: 2, changed_at: d(-1) + "T16:40:00Z" },
+];
+
 const FAMILIES = [["arquitetura", "Arquitetura"], ["engenharia", "Engenharia"], ["orcamentos", "Orçamentos"], ["interiores", "Interiores"], ["aprovacoes", "Aprovações e Trâmites"],
   ["b2b_desenvolvimento", "B2B / Desenvolvimento"], ["obra", "Obra"]].map(([code, name], i) => ({ id: `f-${code}`, code, name, sort_order: (i + 1) * 10, active: true }));
 const CATALOG = [
@@ -535,6 +561,7 @@ function visibleRows(table: string): any[] {
     return true;
   });
   if (table === "task_library") return LIBRARY;
+  if (table === "schedule_change_reasons") return REASONS;
   if (table === "automation_rules") return AUTOMATIONS;
   if (table === "automation_runs") return AUTO_RUNS;
   if (table === "notifications") return NOTIFS;
