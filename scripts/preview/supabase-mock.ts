@@ -203,6 +203,16 @@ function rpc(name: string, _args?: any) {
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
       return delay({ data: null, error: null }, 300);
     case "reorder_task_library": return delay({ data: null, error: null }, 200);
+    case "preview_task_reopen": return delay({ data: {
+      task: { id: _args?.p_task, name: "Envio do Briefing", service: "Projeto Arquitetônico", before_start: d(-44), before_end: d(-33), after_start: d(0), after_end: d(6),
+        before_duration: 7, after_duration: _args?.p_days ?? 5 },
+      impacted: [
+        { id: "a", name: "Imagens 3D e Vídeo", service: "Projeto Arquitetônico", same_service: true, before_start: d(42), before_end: d(55), after_start: d(49), after_end: d(62) },
+        { id: "f", name: "Planejamento", service: "Projeto Estrutural", same_service: false, before_start: d(1), before_end: d(10), after_start: d(8), after_end: d(17) },
+        { id: "f2", name: "Produção da disciplina", service: "Projeto Estrutural", same_service: false, before_start: d(11), before_end: null, after_start: d(18), after_end: null },
+        { id: "g", name: "Projeto de Interiores", service: "Design de Interiores", same_service: false, before_start: d(31), before_end: d(52), after_start: d(38), after_end: d(59) },
+      ], impacted_count: 4, delay_days: _args?.p_days ?? 5, other_services_count: 2, forecast_before: d(55), forecast_after: d(62) }, error: null }, 300);
+    case "reopen_task": return delay({ data: { impacted_count: 4 }, error: null }, 300);
     case "reschedule_task_with_reason": return delay({ data: { impacted_count: 3 }, error: null }, 300);
     case "client_schedule_changes": return delay({ data: [...CLIENT_CHANGES].sort((a, b) => b.changed_at.localeCompare(a.changed_at)), error: null }, 150);
     case "my_notifications": return delay({ data: NOTIFS, error: null }, 100);
@@ -449,7 +459,7 @@ const LIBRARY: any[] = ["Planejamento", "Envio do Briefing", "Estudo Preliminar"
 LIBRARY[LIBRARY.length - 1].active = false;
 
 const REASONS: any[] = ([
-  ["Solicitação do cliente", true], ["Aguardando aprovação ou retorno do cliente", true],
+  ["Solicitação do cliente", true], ["Cliente pediu alteração em etapa já concluída", true], ["Aguardando aprovação ou retorno do cliente", true],
   ["Atraso no envio de informações ou documentos pelo cliente", true], ["Alteração de escopo solicitada pelo cliente", true],
   ["Inclusão de novo serviço (aditivo)", true], ["Prazo de órgão público ou concessionária", true],
   ["Dependência de fornecedor ou terceiro", true], ["Revisão técnica ou compatibilização entre projetos", true],
@@ -458,6 +468,9 @@ const REASONS: any[] = ([
   is_other: i === all.length - 1, sort_order: i === all.length - 1 ? 1000 : (i + 1) * 10, active: true }));
 
 const CLIENT_CHANGES: any[] = [
+  { id: "cc0", project_id: "pr1", project_name: "Residência Souza", task_name: "Envio do Briefing", service_name: "Projeto Arquitetônico",
+    change_type: "reopened", reason: "Cliente pediu alteração em etapa já concluída", reason_detail: "Inclusão de um quarto de hóspedes no programa",
+    before_start: d(-44), before_end: d(-33), after_start: d(0), after_end: d(6), impacted_count: 9, changed_at: d(0) + "T11:30:00Z" },
   { id: "cc1", project_id: "pr1", project_name: "Residência Souza", task_name: "Estudo Preliminar", service_name: "Projeto Arquitetônico",
     change_type: "duration", reason: "Aguardando aprovação ou retorno do cliente", reason_detail: "Reunião de apresentação remarcada para o dia 14",
     before_start: d(-30), before_end: d(-2), after_start: d(-30), after_end: d(3), impacted_count: 4, changed_at: d(-3) + "T14:20:00Z" },

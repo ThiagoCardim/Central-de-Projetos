@@ -332,6 +332,9 @@ export interface ScheduleTask {
   start_not_before: string | null;
   auto_skipped: boolean;
   client_visible: boolean;
+  /** Quantas vezes a etapa foi reaberta depois de concluída. */
+  reopen_count?: number;
+  last_reopened_at?: string | null;
 }
 
 export interface TaskDependency {
@@ -379,7 +382,7 @@ export interface ClientScheduleChange {
   project_name: string;
   task_name: string;
   service_name: string | null;
-  change_type: "reschedule" | "duration";
+  change_type: "reschedule" | "duration" | "reopened";
   reason: string | null;
   reason_detail: string | null;
   before_start: string | null; before_end: string | null;

@@ -102,6 +102,13 @@ const scenes = [
     const bar = p.locator(".gbar.is-movable").first(); const box = await bar.boundingBox();
     await p.mouse.move(box.x + 20, box.y + box.height / 2); await p.mouse.down(); await p.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 6 }); await p.mouse.up();
     await p.waitForTimeout(700); await p.getByLabel("Motivo da alteração").selectOption({ label: "Reorganização interna da equipe" }); await p.waitForTimeout(200); } },
+  { name: "reopen", url: "/projetos/pr1/cronograma?as=leader", vp: { width: 1440, height: 1500 }, action: async (p) => {
+    await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: /^Envio do Briefing/ }).first().click();
+    await p.waitForTimeout(400); await p.getByRole("button", { name: "Reabrir etapa" }).click();
+    await p.getByLabel("Prazo do retrabalho (dias úteis)").fill("5"); await p.getByRole("button", { name: "Ver impacto" }).click(); await p.waitForTimeout(500);
+    await p.getByLabel("Motivo da reabertura").selectOption({ label: "Cliente pediu alteração em etapa já concluída" });
+    await p.getByLabel("Observação (opcional)").fill("Inclusão de um quarto de hóspedes no programa");
+    await p.locator(".reason-field").scrollIntoViewIfNeeded(); await p.waitForTimeout(200); } },
   { name: "reasons-admin", url: "/servicos?as=global_admin", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Motivos de alteração" }).click(); await p.waitForTimeout(300); } },
   { name: "m-home-client", url: "/?as=client", vp: MOBILE, full: true },
   { name: "sched-add", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: "Adicionar etapa" }).first().click(); } },

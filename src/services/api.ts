@@ -246,7 +246,7 @@ export const api = {
           project_service:project_services(id, status, service:services(id, name, code, family:service_families(name, sort_order)))`)
         .eq("project_id", projectId).order("created_at"),
       supabase.from("project_tasks")
-        .select("id, schedule_track_id, code, name, description, sequence, duration_type, planned_duration_days, planned_start_date, planned_end_date, actual_start_date, actual_end_date, status, status_changed_at, responsible_user_id, waiting_reason, notes, start_not_before, auto_skipped, client_visible")
+        .select("id, schedule_track_id, code, name, description, sequence, duration_type, planned_duration_days, planned_start_date, planned_end_date, actual_start_date, actual_end_date, status, status_changed_at, responsible_user_id, waiting_reason, notes, start_not_before, auto_skipped, client_visible, reopen_count, last_reopened_at")
         .eq("project_id", projectId).order("sequence"),
       supabase.from("task_dependencies")
         .select("id, task_id, depends_on_task_id, dependency_type, lag_days, source, task:project_tasks!task_dependencies_task_id_fkey!inner(project_id)")
@@ -288,6 +288,13 @@ export const api = {
   rescheduleTaskWithReason: (taskId: string, start: string | null, duration: number | null, reasonId: string, reasonText: string | null) =>
     rpc<{ impacted_count: number }>("reschedule_task_with_reason", {
       p_task: taskId, p_start: start, p_duration: duration, p_reason_id: reasonId, p_reason_text: reasonText?.trim() || null,
+    }),
+  /** Prévia da reabertura: aplica, mede o impacto e desfaz. */
+  previewTaskReopen: (taskId: string, start: string | null, days: number) =>
+    rpc<SchedulePreview>("preview_task_reopen", { p_task: taskId, p_start: start, p_days: days }),
+  reopenTask: (taskId: string, start: string | null, days: number, reasonId: string, reasonText: string | null) =>
+    rpc<{ impacted_count: number }>("reopen_task", {
+      p_task: taskId, p_start: start, p_days: days, p_reason_id: reasonId, p_reason_text: reasonText?.trim() || null,
     }),
   clientScheduleChanges: (projectId?: string | null, limit = 50) =>
     rpc<ClientScheduleChange[]>("client_schedule_changes", { p_project: projectId ?? null, p_limit: limit }),

@@ -50,6 +50,11 @@ function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChan
         <StatusBadge status={shown} />
         {shown === "overdue" && task.status !== "overdue" && <Badge>{TASK_STATUS_LABEL[task.status]}</Badge>}
         {!task.client_visible && <Badge tag outline title="O cliente não vê esta etapa">Interna</Badge>}
+        {(task.reopen_count ?? 0) > 0 && (
+          <Badge tone="warning" tag title={task.last_reopened_at ? `Última reabertura: ${formatDate(task.last_reopened_at, true)}` : undefined}>
+            {task.reopen_count === 1 ? "Reaberta" : `Reaberta ${task.reopen_count}x`}
+          </Badge>
+        )}
       </div>
 
       {task.auto_skipped && (
@@ -82,6 +87,8 @@ function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChan
       {canAct && <StatusActions task={task} manager={canManage} onChanged={onChanged} toast={toast} />}
 
       {manage && !isClosed(task) && <ReschedulePanel task={task} onChanged={onChanged} toast={toast} />}
+      {canManage && task.status === "completed" && (task.duration_type === "fixed" || task.duration_type === "external") &&
+        <ReopenPanel task={task} onChanged={onChanged} toast={toast} />}
 
       <Dependencies task={task} schedule={schedule} manage={manage} onChanged={onChanged} onOpenTask={onOpenTask} toast={toast} />
 
@@ -242,6 +249,74 @@ function ReschedulePanel({ task, onChanged, toast }: { task: ScheduleTask; onCha
   );
 }
 
+/** Reabrir etapa concluída: retrabalho com prazo, prévia do impacto no contrato e motivo. */
+function ReopenPanel({ task, onChanged, toast }: { task: ScheduleTask; onChanged: () => void; toast: Toast }) {
+  const [open, setOpen] = useState(false);
+  const [start, setStart] = useState("");
+  const [days, setDays] = useState("");
+  const [preview, setPreview] = useState<SchedulePreview | null>(null);
+  const [reason, setReason] = useState(EMPTY_REASON);
+  const [reasons, reasonsErr] = useChangeReasons();
+  const [busy, setBusy] = useState<"preview" | "save" | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { setPreview(null); }, [start, days]);
+
+  const close = () => { setOpen(false); setStart(""); setDays(""); setPreview(null); setReason(EMPTY_REASON); setErr(null); };
+  async function doPreview() {
+    const d = Number(days);
+    if (!d || d < 1) { setErr("Informe quantos dias úteis o retrabalho vai levar."); return; }
+    setBusy("preview"); setErr(null);
+    try { setPreview(await api.previewTaskReopen(task.id, start || null, d)); }
+    catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+  }
+  async function doSave() {
+    setBusy("save"); setErr(null);
+    try {
+      const r = await api.reopenTask(task.id, start || null, Number(days), reason.reasonId, reason.text);
+      toast(r.impacted_count ? `Etapa reaberta. ${plural(r.impacted_count, "etapa recalculada", "etapas recalculadas")} no contrato.` : "Etapa reaberta.");
+      close(); onChanged();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+  }
+
+  if (!open) {
+    return (
+      <section className="tdrawer__section">
+        <Button variant="outline" size="sm" icon="refresh" onClick={() => setOpen(true)}>Reabrir etapa</Button>
+        <p className="subtext" style={{ marginTop: 6 }}>Use quando o cliente pedir alteração em algo já entregue.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="tdrawer__section resched" aria-label="Reabrir etapa">
+      <div className="row-between"><h3 className="label">Reabrir etapa concluída</h3>
+        <Button variant="ghost" size="sm" onClick={close}>Fechar</Button></div>
+      <p className="subtext">A etapa volta para “em andamento” pelo prazo do retrabalho. As etapas seguintes e todas as etapas ainda não iniciadas dos outros serviços deste contrato andam o mesmo número de dias úteis. Etapas em andamento não mudam.</p>
+      {err && <Alert tone="danger">{err}</Alert>}
+      <div className="form__cols">
+        <Field label="Retrabalho começa em" hint="Em branco: hoje (ou o próximo dia útil).">
+          {({ id, describedBy }) => <Input id={id} type="date" aria-describedby={describedBy} value={start} onChange={(e) => setStart(e.target.value)} />}
+        </Field>
+        <Field label="Prazo do retrabalho (dias úteis)" required>
+          {({ id }) => <Input id={id} type="number" inputMode="numeric" min={1} max={2000} value={days} onChange={(e) => setDays(e.target.value)} />}
+        </Field>
+      </div>
+      {!preview ? (
+        <div><Button size="sm" variant="secondary" loading={busy === "preview"} onClick={doPreview}>Ver impacto</Button></div>
+      ) : (
+        <div className="stack">
+          <ImpactPreview name={task.name} preview={preview} reopen />
+          {reasonsErr ? <Alert tone="danger">{reasonsErr}</Alert>
+            : <ReasonField value={reason} onChange={setReason} reasons={reasons} label="Motivo da reabertura" />}
+          <div className="row">
+            <Button size="sm" loading={busy === "save"} disabled={!reasonIsValid(reason, reasons)} onClick={doSave}>Reabrir e ajustar prazos</Button>
+            <Button size="sm" variant="ghost" onClick={() => setPreview(null)}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Dependencies({ task, schedule, manage, onChanged, onOpenTask, toast }: {
   task: ScheduleTask; schedule: ProjectSchedule; manage: boolean; onChanged: () => void; onOpenTask: (id: string) => void; toast: Toast;
 }) {
@@ -364,7 +439,9 @@ function History({ task, schedule, staff }: { task: ScheduleTask; schedule: Proj
   const describe = (c: TaskChange): string | null => {
     const b = c.before ?? {}; const a = c.after ?? {};
     switch (c.change_type) {
-      case "status": return `${TASK_STATUS_LABEL[b.status as TaskStatus] ?? "—"} → ${TASK_STATUS_LABEL[a.status as TaskStatus] ?? "—"}`;
+      case "status":
+        if (a.reopened) return `Concluída em ${formatDate((b.actual_end_date ?? b.planned_end_date) as string, true)} · retrabalho de ${plural(Number(a.rework_days), "dia útil", "dias úteis")}, nova entrega ${formatDate(a.planned_end_date as string, true)}`;
+        return `${TASK_STATUS_LABEL[b.status as TaskStatus] ?? "—"} → ${TASK_STATUS_LABEL[a.status as TaskStatus] ?? "—"}`;
       case "responsible": return `${nameOf(b.responsible_user_id)} → ${nameOf(a.responsible_user_id)}`;
       case "reschedule": case "duration":
         return `${formatDate(b.planned_start_date as string)}–${formatDate(b.planned_end_date as string)} → ${formatDate(a.planned_start_date as string)}–${formatDate(a.planned_end_date as string)}`
@@ -382,7 +459,7 @@ function History({ task, schedule, staff }: { task: ScheduleTask; schedule: Proj
           <ul className="history">
             {data!.map((c) => (
               <li key={c.id}>
-                <span className="history__what">{CHANGE_LABEL[c.change_type] ?? c.change_type}</span>
+                <span className="history__what">{c.change_type === "status" && c.after?.reopened ? "Etapa reaberta" : CHANGE_LABEL[c.change_type] ?? c.change_type}</span>
                 <span className="history__when num">{formatDateTime(c.created_at)}</span>
                 {describe(c) && <span className="history__note">{describe(c)}</span>}
                 {c.reason && <span className="history__note">Motivo: {c.reason}</span>}

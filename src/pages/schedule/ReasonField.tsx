@@ -24,15 +24,15 @@ export function reasonIsValid(v: ReasonValue, reasons: ChangeReason[] | null): b
  * Motivo da alteração de prazo: seleção de uma lista padronizada.
  * "Outro motivo" libera o texto livre (obrigatório). Nos demais, uma observação é opcional.
  */
-export function ReasonField({ value, onChange, reasons, autoFocus }: {
-  value: ReasonValue; onChange: (v: ReasonValue) => void; reasons: ChangeReason[] | null; autoFocus?: boolean;
+export function ReasonField({ value, onChange, reasons, autoFocus, label = "Motivo da alteração" }: {
+  value: ReasonValue; onChange: (v: ReasonValue) => void; reasons: ChangeReason[] | null; autoFocus?: boolean; label?: string;
 }) {
   const selected = reasons?.find((r) => r.id === value.reasonId) ?? null;
   if (!reasons) return <Skeleton height={40} />;
 
   return (
     <div className="reason-field">
-      <Field label="Motivo da alteração" required hint="Fica no histórico com quem alterou e quando.">
+      <Field label={label} required hint="Fica no histórico com quem alterou e quando.">
         {({ id, describedBy }) => (
           <Select id={id} aria-describedby={describedBy} autoFocus={autoFocus} value={value.reasonId}
             onChange={(e) => onChange({ reasonId: e.target.value, text: "" })}>

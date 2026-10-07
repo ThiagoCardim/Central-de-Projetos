@@ -5,7 +5,7 @@ import { formatDate, plural } from "@/utils/format";
 type Item = SchedulePreview["impacted"][number];
 
 /** Antes → depois da etapa alterada, etapas impactadas (deste serviço e dos demais do contrato) e previsão. */
-export function ImpactPreview({ name, preview, limit = 8 }: { name: string; preview: SchedulePreview; limit?: number }) {
+export function ImpactPreview({ name, preview, limit = 8, reopen }: { name: string; preview: SchedulePreview; limit?: number; reopen?: boolean }) {
   const same = preview.impacted.filter((i) => i.same_service !== false);
   const others = preview.impacted.filter((i) => i.same_service === false);
   const byService = others.reduce<Record<string, Item[]>>((acc, i) => { (acc[i.service] ??= []).push(i); return acc; }, {});
@@ -14,17 +14,17 @@ export function ImpactPreview({ name, preview, limit = 8 }: { name: string; prev
   return (
     <div className="impact">
       <p className="impact__head">
-        <strong>{name}</strong>: {formatDate(preview.task.before_start)} – {formatDate(preview.task.before_end)}
+        <strong>{name}</strong>: {reopen ? "concluída em " : ""}{reopen ? formatDate(preview.task.before_end) : <>{formatDate(preview.task.before_start)} – {formatDate(preview.task.before_end)}</>}
         <Icon name="chevronRight" size={14} />
         <strong>{formatDate(preview.task.after_start)} – {formatDate(preview.task.after_end)}</strong>
       </p>
-      {preview.task.before_duration !== preview.task.after_duration && preview.task.after_duration != null && (
+      {!reopen && preview.task.before_duration !== preview.task.after_duration && preview.task.after_duration != null && (
         <p className="subtext">Duração: {preview.task.before_duration ?? "—"} → <strong>{plural(preview.task.after_duration, "dia útil", "dias úteis")}</strong></p>
       )}
       {delay > 0 && (
         <p className="impact__delay">
           <Icon name="alert" size={14} />
-          Atraso de {plural(delay, "dia útil", "dias úteis")}: as etapas à frente, em todos os serviços deste contrato, andam junto.
+          {reopen ? "Retrabalho" : "Atraso"} de {plural(delay, "dia útil", "dias úteis")}: as etapas à frente, em todos os serviços deste contrato, andam junto.
         </p>
       )}
       {preview.impacted_count === 0 ? (
@@ -57,9 +57,10 @@ function ImpactGroup({ title, items, limit, other }: { title: string; items: Ite
         {items.slice(0, limit).map((i) => (
           <li key={i.id}>
             <span className="grow truncate">{i.name}</span>
-            <span className="num muted">{formatDate(i.before_end)}</span>
+            {/* Sem término definido: mostra o início (o término segue "a definir"). */}
+            <span className="num muted">{i.before_end || i.after_end ? formatDate(i.before_end) : `início ${formatDate(i.before_start)}`}</span>
             <Icon name="chevronRight" size={12} />
-            <span className="num">{formatDate(i.after_end)}</span>
+            <span className="num">{i.before_end || i.after_end ? formatDate(i.after_end) : formatDate(i.after_start)}</span>
           </li>
         ))}
         {items.length > limit && <li className="muted">e mais {items.length - limit}</li>}

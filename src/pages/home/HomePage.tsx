@@ -346,13 +346,15 @@ function ClientChanges({ changes }: { changes: ClientScheduleChange[] }) {
             <li key={c.id} className="cchange">
               <div className="cchange__top">
                 <strong>{c.task_name}</strong>
+                {c.change_type === "reopened" && <Badge tone="warning" tag>Etapa reaberta</Badge>}
                 {c.service_name && <span className="subtext">{c.service_name}</span>}
                 <span className="cchange__when">{formatDate(c.changed_at.slice(0, 10), true)}</span>
               </div>
               <p className="cchange__dates">
-                Término previsto:{" "}
+                {c.change_type === "reopened" ? "Entregue em" : "Término previsto"}:{" "}
                 <span className="cchange__before">{c.before_end ? formatDate(c.before_end, true) : "a definir"}</span>
                 <Icon name="chevronRight" size={14} />
+                {c.change_type === "reopened" && <span>nova entrega</span>}
                 <span className={cx("cchange__after", later === true && "is-later", later === false && "is-earlier")}>
                   {c.after_end ? formatDate(c.after_end, true) : "a definir"}
                 </span>

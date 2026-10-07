@@ -136,8 +136,7 @@ export function statusActions(t: ScheduleTask, manager: boolean): StatusAction[]
       list.push({ status: "completed", label: "Concluir etapa", variant: "secondary" });
       break;
     case "completed":
-      if (manager) list.push({ status: "in_progress", label: "Reabrir etapa", managerOnly: true, variant: "secondary" });
-      break;
+      break; // reabrir tem fluxo próprio (prazo do retrabalho + motivo), no painel da etapa
   }
   if (manager && t.status !== "completed") {
     list.push({ status: "cancelled", label: "Cancelar etapa", needsReason: true, managerOnly: true, variant: "danger-ghost" });
