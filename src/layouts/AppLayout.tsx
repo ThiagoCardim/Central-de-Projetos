@@ -83,14 +83,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { profile, permissions } = useAuth();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsedState] = useState(() => { try { return localStorage.getItem("yc-sidebar") === "collapsed"; } catch { return false; } });
+  const setCollapsed = (v: boolean) => { setCollapsedState(v); try { localStorage.setItem("yc-sidebar", v ? "collapsed" : "open"); } catch { /* sem armazenamento */ } };
   const mobileItems = NAVIGATION.flatMap((s) => s.items).filter((it) => it.mobile && !it.stage && can(permissions, it.requires));
 
   return (
-    <div className="app">
+    <div className={collapsed ? "app is-collapsed" : "app"}>
       <a href="#conteudo" className="sr-only">Pular para o conteúdo</a>
 
       <aside className="sidebar">
-        <Brand />
+        <div className="sidebar__top">
+          <Brand />
+          <button type="button" className="sidebar__toggle" onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"} aria-expanded={!collapsed} title={collapsed ? "Expandir menu" : "Recolher menu"}>
+            <Icon name="sidebar" size={18} />
+          </button>
+        </div>
         <Navigation />
         <div className="sidebar__foot">
           <UserSummary />

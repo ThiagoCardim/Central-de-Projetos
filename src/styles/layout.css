@@ -21,6 +21,32 @@
 .brand__name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
 .brand__product { font-size: 11px; color: var(--text-3); font-weight: 500; }
 
+.sidebar__top { display: flex; align-items: center; flex: none; padding-right: var(--s3); }
+.sidebar__top .brand { flex: 1; min-width: 0; }
+.sidebar__toggle { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border: 0; border-radius: var(--r-control);
+  background: transparent; color: var(--text-3); cursor: pointer; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+.sidebar__toggle:hover { background: var(--surface); color: var(--text); }
+.sidebar__toggle:focus-visible { outline: none; box-shadow: var(--focus); }
+.sidebar, .main { transition: width 180ms var(--ease), margin-left 180ms var(--ease); }
+
+/* ---------- Desktop com menu recolhido: trilho de ícones ---------- */
+@media (min-width: 1024px) {
+  .app.is-collapsed .sidebar { width: 68px; }
+  .app.is-collapsed .sidebar__top { flex-direction: column; padding: var(--s2) 0 0; gap: 2px; }
+  .app.is-collapsed .brand { padding: 0; justify-content: center; height: 48px; flex: none; }
+  .app.is-collapsed .brand__text, .app.is-collapsed .nav__title, .app.is-collapsed .nav__label, .app.is-collapsed .nav__stage,
+  .app.is-collapsed .usercard__text, .app.is-collapsed .sidebar__actions .btn span:not(.sr-only) { display: none; }
+  .app.is-collapsed .nav { padding: var(--s2); align-items: stretch; }
+  .app.is-collapsed .nav__item { justify-content: center; padding: 0; height: 40px; }
+  .app.is-collapsed .nav__item[aria-disabled="true"] { padding: 0; }
+  .app.is-collapsed .nav__section + .nav__section { border-top: 1px solid var(--border); padding-top: var(--s3); }
+  .app.is-collapsed .usercard { justify-content: center; padding: var(--s1) 0; }
+  .app.is-collapsed .sidebar__actions { flex-direction: column; }
+  .app.is-collapsed .sidebar__actions .btn { justify-content: center; padding: 0; }
+  .app.is-collapsed .main { margin-left: 68px; }
+}
+@media (prefers-reduced-motion: reduce) { .sidebar, .main { transition: none; } }
+
 .nav { flex: 1; overflow-y: auto; padding: var(--s2) var(--s3) var(--s4); display: flex; flex-direction: column; gap: var(--s4); }
 .nav__section { display: flex; flex-direction: column; gap: 2px; }
 .nav__title { padding: 0 var(--s3) var(--s1); }
@@ -63,6 +89,8 @@ a.nav__item:hover { background: var(--surface); color: var(--text); }
 /* ---------- Tablet: trilho de ícones ---------- */
 @media (max-width: 1023px) and (min-width: 768px) {
   .sidebar { width: 68px; }
+  .sidebar__toggle { display: none; }
+  .sidebar__top { padding: 0; }
   .brand { padding: 0; justify-content: center; }
   .brand__text, .nav__title, .nav__label, .nav__stage, .usercard__text, .sidebar__actions .btn span:not(.sr-only) { display: none; }
   .nav { padding: var(--s2); align-items: stretch; }

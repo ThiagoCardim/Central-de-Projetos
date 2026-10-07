@@ -31,6 +31,7 @@ const PATHS = {
   chevronRight: <path d="m9.5 6 6 6-6 6" />,
   chevronDown: <path d="m6 9.5 6 6 6-6" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M9.5 4.5v15" /></>,
   edit: <><path d="M15.5 5.5 18.5 8.5 9 18H6v-3z" /><path d="m13.5 7.5 3 3" /></>,
   refresh: <><path d="M19.5 12a7.5 7.5 0 0 1-13.4 4.6" /><path d="M4.5 12a7.5 7.5 0 0 1 13.4-4.6" /><path d="M18.5 3.5v4h-4M5.5 20.5v-4h4" /></>,
   lock: <><rect x="5" y="10.5" width="14" height="9.5" rx="2" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></>,

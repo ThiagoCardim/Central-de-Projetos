@@ -36,6 +36,8 @@ const scenes = [
   { name: "home-pj", url: "/?as=pj", vp: DESKTOP, full: true },
   { name: "home-client", url: "/?as=client", vp: DESKTOP, full: true },
   { name: "home-empty", url: "/?as=empty", vp: DESKTOP, full: true },
+  { name: "nav-collapsed", url: "/projetos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Recolher menu" }).click(); await p.waitForTimeout(400); } },
+  { name: "nav-collapsed-light", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, light: true, action: async (p) => { await p.getByRole("button", { name: "Recolher menu" }).click(); await p.waitForTimeout(400); } },
   { name: "home-leader-light", url: "/?as=leader", vp: DESKTOP, light: true, full: true },
   { name: "home-tablet", url: "/?as=leader", vp: { width: 900, height: 1100 }, full: true },
   { name: "access", url: "/acessos?as=global_admin", vp: DESKTOP, full: true },
