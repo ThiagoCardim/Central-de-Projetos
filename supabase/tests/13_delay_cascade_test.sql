@@ -46,6 +46,8 @@ select public.assign_project_team(tst.pid(e), jsonb_build_array(
   jsonb_build_object('project_role', 'lead_approval', 'user_id', tst.uid('lid@hq')),
   jsonb_build_object('project_role', 'architecture', 'user_id', tst.uid('arq@hq'))))
 from unnest(array['9001','9002']) e;
+-- Uma etapa em andamento em outro serviço: não deve mudar.
+select public.set_task_status((tst.task('9001', 'projeto_arquitetonico', 'planejamento')).id, 'in_progress');
 reset role;
 
 -- Fotografia antes
@@ -70,13 +72,16 @@ select tst.ok((select (j ->> 'other_services_count')::int from pv) >= 1, 'Prévi
 select public.reschedule_task((select id from tst.ref), null, (select planned_duration_days from tst.ref) + 10, 'Cliente atrasou a resposta');
 reset role; select tst.login('');
 
--- Toda etapa não iniciada de outro serviço, prevista para depois do término antigo, andou >= 10 dias úteis
+-- Toda etapa não iniciada do contrato (qualquer serviço, qualquer data) andou >= 10 dias úteis
 select tst.ok(not exists (
   select 1 from tst.before b join public.project_tasks t on t.id = b.id
   where b.project_id = tst.pid('9001') and t.id <> (select id from tst.ref) and t.actual_start_date is null
-    and t.status not in ('completed','cancelled') and b.s > (select planned_end_date from tst.ref)
+    and t.status not in ('completed','cancelled') and b.s is not null
     and t.planned_start_date < public.add_business_days(b.s, 11, '00000000-0000-4000-8000-000000000101')),
-  'Etapas à frente (todos os serviços do contrato) andaram 10 dias úteis');
+  'Todas as etapas não iniciadas do contrato andaram 10 dias úteis');
+select tst.ok((tst.task('9001', 'projeto_hidrossanitario', 'briefing_arq_apr_eng')).planned_start_date
+              = public.add_business_days((select s from tst.before where id = (tst.task('9001', 'projeto_hidrossanitario', 'briefing_arq_apr_eng')).id), 11, '00000000-0000-4000-8000-000000000101'),
+  'Até a etapa pronta para iniciar hoje (antes da etapa alterada) andou');
 select tst.ok(exists (
   select 1 from tst.before b join public.project_tasks t on t.id = b.id
   join public.project_schedule_tracks tr on tr.id = t.schedule_track_id
@@ -84,15 +89,13 @@ select tst.ok(exists (
   where b.project_id = tst.pid('9001') and s.code = 'projeto_eletrico' and t.code = 'planejamento'
     and t.planned_start_date = public.add_business_days(b.s, 11, '00000000-0000-4000-8000-000000000101')),
   'Elétrico (sem dependência do Estrutural) também foi empurrado 10 dias úteis');
-select tst.ok((tst.task('9001', 'projeto_eletrico', 'planejamento')).start_not_before is not null
-          and (tst.task('9001', 'projeto_eletrico', 'producao_disciplina')).start_not_before is null
+select tst.ok((tst.task('9001', 'projeto_eletrico', 'briefing_arq_apr_eng')).start_not_before is not null
+          and (tst.task('9001', 'projeto_eletrico', 'planejamento')).start_not_before is null
           and (tst.task('9001', 'projeto_estrutural', 'planejamento')).start_not_before is null,
   'Trava só na 1ª etapa de cada corrente; encadeadas seguem a dependência');
-select tst.ok(not exists (
-  select 1 from tst.before b join public.project_tasks t on t.id = b.id
-  where b.project_id = tst.pid('9001') and b.e is not null and b.e < (select planned_start_date from tst.ref)
-    and (t.planned_start_date, t.planned_end_date) is distinct from (b.s, b.e)),
-  'Etapas que terminam antes da etapa alterada não mudam');
+select tst.ok((tst.task('9001', 'projeto_arquitetonico', 'planejamento')).planned_start_date
+              = (select s from tst.before where id = (tst.task('9001', 'projeto_arquitetonico', 'planejamento')).id),
+  'Etapa em andamento não muda');
 select tst.ok(not exists (
   select 1 from tst.before b join public.project_tasks t on t.id = b.id
   where b.project_id = tst.pid('9002') and (t.planned_start_date, t.planned_end_date) is distinct from (b.s, b.e)),
