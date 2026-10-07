@@ -60,6 +60,13 @@ from (values ('planejamento','in_progress',1),('planejamento','completed',2),('e
              ('estudo_preliminar','in_progress',5),('estudo_preliminar','completed',6),('alteracoes','in_progress',7)) v(c, s, o) order by o;
 select public.set_task_responsible((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, tst.uid('arq@hq'));
 reset role;
+-- Conclusão no passado (o caso comum): término real e previsto 3 semanas atrás.
+begin;
+select private.engine_on();
+update public.project_tasks set actual_start_date = current_date - 40, planned_start_date = current_date - 40,
+       actual_end_date = current_date - 21, planned_end_date = current_date - 21
+ where id = (tst.task('projeto_arquitetonico', 'estudo_preliminar')).id;
+commit;
 
 -- Guarda: concluída não volta por outro caminho
 select tst.login('lid@hq'); set role authenticated;

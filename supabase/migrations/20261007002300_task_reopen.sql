@@ -113,6 +113,7 @@ begin
      set status = 'in_progress',
          actual_start_date = v_start, actual_end_date = null,
          planned_start_date = v_start, planned_duration_days = p_days,
+         planned_end_date = public.add_business_days(v_start, p_days, cal),
          waiting_reason = null,
          reopen_count = reopen_count + 1, last_reopened_at = v_start
    where id = t.id;
