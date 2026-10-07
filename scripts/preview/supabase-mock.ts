@@ -428,7 +428,7 @@ const CHANGES: any[] = [
 const AUTOMATIONS: any[] = [
   { id: "au1", name: "Avisar quando uma etapa atrasar", trigger: "task_overdue", conditions: {}, active: true, archived: false, run_count: 4,
     last_run_at: "2026-10-06T10:07:00Z", created_at: "2026-10-01T10:00:00Z", updated_at: "2026-10-01T10:00:00Z",
-    actions: [{ type: "notify", recipients: ["project_lead", "task_responsible"], title: "Etapa atrasada: {etapa}", message: "{projeto} ({codigo}) · {servico}" }] },
+    actions: [{ type: "notify", recipients: ["owner", "task_responsible"], title: "Etapa atrasada: {etapa}", message: "{projeto} ({codigo}) · {servico}" }] },
   { id: "au2", name: "Estudo aprovado vai para revisão", trigger: "task_completed",
     conditions: { steps: ["estudo preliminar"], services: ["projeto_arquitetonico"] }, active: true, archived: false, run_count: 2,
     last_run_at: "2026-10-05T15:30:00Z", created_at: "2026-10-01T10:00:00Z", updated_at: "2026-10-01T10:00:00Z",

@@ -36,6 +36,7 @@ const ACTIONS: { value: AutomationActionType; label: string; icon: IconName }[] 
   { value: "set_task_responsible", label: "Definir responsável de uma etapa", icon: "user" },
 ];
 const RECIPIENTS: { value: string; label: string; task?: boolean }[] = [
+  { value: "owner", label: "Eu" },
   { value: "project_lead", label: "Líder da área do serviço" },
   { value: "task_responsible", label: "Responsável pela etapa", task: true },
   { value: "service_responsible", label: "Responsável direto do serviço" },
@@ -67,7 +68,7 @@ function describe(rule: Pick<AutomationRule, "trigger" | "conditions" | "actions
   const thens = rule.actions.map((a) => {
     if (a.type === "move_card") return `mover o card para “${col(a.column_id)}”`;
     if (a.type === "notify") {
-      const who = (a.recipients ?? []).map((r) => r.startsWith("user:") ? person(r) : RECIPIENTS.find((x) => x.value === r)?.label.toLowerCase() ?? r);
+      const who = (a.recipients ?? []).map((r) => r === "owner" ? "você" : r.startsWith("user:") ? person(r) : RECIPIENTS.find((x) => x.value === r)?.label.toLowerCase() ?? r);
       return `avisar ${joinPt(who, "e") || "—"}`;
     }
     const assignee = a.assignee === "service_responsible" ? "o responsável direto do serviço" : person(a.assignee ?? "");
@@ -124,11 +125,11 @@ export function AutomationsPage() {
 
   return (
     <div className="page">
-      <PageHead title="Automações"
-        subtitle="Monte regras do tipo “quando isto acontecer, faça aquilo”. Valem para os projetos da sua unidade e ficam registradas no histórico."
+      <PageHead title="Minhas automações"
+        subtitle="Monte as regras do seu dia a dia: “quando isto acontecer, faça aquilo”. Só você vê e edita as suas automações; elas rodam nos projetos que você acompanha."
         actions={<Button icon="plus" disabled={!ctx} onClick={() => setEditing({ trigger: "task_completed", conditions: {}, actions: [], active: true, name: "" })}>Nova automação</Button>} />
       <Tabs<"rules" | "runs"> label="Seções" value={tab} onChange={setTab} tabs={[
-        { value: "rules", label: "Automações", count: rules.data?.length },
+        { value: "rules", label: "Minhas automações", count: rules.data?.length },
         { value: "runs", label: "Histórico de execuções", count: runs.data?.length },
       ]} />
 
@@ -211,11 +212,11 @@ function PRESETS(c: Ctx): (Pick<AutomationRule, "name" | "trigger" | "conditions
   const col = (name: string) => c.columns.find((x) => stepFilterKey(x.name) === stepFilterKey(name))?.id ?? c.columns[0]?.id;
   return [
     { name: "Avisar quando uma etapa atrasar", trigger: "task_overdue", conditions: {},
-      actions: [{ type: "notify", recipients: ["project_lead", "task_responsible"], title: "Etapa atrasada: {etapa}", message: "{projeto} ({codigo}) · {servico}" }] },
+      actions: [{ type: "notify", recipients: ["owner", "task_responsible"], title: "Etapa atrasada: {etapa}", message: "{projeto} ({codigo}) · {servico}" }] },
     { name: "Projeto iniciado vai para “Em andamento”", trigger: "project_status_changed", conditions: { to_status: ["in_progress"] },
       actions: [{ type: "move_card", column_id: col("Em andamento") }] },
-    { name: "Avisar o líder quando aguardar o cliente", trigger: "task_waiting_client", conditions: {},
-      actions: [{ type: "notify", recipients: ["project_lead"], title: "Aguardando cliente: {etapa}", message: "{projeto} · {cliente}" }] },
+    { name: "Me avisar quando aguardar o cliente", trigger: "task_waiting_client", conditions: {},
+      actions: [{ type: "notify", recipients: ["owner"], title: "Aguardando cliente: {etapa}", message: "{projeto} · {cliente}" }] },
     { name: "Serviço adicional para revisão", trigger: "service_added", conditions: {},
       actions: [{ type: "notify", recipients: ["unit_managers"], title: "Serviço adicional: {servico}", message: "{projeto} precisa de revisão para entrar no cronograma." }] },
     { name: "Projeto concluído vai para “Encerrados”", trigger: "project_status_changed", conditions: { to_status: ["completed", "cancelled"] },
@@ -291,7 +292,7 @@ function AutomationEditor({ initial, ctx, onClose, onSaved }: {
   const updateAction = (i: number, patch: Partial<AutomationAction>) => setActions((as) => as.map((a, j) => (j === i ? { ...a, ...patch } : a)));
   const addAction = (type: AutomationActionType) => setActions((as) => [...as,
     type === "move_card" ? { type, column_id: ctx.columns[0]?.id }
-      : type === "notify" ? { type, recipients: ["project_lead"], title: "", message: "" }
+      : type === "notify" ? { type, recipients: ["owner"], title: "", message: "" }
       : { type, step: "", assignee: "service_responsible" }]);
 
   async function save() {
@@ -310,7 +311,7 @@ function AutomationEditor({ initial, ctx, onClose, onSaved }: {
 
   return (
     <Drawer open wide onClose={onClose} title={initial.id ? "Editar automação" : "Nova automação"}
-      subtitle="Quando algo acontecer num projeto da sua unidade, a plataforma faz o que você definir."
+      subtitle="Automação pessoal: só você vê e edita. Ela roda nos projetos que você acompanha."
       footer={<>
         <label className="check"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Ativa</label>
         <span className="spacer" />
