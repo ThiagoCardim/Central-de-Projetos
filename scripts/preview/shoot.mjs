@@ -116,7 +116,9 @@ const scenes = [
     await p.getByLabel("Etapa a ajustar").selectOption({ index: 2 });
     await p.getByLabel("Setor que está pedindo").selectOption({ label: "Projeto Estrutural" });
     await p.getByRole("button", { name: /Alteração média/ }).click();
-    await p.getByLabel("O que precisa ser ajustado").fill("Pilar central conflita com a laje; ajustar o vão da sala"); await p.waitForTimeout(200); } },
+    await p.getByLabel("O que precisa ser ajustado").fill("Pilar central conflita com a laje; ajustar o vão da sala");
+    await p.locator(".imgpick input[type=file]").setInputFiles(["scripts/preview/shots/gantt-month.png", "scripts/preview/shots/reopen.png"]);
+    await p.waitForTimeout(300); } },
   { name: "adj-decide", url: "/projetos/pr1/cronograma?as=leader&aba=ajustes", vp: { width: 1440, height: 1300 }, action: async (p) => {
     await p.getByRole("button", { name: "Analisar pedido" }).click(); await p.waitForTimeout(300);
     await p.getByLabel("Prazo do ajuste (dias úteis)").fill("5");

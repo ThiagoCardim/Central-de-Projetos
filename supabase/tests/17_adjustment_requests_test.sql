@@ -129,3 +129,25 @@ select tst.ok((tst.task('projeto_arquitetonico', 'envio_briefing')).status = 'co
 -- Ajuste interno não aparece para o cliente (motivo interno por padrão)
 select tst.ok(not exists (select 1 from public.task_changes c join public.schedule_change_reasons r on r.id = c.reason_id
                           where r.client_visible and c.project_id = tst.pid()), 'Ajustes internos não vão para a visão do cliente');
+
+-- Anexos de imagem (sem Storage local: valida caminho, tipo e dono)
+select tst.login('est@hq'); set role authenticated;
+select public.adjustment_create((tst.task('projeto_arquitetonico', 'planejamento')).id, 'simple', 'Ver a foto do detalhe da escada');
+create temp table adj as select id, project_id from public.adjustment_requests where status = 'pending';
+select public.adjustment_set_attachments((select id from adj), jsonb_build_array(
+  jsonb_build_object('path', (select project_id::text || '/' || id::text || '/a.jpg' from adj), 'name', 'escada.jpg', 'size', 1000, 'type', 'image/jpeg')));
+select tst.ok((select jsonb_array_length(attachments) from public.adjustment_requests where id = (select id from adj)) = 1, 'Imagem anexada ao pedido');
+select tst.ok((public.project_adjustments(tst.pid()) -> 0 -> 'attachments' -> 0 ->> 'name') = 'escada.jpg', 'Anexos aparecem na lista do pedido');
+select tst.throws(format('select public.adjustment_set_attachments(%L, %L::jsonb)', (select id from adj),
+  '[{"path":"outro/projeto/x.jpg","name":"x","type":"image/jpeg"}]'), 'Arquivo fora da pasta do pedido é recusado');
+select tst.throws(format('select public.adjustment_set_attachments(%L, %L::jsonb)', (select id from adj),
+  jsonb_build_array(jsonb_build_object('path', (select project_id::text || '/' || id::text || '/a.pdf' from adj), 'type', 'application/pdf'))), 'Só imagens');
+reset role;
+select tst.login('larq@hq'); set role authenticated;
+select tst.throws(format('select public.adjustment_set_attachments(%L, %L::jsonb)', (select id from adj), '[]'), 'Só quem pediu altera os anexos');
+select tst.ok(private.adjustment_file_readable((select project_id::text from adj)), 'Líder da equipe pode ver as imagens');
+reset role;
+select tst.login('est@hq'); set role authenticated;
+select tst.ok(private.adjustment_file_writable((select project_id::text from adj), (select id::text from adj)), 'Quem pediu pode enviar imagens');
+select tst.ok(not private.adjustment_file_writable((select project_id::text from adj), 'nao-e-uuid'), 'Caminho inválido não envia');
+reset role;

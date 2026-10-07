@@ -3,11 +3,14 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentComplexity, AdjustmentRequest, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
 } from "@/types/domain";
+
+export const ADJ_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const ADJ_IMAGE_MAX = 8 * 1024 * 1024;
 
 async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(fn, args);
@@ -372,6 +375,27 @@ export const api = {
     rpc<{ status: string; impacted_count?: number }>("adjustment_decide", { p_request: input.id, p_approve: input.approve,
       p_note: input.note?.trim() || null, p_days: input.days ?? null, p_assignee: input.assignee ?? null, p_start: input.start || null }),
   cancelAdjustment: (id: string) => rpc<void>("adjustment_cancel", { p_request: id }),
+  /** Envia as imagens do pedido (bucket privado) e registra no pedido. */
+  async uploadAdjustmentImages(projectId: string, requestId: string, files: File[]): Promise<void> {
+    const saved: AdjustmentAttachment[] = [];
+    for (const f of files) {
+      if (!ADJ_IMAGE_TYPES.includes(f.type)) throw new UserFacingError(`“${f.name}” não é JPG, PNG ou WebP.`);
+      if (f.size > ADJ_IMAGE_MAX) throw new UserFacingError(`“${f.name}” passa de 8 MB.`);
+      const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : "jpg";
+      const path = `${projectId}/${requestId}/${crypto.randomUUID()}.${ext}`;
+      const up = await supabase.storage.from("adjustment-files").upload(path, f, { contentType: f.type, cacheControl: "3600" });
+      if (up.error) throw new UserFacingError(`Não foi possível enviar “${f.name}”. Tente novamente.`);
+      saved.push({ path, name: f.name, size: f.size, type: f.type });
+    }
+    await rpc<void>("adjustment_set_attachments", { p_request: requestId, p_files: saved });
+  },
+  /** Links temporários (1 h) para ver as imagens privadas. */
+  async adjustmentImageUrls(paths: string[]): Promise<Record<string, string>> {
+    if (paths.length === 0) return {};
+    const { data, error } = await supabase.storage.from("adjustment-files").createSignedUrls(paths, 3600);
+    if (error) throw new UserFacingError("Não foi possível carregar as imagens.");
+    return Object.fromEntries((data ?? []).filter((x) => x.signedUrl).map((x) => [x.path as string, x.signedUrl as string]));
+  },
 
   // ---------- Motivos de alteração de prazo ----------
   async listChangeReasons(includeInactive = false): Promise<ChangeReason[]> {

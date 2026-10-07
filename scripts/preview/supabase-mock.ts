@@ -472,6 +472,17 @@ const REASONS: any[] = ([
 ] as [string, boolean][]).map(([label, vis], i, all) => ({ id: `rs-${i}`, label, description: null, client_visible: vis,
   is_other: i === all.length - 1, sort_order: i === all.length - 1 ? 1000 : (i + 1) * 10, active: true }));
 
+/** Imagem de exemplo (planta esquemática) para os anexos da prévia. */
+function mockImage(i: number) {
+  const hue = [20, 200, 140, 280][i % 4];
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='420' viewBox='0 0 640 420'>`
+    + `<rect width='640' height='420' fill='hsl(${hue},12%,88%)'/>`
+    + `<g fill='none' stroke='hsl(${hue},20%,35%)' stroke-width='6'><rect x='60' y='50' width='520' height='320'/><line x1='300' y1='50' x2='300' y2='250'/><line x1='60' y1='250' x2='420' y2='250'/></g>`
+    + `<circle cx='300' cy='250' r='26' fill='none' stroke='%23ff3000' stroke-width='6'/>`
+    + `<text x='320' y='310' font-family='sans-serif' font-size='26' fill='hsl(${hue},20%,30%)'>Detalhe ${i + 1}</text></svg>`;
+  return `data:image/svg+xml;utf8,${svg.replace(/#/g, "%23")}`;
+}
+
 const COMPLEXITIES: any[] = [
   { code: "simple", label: "Alteração simples", default_days: 3, description: "Ajuste pontual, sem impacto em outras partes do projeto.", sort_order: 1 },
   { code: "medium", label: "Alteração média", default_days: 7, description: "Ajuste que envolve mais de um ambiente ou prancha.", sort_order: 2 },
@@ -481,6 +492,7 @@ const ADJUSTMENTS: any[] = [
   { id: "adj1", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", task_id: "tr-arq-envio_briefing", task_name: "Envio do Briefing",
     task_status: "completed", target_service: "Projeto Arquitetônico", from_service: "Projeto Estrutural", complexity: "medium", complexity_label: "Alteração média",
     requested_days: 7, description: "Pilar central conflita com a laje da sala de estar. Precisamos ajustar o vão e reposicionar a escada antes de seguir com o cálculo.",
+    attachments: [{ path: "pr1/adj1/a.jpg", name: "pilar-sala.jpg", size: 420000, type: "image/jpeg" }, { path: "pr1/adj1/b.jpg", name: "corte-escada.png", size: 380000, type: "image/png" }],
     status: "pending", requested_by: { id: "p-c2", name: "Camila Rocha" }, decided_by: null, decided_at: null, decision_note: null, approved_days: null,
     assignee: null, result: null, created_at: d(0) + "T13:10:00Z", approvers: [{ id: "p-l1", name: "Rafael Andrade" }], can_decide: true, can_cancel: false },
   { id: "adj2", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", task_id: "tr-arq-planejamento", task_name: "Planejamento",
@@ -689,6 +701,13 @@ export function createClient() {
     },
     rpc,
     from,
+    storage: {
+      from: (_bucket: string) => ({
+        upload: () => delay({ data: {}, error: null }, 300),
+        getPublicUrl: (path: string) => ({ data: { publicUrl: `/${path}` } }),
+        createSignedUrls: (paths: string[]) => delay({ data: paths.map((path, i) => ({ path, signedUrl: mockImage(i), error: null })), error: null }, 120),
+      }),
+    },
     functions: {
       invoke: (_name: string, { body }: any) => {
         if (body.action === "invite" && profiles.some((p) => p.email === body.email)) {

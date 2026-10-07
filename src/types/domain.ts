@@ -374,6 +374,8 @@ export interface AdjustmentComplexity {
   sort_order: number;
 }
 
+export interface AdjustmentAttachment { path: string; name: string; size: number; type: string }
+
 /** Pedido de ajuste entre setores. */
 export interface AdjustmentRequest {
   id: string;
@@ -389,6 +391,7 @@ export interface AdjustmentRequest {
   complexity_label: string;
   requested_days: number;
   description: string;
+  attachments: AdjustmentAttachment[];
   status: "pending" | "approved" | "rejected" | "cancelled";
   requested_by: { id: string; name: string };
   decided_by: { id: string; name: string } | null;

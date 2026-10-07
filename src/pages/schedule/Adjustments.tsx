@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { api } from "@/services/api";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode } from "react";
+import { ADJ_IMAGE_MAX, ADJ_IMAGE_TYPES, api } from "@/services/api";
 import { Alert, Avatar, Badge, Button, Card, EmptyState, Field, Input, LoadError, Segmented, Select, Skeleton } from "@/components/ui/primitives";
 import { Modal, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
-import type { AdjustmentComplexity, AdjustmentRequest, ProjectSchedule, SchedulePreview, ScheduleTask, StaffMember } from "@/types/domain";
+import type { AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectSchedule, SchedulePreview, ScheduleTask, StaffMember } from "@/types/domain";
 import { cx, formatDate, formatDateTime, plural, TASK_STATUS_LABEL } from "@/utils/format";
 import { ImpactPreview } from "./ImpactPreview";
 
@@ -101,6 +101,7 @@ function AdjustmentCard({ r, actions, onOpenTask }: { r: AdjustmentRequest; acti
         <Badge tone={st.tone} dot>{st.label}</Badge>
       </div>
       <p className="adj__desc">{r.description}</p>
+      {r.attachments?.length > 0 && <AttachmentGallery files={r.attachments} />}
       <div className="adj__meta">
         <span className="adj__cplx"><Icon name="clock" size={14} /> {r.complexity_label} · {plural(r.approved_days ?? r.requested_days, "dia útil", "dias úteis")}</span>
         {r.status === "pending" && r.approvers.length > 0 && (
@@ -124,9 +125,10 @@ function AdjustmentCard({ r, actions, onOpenTask }: { r: AdjustmentRequest; acti
 /* ==========================================================================
    Solicitar ajuste
    ========================================================================== */
-export function RequestAdjustmentModal({ schedule, initialTaskId, onClose, onDone }: {
-  schedule: ProjectSchedule; initialTaskId?: string | null; onClose: () => void; onDone: () => void;
+export function RequestAdjustmentModal({ projectId, schedule, initialTaskId, onClose, onDone }: {
+  projectId: string; schedule: ProjectSchedule; initialTaskId?: string | null; onClose: () => void; onDone: () => void;
 }) {
+  const [images, setImages] = useState<File[]>([]);
   const toast = useToast();
   const [complexities, cErr] = useComplexities();
   const initialTask = schedule.tasks.find((t) => t.id === initialTaskId) ?? null;
@@ -147,8 +149,15 @@ export function RequestAdjustmentModal({ schedule, initialTaskId, onClose, onDon
   async function submit() {
     setBusy(true); setErr(null);
     try {
-      await api.createAdjustment({ taskId, complexity: cplx, description: desc, days: days ? Number(days) : null, fromService: from || null });
-      toast("Pedido enviado ao líder do setor.");
+      const reqId = await api.createAdjustment({ taskId, complexity: cplx, description: desc, days: days ? Number(days) : null, fromService: from || null });
+      if (images.length > 0) {
+        try { await api.uploadAdjustmentImages(projectId, reqId, images); }
+        catch (e) {
+          toast(`Pedido enviado, mas as imagens não foram anexadas: ${(e as Error).message}`, "error");
+          onDone(); return;
+        }
+      }
+      toast(images.length ? `Pedido enviado com ${plural(images.length, "imagem", "imagens")}.` : "Pedido enviado ao líder do setor.");
       onDone();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
@@ -213,6 +222,7 @@ export function RequestAdjustmentModal({ schedule, initialTaskId, onClose, onDon
           {({ id }) => <textarea id={id} className="input textarea" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)}
             placeholder="Ex.: pilar central conflita com a laje da sala; ajustar o vão e reposicionar a escada" />}
         </Field>
+        <ImagePicker files={images} onChange={setImages} />
       </div>
     </Modal>
   );
@@ -275,6 +285,7 @@ function DecideAdjustmentModal({ request: r, schedule, staff, onClose, onDone }:
           <p><strong>{r.target_service} · {r.task_name}</strong> <span className="subtext">({task ? TASK_STATUS_LABEL[task.status] : "—"})</span></p>
           <p className="subtext">Pedido por {r.requested_by.name}{r.from_service ? `, do setor ${r.from_service}` : ""} · {formatDateTime(r.created_at)}</p>
           <p className="adj__desc">{r.description}</p>
+          {r.attachments?.length > 0 && <AttachmentGallery files={r.attachments} />}
         </div>
         {err && <Alert tone="danger">{err}</Alert>}
         <Segmented<"approve" | "reject"> label="Decisão" value={decision} onChange={setDecision}
@@ -356,6 +367,102 @@ export function PendingAdjustmentsCard({ items, onOpen }: { items: AdjustmentReq
         ))}
       </ul>
     </Card>
+  );
+}
+
+/* ==========================================================================
+   Imagens do pedido
+   ========================================================================== */
+const MAX_IMAGES = 6;
+const fmtSize = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+/** Anexar imagens: clicar, arrastar ou colar (Ctrl+V) um print. */
+function ImagePicker({ files, onChange }: { files: File[]; onChange: (f: File[]) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [over, setOver] = useState(false);
+  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
+
+  function add(list: FileList | File[]) {
+    const incoming = Array.from(list);
+    const bad = incoming.find((f) => !ADJ_IMAGE_TYPES.includes(f.type));
+    const big = incoming.find((f) => f.size > ADJ_IMAGE_MAX);
+    const ok = incoming.filter((f) => ADJ_IMAGE_TYPES.includes(f.type) && f.size <= ADJ_IMAGE_MAX);
+    const next = [...files, ...ok].slice(0, MAX_IMAGES);
+    setErr(bad ? `“${bad.name}” não é JPG, PNG ou WebP.` : big ? `“${big.name}” passa de 8 MB.`
+      : files.length + ok.length > MAX_IMAGES ? `Até ${MAX_IMAGES} imagens por pedido.` : null);
+    onChange(next);
+  }
+  const onDrop = (e: DragEvent) => { e.preventDefault(); setOver(false); if (e.dataTransfer.files.length) add(e.dataTransfer.files); };
+  const onPaste = (e: ClipboardEvent) => {
+    const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
+    if (imgs.length) { e.preventDefault(); add(imgs.map((f, i) => new File([f], f.name && f.name !== "image.png" ? f.name : `print-${Date.now()}-${i + 1}.png`, { type: f.type }))); }
+  };
+
+  return (
+    <div className="imgpick">
+      <span className="field__label">Imagens do que precisa ser ajustado <span className="muted">(opcional)</span></span>
+      <div className={cx("imgpick__drop", over && "is-over")} tabIndex={0} role="button"
+        aria-label="Anexar imagens: clique, arraste ou cole um print"
+        onClick={() => input.current?.click()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.current?.click(); } }}
+        onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop} onPaste={onPaste}>
+        <Icon name="plus" size={18} />
+        <span><strong>Clique para escolher</strong>, arraste ou cole um print (Ctrl+V)</span>
+        <span className="subtext">JPG, PNG ou WebP · até {MAX_IMAGES} imagens de 8 MB</span>
+      </div>
+      <input ref={input} type="file" accept={ADJ_IMAGE_TYPES.join(",")} multiple hidden
+        onChange={(e) => { if (e.target.files) add(e.target.files); e.target.value = ""; }} />
+      {err && <p className="field__error" role="alert">{err}</p>}
+      {files.length > 0 && (
+        <ul className="imgpick__list">
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`} className="imgthumb">
+              <img src={previews[i]} alt={f.name} />
+              <span className="imgthumb__name" title={f.name}>{f.name}</span>
+              <span className="imgthumb__size">{fmtSize(f.size)}</span>
+              <button type="button" className="imgthumb__remove" aria-label={`Remover ${f.name}`}
+                onClick={() => onChange(files.filter((_, j) => j !== i))}><Icon name="x" size={14} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Miniaturas das imagens anexadas (links temporários); clique abre a imagem. */
+function AttachmentGallery({ files }: { files: AdjustmentAttachment[] }) {
+  const [urls, setUrls] = useState<Record<string, string> | null>(null);
+  const [err, setErr] = useState(false);
+  const [open, setOpen] = useState<AdjustmentAttachment | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.adjustmentImageUrls(files.map((f) => f.path)).then((u) => alive && setUrls(u)).catch(() => alive && setErr(true));
+    return () => { alive = false; };
+  }, [files]);
+  if (err) return <p className="subtext">Não foi possível carregar as imagens anexadas.</p>;
+  return (
+    <>
+      <ul className="imggal" aria-label="Imagens anexadas">
+        {files.map((f) => (
+          <li key={f.path}>
+            <button type="button" className="imggal__item" onClick={() => setOpen(f)} title={f.name} disabled={!urls?.[f.path]}>
+              {urls?.[f.path] ? <img src={urls[f.path]} alt={f.name} loading="lazy" /> : <Skeleton height={72} />}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {open && urls?.[open.path] && (
+        <Modal open wide onClose={() => setOpen(null)} title={open.name}
+          footer={<>
+            <a className="btn btn--ghost btn--sm" href={urls[open.path]} target="_blank" rel="noreferrer">Abrir em nova aba</a>
+            <Button size="sm" onClick={() => setOpen(null)}>Fechar</Button>
+          </>}>
+          <img className="imgview" src={urls[open.path]} alt={open.name} />
+        </Modal>
+      )}
+    </>
   );
 }
 

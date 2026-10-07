@@ -134,7 +134,7 @@ export function ProjectSchedulePage() {
       )}
 
       {s && requesting && (
-        <RequestAdjustmentModal schedule={s} initialTaskId={requesting.taskId} onClose={() => setRequesting(null)}
+        <RequestAdjustmentModal projectId={p.id} schedule={s} initialTaskId={requesting.taskId} onClose={() => setRequesting(null)}
           onDone={() => { setRequesting(null); setView("adjustments"); void adjustments.reload(); }} />
       )}
       {s && addTrack && (
