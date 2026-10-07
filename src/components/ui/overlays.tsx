@@ -72,8 +72,8 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, wide 
   );
 }
 
-export function Modal({ open, onClose, title, children, footer }: {
-  open: boolean; onClose: () => void; title: string; children: ReactNode; footer: ReactNode;
+export function Modal({ open, onClose, title, children, footer, wide }: {
+  open: boolean; onClose: () => void; title: string; children: ReactNode; footer: ReactNode; wide?: boolean;
 }) {
   const ref = useDialog(open, onClose);
   const titleId = useId();
@@ -81,7 +81,7 @@ export function Modal({ open, onClose, title, children, footer }: {
   return createPortal(
     <>
       <div className="overlay" onClick={onClose} aria-hidden="true" />
-      <div ref={ref} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      <div ref={ref} className={wide ? "modal modal--wide" : "modal"} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal__body">
           <h2 id={titleId}>{title}</h2>
           {children}

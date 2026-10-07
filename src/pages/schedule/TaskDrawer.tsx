@@ -6,6 +6,7 @@ import { Drawer, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import type { ProjectSchedule, ScheduleTask, SchedulePreview, StaffMember, TaskChange, TaskStatus } from "@/types/domain";
 import { cx, EMPLOYMENT_LABEL, formatDate, formatDateTime, plural, TASK_STATUS_LABEL } from "@/utils/format";
+import { ImpactPreview } from "./ImpactPreview";
 import {
   CHANGE_LABEL, displayStatus, durationText, isClosed, isStarted, predecessorsOf, REASON_PLACEHOLDER, serviceName,
   statusActions, successorsOf, type StatusAction,
@@ -226,34 +227,7 @@ function ReschedulePanel({ task, onChanged, toast }: { task: ScheduleTask; onCha
         <div><Button size="sm" variant="secondary" loading={busy === "preview"} onClick={doPreview}>Ver impacto</Button></div>
       ) : (
         <div className="stack">
-          <div className="impact">
-            <p className="impact__head">
-              <strong>{task.name}</strong>: {formatDate(preview.task.before_start)} – {formatDate(preview.task.before_end)}
-              <Icon name="chevronRight" size={14} />
-              <strong>{formatDate(preview.task.after_start)} – {formatDate(preview.task.after_end)}</strong>
-            </p>
-            {preview.impacted_count === 0 ? (
-              <p className="subtext">Nenhuma outra etapa muda.</p>
-            ) : (
-              <>
-                <p className={cx("impact__count")}>Esta alteração impactará {plural(preview.impacted_count, "etapa", "etapas")}.</p>
-                <ul className="impact__list">
-                  {preview.impacted.slice(0, 8).map((i) => (
-                    <li key={i.id}>
-                      <span className="grow truncate">{i.name} <span className="muted">· {i.service}</span></span>
-                      <span className="num muted">{formatDate(i.before_end)}</span>
-                      <Icon name="chevronRight" size={12} />
-                      <span className="num">{formatDate(i.after_end)}</span>
-                    </li>
-                  ))}
-                  {preview.impacted.length > 8 && <li className="muted">e mais {preview.impacted.length - 8}</li>}
-                </ul>
-              </>
-            )}
-            {preview.forecast_before !== preview.forecast_after && (
-              <p className="subtext">Previsão de conclusão: {formatDate(preview.forecast_before, true)} → <strong>{formatDate(preview.forecast_after, true)}</strong></p>
-            )}
-          </div>
+          <ImpactPreview name={task.name} preview={preview} />
           <Field label="Motivo da alteração" required hint="Obrigatório. Fica registrado com quem alterou e quando.">
             {({ id, describedBy }) => <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={2}
               value={reason} onChange={(e) => setReason(e.target.value)} />}

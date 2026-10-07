@@ -26,6 +26,7 @@ const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 const filter = process.argv[2] ?? "";
 
+const gantt = async (p) => { await p.getByRole("tab", { name: "Gantt" }).click(); await p.waitForTimeout(400); };
 const scenes = [
   { name: "login", url: "/entrar", vp: DESKTOP },
   { name: "home-global", url: "/?as=global_admin", vp: DESKTOP, full: true },
@@ -69,6 +70,24 @@ const scenes = [
     await p.getByLabel("Duração (dias úteis)").fill("25"); await p.getByRole("button", { name: "Ver impacto" }).click(); await p.waitForTimeout(500); } },
   { name: "sched-add", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: "Adicionar etapa" }).first().click(); } },
   { name: "sched-step-filter", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Lista" }).click(); await p.getByLabel("Etapa", { exact: true }).selectOption({ label: "Planejamento" }); await p.waitForTimeout(300); } },
+  { name: "gantt-month", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: gantt },
+  { name: "gantt-week", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await gantt(p); await p.getByRole("radio", { name: "Semana" }).click(); await p.waitForTimeout(300); } },
+  { name: "gantt-quarter", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await gantt(p); await p.getByRole("radio", { name: "Trimestre" }).click(); await p.waitForTimeout(300); } },
+  { name: "gantt-select", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await gantt(p); await p.getByRole("button", { name: /^Estudo Preliminar:/ }).first().click(); await p.waitForTimeout(300); } },
+  { name: "gantt-drag", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => {
+    await gantt(p); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.waitForTimeout(300);
+    const bar = p.locator(".gbar.is-movable").first(); const box = await bar.boundingBox();
+    await p.mouse.move(box.x + 20, box.y + box.height / 2); await p.mouse.down(); await p.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 6 });
+    await p.screenshot({ path: "scripts/preview/shots/gantt-dragging.png" });
+    await p.mouse.up(); await p.waitForTimeout(700); } },
+  { name: "gantt-resize", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => {
+    await gantt(p); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.waitForTimeout(300);
+    const h = p.locator(".gantt__row", { has: p.getByRole("button", { name: "Estudo Preliminar", exact: true }) }).first().locator(".gbar__handle"); const box = await h.boundingBox();
+    await p.mouse.move(box.x + 4, box.y + box.height / 2); await p.mouse.down(); await p.mouse.move(box.x + 64, box.y + box.height / 2, { steps: 6 });
+    await p.screenshot({ path: "scripts/preview/shots/gantt-resizing.png" });
+    await p.mouse.up(); await p.waitForTimeout(700); } },
+  { name: "gantt-light", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, light: true, action: gantt },
+  { name: "m-gantt", url: "/projetos/pr1/cronograma?as=leader", vp: MOBILE, action: async (p) => { await gantt(p); await p.locator(".gantt").scrollIntoViewIfNeeded(); } },
   { name: "sched-clt", url: "/projetos/pr1/cronograma?as=clt&etapa=tr-arq-estudo_preliminar", vp: DESKTOP },
   { name: "mysched-leader", url: "/cronograma?as=leader", vp: DESKTOP, full: true },
   { name: "mysched-clt", url: "/cronograma?as=clt", vp: DESKTOP, full: true },

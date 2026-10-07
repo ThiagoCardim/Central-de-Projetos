@@ -14,13 +14,14 @@ import type { ProjectDetail, ProjectSchedule, ScheduleTask, ScheduleTrack, Staff
 import { alertPhrase, cx, formatDate, initials, plural, TASK_STATUS_TONE } from "@/utils/format";
 import { TaskDrawer } from "./TaskDrawer";
 import { AddTaskDrawer } from "./AddTaskDrawer";
+import { GanttView } from "./GanttView";
 import {
   displayStatus, durationText, forecastOf, isBlocked, isClosed, isOverdue, isWaitingClient, matchesFilters, progressOf,
   QUICK_FILTERS, serviceName, sortTracks, stepFilterKey, todayISO, TRACK_STATUS_LABEL, TRACK_STATUS_TONE,
   type QuickFilter, type ScheduleFilters,
 } from "./model";
 
-type View = "overview" | "tracks" | "list";
+type View = "overview" | "tracks" | "gantt" | "list";
 const VIEW_KEY = "yc-schedule-view";
 
 /* ==========================================================================
@@ -49,6 +50,7 @@ export function ProjectSchedulePage() {
   const p = project.data;
   useDocumentTitle(p ? `Cronograma · ${p.name}` : "Cronograma");
   const isGlobal = permissions?.role === "global_admin";
+  const isClient = permissions?.role === "client";
   const canManage = !!p && (isGlobal || (!!permissions?.is_manager && permissions.tenant_id === p.delivery_tenant_id));
   const me = permissions?.profile_id ?? null;
 
@@ -98,9 +100,9 @@ export function ProjectSchedulePage() {
                 <Tabs<View> label="Visualização do cronograma" value={view} onChange={setView} tabs={[
                   { value: "overview", label: "Visão geral" },
                   { value: "tracks", label: "Trilhas" },
+                  ...(isClient ? [] : [{ value: "gantt" as View, label: "Gantt" }]),
                   { value: "list", label: "Lista" },
                 ]} />
-                <span className="sched-bar__soon" title="Gantt interativo chega na Etapa 3.1"><Icon name="chart" size={14} /> Gantt <Badge tag>Etapa 3.1</Badge></span>
               </div>
 
               {view !== "overview" && (
@@ -111,6 +113,8 @@ export function ProjectSchedulePage() {
                 onFilter={(q) => { setFilters((f) => ({ ...f, quick: q })); setView("list"); }} />}
               {view === "tracks" && <TracksView schedule={s} staff={staff.data ?? []} filters={filters} me={me} onOpen={setSelected}
                 onAdd={canManage && mode === "manage" ? setAddTrack : undefined} />}
+              {view === "gantt" && !isClient && <GanttView schedule={s} staff={staff.data ?? []} filters={filters} me={me}
+                editable={canManage && mode === "manage"} canManage={canManage} onOpen={setSelected} onChanged={reload} />}
               {view === "list" && <ListView schedule={s} staff={staff.data ?? []} filters={filters} me={me} onOpen={setSelected} />}
             </>
           )}
