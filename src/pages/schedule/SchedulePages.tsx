@@ -15,13 +15,14 @@ import { alertPhrase, cx, formatDate, initials, plural, TASK_STATUS_TONE } from 
 import { TaskDrawer } from "./TaskDrawer";
 import { AddTaskDrawer } from "./AddTaskDrawer";
 import { GanttView } from "./GanttView";
+import { AdjustmentsView, RequestAdjustmentModal } from "./Adjustments";
 import {
   displayStatus, durationText, forecastOf, isBlocked, isClosed, isOverdue, isWaitingClient, matchesFilters, progressOf,
   QUICK_FILTERS, serviceName, sortTracks, stepFilterKey, todayISO, TRACK_STATUS_LABEL, TRACK_STATUS_TONE,
   type QuickFilter, type ScheduleFilters,
 } from "./model";
 
-type View = "overview" | "tracks" | "gantt" | "list";
+type View = "overview" | "tracks" | "gantt" | "list" | "adjustments";
 const VIEW_KEY = "yc-schedule-view";
 
 /* ==========================================================================
@@ -32,6 +33,7 @@ export function ProjectSchedulePage() {
   const { permissions } = useAuth();
   const navigate = useNavigate();
   const taskParam = useSearchParam("etapa");
+  const tabParam = useSearchParam("aba");
   const project = useAsync(() => api.getProject(id), [id]);
   const sched = useAsync(() => api.getProjectSchedule(id), [id]);
   const deliveryTenant = project.data?.delivery_tenant_id ?? null;
@@ -46,6 +48,8 @@ export function ProjectSchedulePage() {
   const [selected, setSelected] = useState<string | null>(taskParam);
   const [addTrack, setAddTrack] = useState<string | null>(null);
   useEffect(() => { if (taskParam) setSelected(taskParam); }, [taskParam]);
+  useEffect(() => { if (tabParam === "ajustes") setViewState("adjustments"); }, [tabParam]);
+  const [requesting, setRequesting] = useState<{ taskId: string | null } | null>(null);
 
   const p = project.data;
   useDocumentTitle(p ? `Cronograma · ${p.name}` : "Cronograma");
@@ -54,7 +58,10 @@ export function ProjectSchedulePage() {
   const canManage = !!p && (isGlobal || (!!permissions?.is_manager && permissions.tenant_id === p.delivery_tenant_id));
   const me = permissions?.profile_id ?? null;
 
-  const reload = () => { void sched.reload(); };
+  const isStaffUser = !!permissions && permissions.role !== "client";
+  const adjustments = useAsync(() => (isStaffUser && id ? api.projectAdjustments(id) : Promise.resolve([])), [id, isStaffUser]);
+  const pendingAdjustments = (adjustments.data ?? []).filter((r) => r.status === "pending").length;
+  const reload = () => { void sched.reload(); void adjustments.reload(); };
 
   if (project.error) return <div className="page"><LoadError message={project.error} onRetry={project.reload} /></div>;
   if (project.loading && !p) return <div className="page"><Skeleton width={280} height={28} /><Skeleton height={96} radius={16} /><Skeleton height={320} radius={16} /></div>;
@@ -102,10 +109,11 @@ export function ProjectSchedulePage() {
                   { value: "tracks", label: "Trilhas" },
                   ...(isClient ? [] : [{ value: "gantt" as View, label: "Gantt" }]),
                   { value: "list", label: "Lista" },
+                  ...(isClient ? [] : [{ value: "adjustments" as View, label: "Ajustes entre setores", count: pendingAdjustments || undefined }]),
                 ]} />
               </div>
 
-              {view !== "overview" && (
+              {view !== "overview" && view !== "adjustments" && (
                 <Filters filters={filters} setFilters={setFilters} tracks={s.tracks} tasks={s.tasks} staff={staff.data ?? []} />
               )}
 
@@ -115,12 +123,20 @@ export function ProjectSchedulePage() {
                 onAdd={canManage && mode === "manage" ? setAddTrack : undefined} />}
               {view === "gantt" && !isClient && <GanttView schedule={s} staff={staff.data ?? []} filters={filters} me={me}
                 editable={canManage && mode === "manage"} canManage={canManage} onOpen={setSelected} onChanged={reload} />}
+              {view === "adjustments" && !isClient && (
+                <AdjustmentsView items={adjustments.data} error={adjustments.error} loading={adjustments.loading} onRetry={adjustments.reload}
+                  schedule={s} staff={staff.data ?? []} onRequest={() => setRequesting({ taskId: null })} onChanged={reload} onOpenTask={setSelected} />
+              )}
               {view === "list" && <ListView schedule={s} staff={staff.data ?? []} filters={filters} me={me} onOpen={setSelected} />}
             </>
           )}
         </>
       )}
 
+      {s && requesting && (
+        <RequestAdjustmentModal schedule={s} initialTaskId={requesting.taskId} onClose={() => setRequesting(null)}
+          onDone={() => { setRequesting(null); setView("adjustments"); void adjustments.reload(); }} />
+      )}
       {s && addTrack && (
         <AddTaskDrawer trackId={addTrack} schedule={s} staff={staff.data ?? []} onClose={() => setAddTrack(null)}
           onSaved={(tid) => { setAddTrack(null); reload(); setSelected(tid); }} />
@@ -128,6 +144,7 @@ export function ProjectSchedulePage() {
       {s && (
         <TaskDrawer task={selectedTask} schedule={s} staff={staff.data ?? []} me={me} canManage={canManage}
           managementMode={mode === "manage"} onChanged={reload} onOpenTask={setSelected}
+          onRequestAdjustment={isStaffUser ? (tid) => setRequesting({ taskId: tid }) : undefined}
           onClose={() => { setSelected(null); if (taskParam) navigate(`/projetos/${p.id}/cronograma`, { replace: true }); }} />
       )}
     </div>

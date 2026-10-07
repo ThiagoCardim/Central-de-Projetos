@@ -10,6 +10,7 @@ import {
 import { Icon } from "@/components/ui/Icon";
 import { AwaitingTeamCard, StepTimeline, TaskList } from "@/components/domain/cards";
 import { computeNextStep, type NextStep } from "./nextStep";
+import { PendingAdjustmentsCard } from "@/pages/schedule/Adjustments";
 import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
 import {
   cx, EMPLOYMENT_LABEL, firstName, formatDate, formatToday, greeting, PROJECT_STATUS_LABEL, ROLE_LABEL, TENANT_TYPE_LABEL,
@@ -73,6 +74,8 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
   const ops = d.operations;
   const mine = d.my_work!;
   const names = useMemo(() => new Map((ops?.team_load ?? []).map((m) => [m.id, m.name])), [ops]);
+  const navigate = useNavigate();
+  const pendingAdj = useAsync(() => (perms?.is_manager ? api.myPendingAdjustments() : Promise.resolve([])), [perms?.is_manager]);
 
   return (
     <>
@@ -102,6 +105,8 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
 
       <div className="home__grid">
         <div className="home__main">
+          <PendingAdjustmentsCard items={pendingAdj.data ?? []}
+            onOpen={(r) => navigate(`/projetos/${r.project_id}/cronograma?aba=ajustes`)} />
           {ops && (
             <Card title="Novos projetos aguardando equipe" count={ops.awaiting_team.length || undefined}>
               {ops.awaiting_team.length ? (

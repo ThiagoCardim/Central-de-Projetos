@@ -109,6 +109,21 @@ const scenes = [
     await p.getByLabel("Motivo da reabertura").selectOption({ label: "Cliente pediu alteração em etapa já concluída" });
     await p.getByLabel("Observação (opcional)").fill("Inclusão de um quarto de hóspedes no programa");
     await p.locator(".reason-field").scrollIntoViewIfNeeded(); await p.waitForTimeout(200); } },
+  { name: "adj-list", url: "/projetos/pr1/cronograma?as=leader&aba=ajustes", vp: { width: 1440, height: 1200 }, full: true },
+  { name: "adj-request", url: "/projetos/pr1/cronograma?as=leader&aba=ajustes", vp: { width: 1440, height: 1100 }, action: async (p) => {
+    await p.getByRole("button", { name: "Solicitar ajuste" }).first().click(); await p.waitForTimeout(300);
+    await p.getByLabel("Setor que precisa ajustar").selectOption({ label: "Projeto Arquitetônico" });
+    await p.getByLabel("Etapa a ajustar").selectOption({ index: 2 });
+    await p.getByLabel("Setor que está pedindo").selectOption({ label: "Projeto Estrutural" });
+    await p.getByRole("button", { name: /Alteração média/ }).click();
+    await p.getByLabel("O que precisa ser ajustado").fill("Pilar central conflita com a laje; ajustar o vão da sala"); await p.waitForTimeout(200); } },
+  { name: "adj-decide", url: "/projetos/pr1/cronograma?as=leader&aba=ajustes", vp: { width: 1440, height: 1300 }, action: async (p) => {
+    await p.getByRole("button", { name: "Analisar pedido" }).click(); await p.waitForTimeout(300);
+    await p.getByLabel("Prazo do ajuste (dias úteis)").fill("5");
+    await p.getByLabel("Quem executa o ajuste").selectOption({ index: 1 });
+    await p.getByRole("button", { name: "Ver impacto no cronograma" }).click(); await p.waitForTimeout(500); } },
+  { name: "adj-home", url: "/?as=leader", vp: DESKTOP },
+  { name: "adj-times", url: "/servicos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Prazos de ajuste" }).click(); await p.waitForTimeout(300); } },
   { name: "reasons-admin", url: "/servicos?as=global_admin", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Motivos de alteração" }).click(); await p.waitForTimeout(300); } },
   { name: "m-home-client", url: "/?as=client", vp: MOBILE, full: true },
   { name: "sched-add", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: "Adicionar etapa" }).first().click(); } },

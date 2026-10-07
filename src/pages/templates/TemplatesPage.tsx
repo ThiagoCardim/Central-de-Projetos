@@ -9,15 +9,16 @@ import {
 import { ConfirmDialog, Drawer, Modal, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import type {
-  CatalogService, ChangeReason, ClientType, DurationType, LeadershipArea, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
+  AdjustmentComplexity, CatalogService, ChangeReason, ClientType, DurationType, LeadershipArea, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
 } from "@/types/domain";
 import { cx, formatDate, plural } from "@/utils/format";
 import { StepPicker } from "@/components/ui/StepPicker";
 import { loadChangeReasons } from "@/pages/schedule/ReasonField";
+import { loadComplexities } from "@/pages/schedule/Adjustments";
 import { DURATION_TYPE_LABEL } from "@/pages/schedule/model";
 import { groupIndexes, parallelFromDeps, useDragSort } from "@/components/ui/sortable";
 
-type Tab = "templates" | "library" | "reasons";
+type Tab = "templates" | "library" | "reasons" | "adjustments";
 
 export function TemplatesPage() {
   useDocumentTitle("Serviços e Cronogramas");
@@ -32,8 +33,10 @@ export function TemplatesPage() {
         { value: "templates", label: "Padrões por serviço" },
         { value: "library", label: "Biblioteca de etapas" },
         { value: "reasons", label: "Motivos de alteração" },
+        { value: "adjustments", label: "Prazos de ajuste" },
       ]} />
-      {tab === "templates" ? <TemplatesManager canEdit={canEdit} /> : tab === "library" ? <LibraryManager /> : <ReasonsManager />}
+      {tab === "templates" ? <TemplatesManager canEdit={canEdit} /> : tab === "library" ? <LibraryManager />
+        : tab === "reasons" ? <ReasonsManager /> : <AdjustmentTimesManager />}
     </div>
   );
 }
@@ -955,5 +958,54 @@ function ReasonDrawer({ item, onClose, onSaved }: { item: ChangeReason | null; o
         message="O motivo deixa de aparecer como opção. Alterações já registradas com ele continuam no histórico. Você pode reativá-lo depois."
         confirmLabel="Desativar" loading={busy} onCancel={() => setConfirmOff(false)} onConfirm={() => save(false)} />
     </Drawer>
+  );
+}
+
+/* ==========================================================================
+   Prazos de ajuste por complexidade (pedidos de ajuste entre setores)
+   ========================================================================== */
+function AdjustmentTimesManager() {
+  const { permissions } = useAuth();
+  const isGlobal = permissions?.role === "global_admin";
+  const data = useAsync(() => api.listAdjustmentComplexities(), []);
+  return (
+    <div className="stack">
+      <p className="subtext">
+        Quando um setor pede ajuste a outro, a complexidade escolhida sugere o prazo. O líder que aprova pode alterar o prazo de cada pedido.
+        {isGlobal ? "" : " Só o ADM Global edita esta tabela."}
+      </p>
+      {data.error ? <LoadError message={data.error} onRetry={data.reload} /> : !data.data ? <Skeleton height={220} radius={16} /> : (
+        <div className="cplx-table">
+          {data.data.map((c) => <ComplexityRow key={c.code} item={c} editable={isGlobal} onSaved={() => { void data.reload(); void loadComplexities(true).catch(() => undefined); }} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComplexityRow({ item, editable, onSaved }: { item: AdjustmentComplexity; editable: boolean; onSaved: () => void }) {
+  const toast = useToast();
+  const [label, setLabel] = useState(item.label);
+  const [days, setDays] = useState(String(item.default_days));
+  const [desc, setDesc] = useState(item.description ?? "");
+  const [busy, setBusy] = useState(false);
+  const dirty = label !== item.label || days !== String(item.default_days) || desc !== (item.description ?? "");
+  return (
+    <Card className="cplx-row">
+      <div className="cplx-row__fields">
+        <Field label="Nome">{({ id }) => <Input id={id} value={label} disabled={!editable} maxLength={60} onChange={(e) => setLabel(e.target.value)} />}</Field>
+        <Field label="Prazo padrão (dias úteis)">{({ id }) => <Input id={id} type="number" min={1} max={365} value={days} disabled={!editable} onChange={(e) => setDays(e.target.value)} />}</Field>
+        <Field label="Quando usar">{({ id }) => <Input id={id} value={desc} disabled={!editable} onChange={(e) => setDesc(e.target.value)} placeholder="Ex.: ajuste pontual, sem impacto em outras disciplinas" />}</Field>
+      </div>
+      {editable && (
+        <div className="row">
+          <Button size="sm" loading={busy} disabled={!dirty || label.trim().length < 2 || !Number(days)} onClick={async () => {
+            setBusy(true);
+            try { await api.saveAdjustmentComplexity({ code: item.code, label, default_days: Number(days), description: desc }); toast("Prazo atualizado. Vale para os próximos pedidos."); onSaved(); }
+            catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
+          }}>Salvar</Button>
+        </div>
+      )}
+    </Card>
   );
 }

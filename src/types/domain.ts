@@ -364,6 +364,45 @@ export interface TaskChange {
   author: { name: string } | null;
 }
 
+/** Prazo padrão de ajuste por complexidade. */
+export type AdjustmentComplexityCode = "simple" | "medium" | "complex";
+export interface AdjustmentComplexity {
+  code: AdjustmentComplexityCode;
+  label: string;
+  default_days: number;
+  description: string | null;
+  sort_order: number;
+}
+
+/** Pedido de ajuste entre setores. */
+export interface AdjustmentRequest {
+  id: string;
+  project_id: string;
+  project_name: string;
+  project_code: string | null;
+  task_id: string;
+  task_name: string;
+  task_status: TaskStatus;
+  target_service: string;
+  from_service: string | null;
+  complexity: AdjustmentComplexityCode;
+  complexity_label: string;
+  requested_days: number;
+  description: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  requested_by: { id: string; name: string };
+  decided_by: { id: string; name: string } | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  approved_days: number | null;
+  assignee: { id: string; name: string } | null;
+  result: { mode?: "reopened" | "extended"; impacted_count?: number } | null;
+  created_at: string;
+  approvers: { id: string; name: string }[];
+  can_decide: boolean;
+  can_cancel: boolean;
+}
+
 /** Motivo padronizado de alteração de prazo. */
 export interface ChangeReason {
   id: string;

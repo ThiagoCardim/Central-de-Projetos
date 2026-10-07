@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentComplexity, AdjustmentRequest, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -350,6 +350,28 @@ export const api = {
     }
     return data as TaskLibraryItem;
   },
+
+  // ---------- Ajustes entre setores ----------
+  async listAdjustmentComplexities(): Promise<AdjustmentComplexity[]> {
+    const { data, error } = await supabase.from("adjustment_complexities").select("code, label, default_days, description, sort_order").order("sort_order");
+    if (error) throw toUserError(error);
+    return data as AdjustmentComplexity[];
+  },
+  async saveAdjustmentComplexity(input: Pick<AdjustmentComplexity, "code" | "label" | "default_days" | "description">): Promise<void> {
+    const { error } = await supabase.from("adjustment_complexities")
+      .update({ label: input.label.trim(), default_days: input.default_days, description: input.description?.trim() || null })
+      .eq("code", input.code);
+    if (error) throw toUserError(error);
+  },
+  projectAdjustments: (projectId: string) => rpc<AdjustmentRequest[]>("project_adjustments", { p_project: projectId }),
+  myPendingAdjustments: () => rpc<AdjustmentRequest[]>("my_pending_adjustments"),
+  createAdjustment: (input: { taskId: string; complexity: string; description: string; days?: number | null; fromService?: string | null }) =>
+    rpc<string>("adjustment_create", { p_task: input.taskId, p_complexity: input.complexity, p_description: input.description,
+      p_days: input.days ?? null, p_from_service: input.fromService || null }),
+  decideAdjustment: (input: { id: string; approve: boolean; note?: string | null; days?: number | null; assignee?: string | null; start?: string | null }) =>
+    rpc<{ status: string; impacted_count?: number }>("adjustment_decide", { p_request: input.id, p_approve: input.approve,
+      p_note: input.note?.trim() || null, p_days: input.days ?? null, p_assignee: input.assignee ?? null, p_start: input.start || null }),
+  cancelAdjustment: (id: string) => rpc<void>("adjustment_cancel", { p_request: id }),
 
   // ---------- Motivos de alteração de prazo ----------
   async listChangeReasons(includeInactive = false): Promise<ChangeReason[]> {

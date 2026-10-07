@@ -203,6 +203,11 @@ function rpc(name: string, _args?: any) {
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
       return delay({ data: null, error: null }, 300);
     case "reorder_task_library": return delay({ data: null, error: null }, 200);
+    case "project_adjustments": return delay({ data: ADJUSTMENTS.filter((a) => !_args?.p_project || a.project_id === _args.p_project), error: null }, 150);
+    case "my_pending_adjustments": return delay({ data: ADJUSTMENTS.filter((a) => a.can_decide), error: null }, 150);
+    case "adjustment_create": return delay({ data: "adj-new", error: null }, 250);
+    case "adjustment_decide": return delay({ data: { status: _args?.p_approve ? "approved" : "rejected", impacted_count: 6 }, error: null }, 300);
+    case "adjustment_cancel": return delay({ data: null, error: null }, 200);
     case "preview_task_reopen": return delay({ data: {
       task: { id: _args?.p_task, name: "Envio do Briefing", service: "Projeto Arquitetônico", before_start: d(-44), before_end: d(-33), after_start: d(0), after_end: d(6),
         before_duration: 7, after_duration: _args?.p_days ?? 5 },
@@ -467,6 +472,31 @@ const REASONS: any[] = ([
 ] as [string, boolean][]).map(([label, vis], i, all) => ({ id: `rs-${i}`, label, description: null, client_visible: vis,
   is_other: i === all.length - 1, sort_order: i === all.length - 1 ? 1000 : (i + 1) * 10, active: true }));
 
+const COMPLEXITIES: any[] = [
+  { code: "simple", label: "Alteração simples", default_days: 3, description: "Ajuste pontual, sem impacto em outras partes do projeto.", sort_order: 1 },
+  { code: "medium", label: "Alteração média", default_days: 7, description: "Ajuste que envolve mais de um ambiente ou prancha.", sort_order: 2 },
+  { code: "complex", label: "Alteração complexa", default_days: 15, description: "Ajuste que muda a concepção ou exige nova compatibilização.", sort_order: 3 },
+];
+const ADJUSTMENTS: any[] = [
+  { id: "adj1", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", task_id: "tr-arq-envio_briefing", task_name: "Envio do Briefing",
+    task_status: "completed", target_service: "Projeto Arquitetônico", from_service: "Projeto Estrutural", complexity: "medium", complexity_label: "Alteração média",
+    requested_days: 7, description: "Pilar central conflita com a laje da sala de estar. Precisamos ajustar o vão e reposicionar a escada antes de seguir com o cálculo.",
+    status: "pending", requested_by: { id: "p-c2", name: "Camila Rocha" }, decided_by: null, decided_at: null, decision_note: null, approved_days: null,
+    assignee: null, result: null, created_at: d(0) + "T13:10:00Z", approvers: [{ id: "p-l1", name: "Rafael Andrade" }], can_decide: true, can_cancel: false },
+  { id: "adj2", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", task_id: "tr-arq-planejamento", task_name: "Planejamento",
+    task_status: "completed", target_service: "Projeto Arquitetônico", from_service: "Design de Interiores", complexity: "simple", complexity_label: "Alteração simples",
+    requested_days: 3, description: "Revisar a cota do pé-direito da sala para o forro de gesso.", status: "approved",
+    requested_by: { id: "p-c3", name: "Lucas Ferreira" }, decided_by: { id: "p-l1", name: "Rafael Andrade" }, decided_at: d(-6) + "T10:00:00Z",
+    decision_note: "Ok, a Beatriz resolve esta semana.", approved_days: 2, assignee: { id: "p-c1", name: "Beatriz Nogueira" },
+    result: { mode: "reopened", impacted_count: 5 }, created_at: d(-7) + "T16:20:00Z", approvers: [{ id: "p-l1", name: "Rafael Andrade" }], can_decide: false, can_cancel: false },
+  { id: "adj3", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", task_id: "tr-arq-planejamento", task_name: "Planejamento",
+    task_status: "completed", target_service: "Projeto Arquitetônico", from_service: "Projeto Estrutural", complexity: "complex", complexity_label: "Alteração complexa",
+    requested_days: 15, description: "Trocar a laje maciça por nervurada em todo o pavimento superior.", status: "rejected",
+    requested_by: { id: "p-c2", name: "Camila Rocha" }, decided_by: { id: "p-l1", name: "Rafael Andrade" }, decided_at: d(-12) + "T09:00:00Z",
+    decision_note: "Solução já aprovada pelo cliente; resolver na compatibilização.", approved_days: null, assignee: null, result: null,
+    created_at: d(-13) + "T11:00:00Z", approvers: [{ id: "p-l1", name: "Rafael Andrade" }], can_decide: false, can_cancel: false },
+];
+
 const CLIENT_CHANGES: any[] = [
   { id: "cc0", project_id: "pr1", project_name: "Residência Souza", task_name: "Envio do Briefing", service_name: "Projeto Arquitetônico",
     change_type: "reopened", reason: "Cliente pediu alteração em etapa já concluída", reason_detail: "Inclusão de um quarto de hóspedes no programa",
@@ -578,6 +608,7 @@ function visibleRows(table: string): any[] {
   });
   if (table === "task_library") return LIBRARY;
   if (table === "schedule_change_reasons") return REASONS;
+  if (table === "adjustment_complexities") return COMPLEXITIES;
   if (table === "automation_rules") return AUTOMATIONS;
   if (table === "automation_runs") return AUTO_RUNS;
   if (table === "notifications") return NOTIFS;

@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import type { ProjectSchedule, ScheduleTask, SchedulePreview, StaffMember, TaskChange, TaskStatus } from "@/types/domain";
 import { cx, EMPLOYMENT_LABEL, formatDate, formatDateTime, plural, TASK_STATUS_LABEL } from "@/utils/format";
 import { ImpactPreview } from "./ImpactPreview";
+import { canRequestAdjustment } from "./Adjustments";
 import { EMPTY_REASON, ReasonField, reasonIsValid, useChangeReasons } from "./ReasonField";
 import {
   CHANGE_LABEL, displayStatus, durationText, isClosed, isStarted, predecessorsOf, REASON_PLACEHOLDER, serviceName,
@@ -23,20 +24,22 @@ interface Props {
   onClose: () => void;
   onChanged: () => void;
   onOpenTask: (id: string) => void;
+  /** Abre o pedido de ajuste entre setores para esta etapa. */
+  onRequestAdjustment?: (taskId: string) => void;
 }
 
-export function TaskDrawer({ task, schedule, staff, me, canManage, managementMode, onClose, onChanged, onOpenTask }: Props) {
+export function TaskDrawer({ task, schedule, staff, me, canManage, managementMode, onClose, onChanged, onOpenTask, onRequestAdjustment }: Props) {
   if (!task) return null;
   return (
     <Drawer open onClose={onClose} title={task.name}
       subtitle={<>{serviceName(schedule.tracks.find((t) => t.id === task.schedule_track_id))}</>}>
       <TaskBody key={task.id} task={task} schedule={schedule} staff={staff} me={me} canManage={canManage}
-        managementMode={managementMode} onChanged={onChanged} onOpenTask={onOpenTask} />
+        managementMode={managementMode} onChanged={onChanged} onOpenTask={onOpenTask} onRequestAdjustment={onRequestAdjustment} />
     </Drawer>
   );
 }
 
-function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChanged, onOpenTask }: Omit<Props, "onClose" | "task"> & { task: ScheduleTask }) {
+function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChanged, onOpenTask, onRequestAdjustment }: Omit<Props, "onClose" | "task"> & { task: ScheduleTask }) {
   const toast = useToast();
   const isResponsible = !!me && task.responsible_user_id === me;
   const canAct = canManage || isResponsible;
@@ -89,6 +92,12 @@ function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChan
       {manage && !isClosed(task) && <ReschedulePanel task={task} onChanged={onChanged} toast={toast} />}
       {canManage && task.status === "completed" && (task.duration_type === "fixed" || task.duration_type === "external") &&
         <ReopenPanel task={task} onChanged={onChanged} toast={toast} />}
+      {onRequestAdjustment && canRequestAdjustment(task) && (
+        <section className="tdrawer__section">
+          <Button variant="outline" size="sm" icon="refresh" onClick={() => onRequestAdjustment(task.id)}>Solicitar ajuste nesta etapa</Button>
+          <p className="subtext" style={{ marginTop: 6 }}>Para pedir a este setor que revise algo; o líder da área aprova e define o prazo.</p>
+        </section>
+      )}
 
       <Dependencies task={task} schedule={schedule} manage={manage} onChanged={onChanged} onOpenTask={onOpenTask} toast={toast} />
 

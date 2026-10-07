@@ -58,7 +58,8 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
   function openItem(n: AppNotification) {
     if (!n.read_at) void markRead([n.id]);
     setOpen(false);
-    if (n.entity_type === "projects" && n.entity_id) navigate(`/projetos/${n.entity_id}`);
+    if (n.kind === "adjustment_request" && n.entity_id) navigate(`/projetos/${n.entity_id}/cronograma?aba=ajustes`);
+    else if (n.entity_type === "projects" && n.entity_id) navigate(`/projetos/${n.entity_id}`);
     else if (n.entity_type === "project_tasks") navigate("/cronograma");
     else if (n.entity_type === "project_intakes") navigate("/entrada");
   }
@@ -82,7 +83,7 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
              items.map((n) => (
               <button key={n.id} type="button" className={cx("nitem", !n.read_at && "is-unread")} onClick={() => openItem(n)}>
                 <span className={cx("nitem__icon", n.kind === "automation" && "is-auto")} aria-hidden="true">
-                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "task_assigned" ? "user" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
+                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "adjustment_request" ? "refresh" : n.kind === "task_assigned" ? "user" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
                 </span>
                 <span className="nitem__text">
                   <span className="nitem__title">{n.title}</span>
