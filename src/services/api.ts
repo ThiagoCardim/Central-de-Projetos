@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AppNotification, AutomationRule, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -131,6 +131,34 @@ export const api = {
     if (error) throw toUserError(error);
     return data as unknown as ProjectListItem[];
   },
+  // ---------- Automações ----------
+  async listAutomations(): Promise<AutomationRule[]> {
+    const { data, error } = await supabase.from("automation_rules")
+      .select("id, name, trigger, conditions, actions, active, run_count, last_run_at, created_at, updated_at")
+      .eq("archived", false).order("created_at");
+    if (error) throw toUserError(error);
+    return data as AutomationRule[];
+  },
+  async listAutomationRuns(limit = 100): Promise<AutomationRun[]> {
+    const { data, error } = await supabase.from("automation_runs")
+      .select("id, rule_id, event, project_id, task_id, ok, results, context, created_at, project:projects(id, name, code), rule:automation_rules(name)")
+      .order("created_at", { ascending: false }).limit(limit);
+    if (error) throw toUserError(error);
+    return data as unknown as AutomationRun[];
+  },
+  saveAutomation: (id: string | null, payload: { name: string; trigger: string; conditions: unknown; actions: unknown; active?: boolean }) =>
+    rpc<string>("automation_save", { p_id: id, p_payload: payload }),
+  setAutomationActive: (id: string, active: boolean) => rpc<void>("automation_set_active", { p_id: id, p_active: active }),
+  archiveAutomation: (id: string) => rpc<void>("automation_archive", { p_id: id }),
+
+  // ---------- Avisos ----------
+  myNotifications: (limit = 30) => rpc<AppNotification[]>("my_notifications", { p_limit: limit }),
+  async markNotificationsRead(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", ids);
+    if (error) throw toUserError(error);
+  },
+
   // ---------- Quadro (Kanban) de projetos da unidade ----------
   async loadBoard(): Promise<{ columns: BoardColumn[]; cards: BoardCard[] }> {
     await rpc<void>("board_ensure");

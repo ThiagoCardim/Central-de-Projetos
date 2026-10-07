@@ -90,7 +90,7 @@ a.nav__item:hover { background: var(--surface); color: var(--text); }
 @media (max-width: 1023px) and (min-width: 768px) {
   .sidebar { width: 68px; }
   .sidebar__toggle { display: none; }
-  .sidebar__top { padding: 0; }
+  .sidebar__top { padding: 0 0 var(--s2); flex-direction: column; gap: 2px; }
   .brand { padding: 0; justify-content: center; }
   .brand__text, .nav__title, .nav__label, .nav__stage, .usercard__text, .sidebar__actions .btn span:not(.sr-only) { display: none; }
   .nav { padding: var(--s2); align-items: stretch; }
@@ -149,3 +149,35 @@ a.nav__item:hover { background: var(--surface); color: var(--text); }
 .boot__mark { width: 40px; height: 40px; opacity: 0.9; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.4; } }
 @media (prefers-reduced-motion: reduce) { .boot__mark { animation: none; } }
+
+/* Avisos */
+.bell { position: relative; display: grid; place-items: center; width: 32px; height: 32px; flex: none; border: 0; border-radius: var(--r-control);
+  background: transparent; color: var(--text-3); cursor: pointer; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+.bell:hover { background: var(--surface); color: var(--text); }
+.bell:focus-visible { outline: none; box-shadow: var(--focus); }
+.bell__count { position: absolute; top: 1px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill);
+  background: var(--brand-gradient); color: var(--text-on-brand); font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+.bell--topbar { width: 40px; height: 40px; color: var(--text-2); }
+.topbar__spacer { flex: 1; }
+.topbar { gap: var(--s2); }
+.npanel { position: fixed; z-index: 60; width: min(380px, calc(100vw - 16px)); max-height: min(560px, calc(100dvh - 24px)); display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-pop); animation: fade-in var(--dur) var(--ease); }
+.npanel__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 48px; padding: 0 var(--s2) 0 var(--s4); border-bottom: 1px solid var(--border); }
+.npanel__list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.npanel__empty { padding: var(--s6) var(--s4); text-align: center; color: var(--text-3); font-size: var(--fs-sub); }
+.nitem { display: flex; align-items: flex-start; gap: var(--s3); width: 100%; padding: 10px; border: 0; border-radius: 10px; background: transparent;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.nitem:hover, .nitem:focus-visible { background: var(--surface); outline: none; }
+.nitem__icon { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--text-2); }
+.nitem__icon.is-auto { background: var(--brand-pastel); color: var(--brand-text); }
+.nitem__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nitem__title { font-weight: 600; line-height: 1.3; }
+.nitem:not(.is-unread) .nitem__title { font-weight: 500; color: var(--text-2); }
+.nitem__body { font-size: var(--fs-sub); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nitem__when { font-size: 11px; color: var(--text-3); }
+.nitem__dot { width: 8px; height: 8px; margin-top: 6px; flex: none; border-radius: 50%; background: var(--brand); }
+@media (min-width: 1024px) {
+  .app.is-collapsed .sidebar__top .bell { margin: 0 auto; }
+}
+.sidebar__top .brand { padding-right: 4px; }
+.brand__name, .brand__product { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

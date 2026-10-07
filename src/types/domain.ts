@@ -407,3 +407,37 @@ export interface TaskLibraryItem {
   default_duration_days: number | null; duration_type: DurationType; active: boolean; created_by: string | null; created_at: string;
   sort_order: number | null;
 }
+
+/* ---------- Automações ---------- */
+export type AutomationTrigger = "project_created" | "project_status_changed" | "task_started" | "task_completed"
+  | "task_waiting_client" | "task_overdue" | "service_added" | "card_moved";
+export type AutomationActionType = "move_card" | "notify" | "set_task_responsible";
+export interface AutomationAction {
+  type: AutomationActionType;
+  column_id?: string;
+  recipients?: string[];
+  title?: string;
+  message?: string;
+  step?: string;
+  service?: string;
+  assignee?: string;
+}
+export interface AutomationConditions {
+  services?: string[]; steps?: string[]; client_types?: ClientType[]; to_status?: ProjectStatus[]; columns?: string[];
+}
+export interface AutomationRule {
+  id: string; name: string; trigger: AutomationTrigger; conditions: AutomationConditions; actions: AutomationAction[];
+  active: boolean; run_count: number; last_run_at: string | null; created_at: string; updated_at: string;
+}
+export interface AutomationRun {
+  id: string; rule_id: string; event: AutomationTrigger; project_id: string | null; task_id: string | null; ok: boolean;
+  results: { type: AutomationActionType; ok: boolean; message: string }[];
+  context: { task_name?: string; service_name?: string; column_name?: string; to?: string };
+  created_at: string;
+  project: { id: string; name: string; code: string | null } | null;
+  rule: { name: string } | null;
+}
+export interface AppNotification {
+  id: string; kind: string; title: string; body: string | null; entity_type: string | null; entity_id: string | null;
+  data: Record<string, unknown>; read_at: string | null; created_at: string;
+}

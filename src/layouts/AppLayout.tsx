@@ -7,6 +7,7 @@ import { Brand } from "@/components/domain/Brand";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, Button } from "@/components/ui/primitives";
 import { Drawer } from "@/components/ui/overlays";
+import { NotificationsBell } from "@/components/domain/NotificationsBell";
 import { useTheme } from "@/hooks";
 import { EMPLOYMENT_LABEL, ROLE_LABEL } from "@/utils/format";
 
@@ -94,6 +95,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <aside className="sidebar">
         <div className="sidebar__top">
           <Brand />
+          <NotificationsBell />
           <button type="button" className="sidebar__toggle" onClick={() => setCollapsed(!collapsed)}
             aria-label={collapsed ? "Expandir menu" : "Recolher menu"} aria-expanded={!collapsed} title={collapsed ? "Expandir menu" : "Recolher menu"}>
             <Icon name="sidebar" size={18} />
@@ -108,6 +110,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <header className="topbar">
         <Brand />
+        <span className="topbar__spacer" />
+        <NotificationsBell placement="topbar" />
         {profile && (
           <button type="button" className="topbar__user" onClick={() => setMenuOpen(true)} aria-label="Abrir menu da conta">
             <Avatar name={profile.name} src={profile.avatar_url} />

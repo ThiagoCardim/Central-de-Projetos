@@ -30,6 +30,7 @@ export const NAVIGATION: NavSection[] = [
       { key: "access", label: "Controle de Acessos", to: "/acessos", icon: "shield", requires: "manageUsers", mobile: true },
       { key: "intake", label: "Central de Entrada", to: "/entrada", icon: "inbox", requires: "viewIntake" },
       { key: "templates", label: "Serviços e Cronogramas", to: "/servicos", icon: "layers", requires: "manager" },
+      { key: "automations", label: "Automações", to: "/automacoes", icon: "zap", requires: "manager" },
       { key: "units", label: "Unidades", to: "/unidades", icon: "building", requires: "manageUnit", mobile: true },
       { key: "reports", label: "Relatórios", to: "/relatorios", icon: "chart", requires: "manager", stage: "Futuro" },
     ],

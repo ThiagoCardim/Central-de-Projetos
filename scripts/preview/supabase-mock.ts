@@ -200,6 +200,15 @@ function rpc(name: string, _args?: any) {
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
       return delay({ data: null, error: null }, 300);
     case "reorder_task_library": return delay({ data: null, error: null }, 200);
+    case "my_notifications": return delay({ data: NOTIFS, error: null }, 100);
+    case "automation_save": {
+      const pl = _args.p_payload;
+      if (_args.p_id) Object.assign(AUTOMATIONS.find((a) => a.id === _args.p_id), pl);
+      else AUTOMATIONS.push({ id: `au${Date.now()}`, run_count: 0, last_run_at: null, archived: false, created_at: new Date().toISOString(), updated_at: "", ...pl });
+      return delay({ data: "ok", error: null }, 300);
+    }
+    case "automation_set_active": { AUTOMATIONS.find((a) => a.id === _args.p_id).active = _args.p_active; return delay({ data: null, error: null }, 150); }
+    case "automation_archive": { AUTOMATIONS.find((a) => a.id === _args.p_id).archived = true; return delay({ data: null, error: null }, 150); }
     case "board_ensure": {
       if (!BOARD_COLS.length) {
         BOARD_COLS.push({ id: "bc1", name: "A iniciar", sort_order: 10, active: true }, { id: "bc2", name: "Em andamento", sort_order: 20, active: true },
@@ -398,6 +407,32 @@ const CHANGES: any[] = [
     created_at: new Date(Date.now() - 9 * 86400000).toISOString(), author: { name: "Beatriz Nogueira" } },
 ];
 
+const AUTOMATIONS: any[] = [
+  { id: "au1", name: "Avisar quando uma etapa atrasar", trigger: "task_overdue", conditions: {}, active: true, archived: false, run_count: 4,
+    last_run_at: "2026-10-06T10:07:00Z", created_at: "2026-10-01T10:00:00Z", updated_at: "2026-10-01T10:00:00Z",
+    actions: [{ type: "notify", recipients: ["project_lead", "task_responsible"], title: "Etapa atrasada: {etapa}", message: "{projeto} ({codigo}) · {servico}" }] },
+  { id: "au2", name: "Estudo aprovado vai para revisão", trigger: "task_completed",
+    conditions: { steps: ["estudo preliminar"], services: ["projeto_arquitetonico"] }, active: true, archived: false, run_count: 2,
+    last_run_at: "2026-10-05T15:30:00Z", created_at: "2026-10-01T10:00:00Z", updated_at: "2026-10-01T10:00:00Z",
+    actions: [{ type: "move_card", column_id: "bc3" }, { type: "notify", recipients: ["project_lead"], title: "{etapa} concluído", message: "{projeto}" }] },
+  { id: "au3", name: "Imagens 3D para o renderista", trigger: "task_started", conditions: { steps: ["alteracoes"] }, active: false, archived: false,
+    run_count: 0, last_run_at: null, created_at: "2026-10-02T10:00:00Z", updated_at: "2026-10-02T10:00:00Z",
+    actions: [{ type: "set_task_responsible", step: "Imagens 3D e Vídeo", assignee: "user:p-pj2" }] },
+];
+const AUTO_RUNS: any[] = [
+  { id: "ar1", rule_id: "au1", event: "task_overdue", project_id: "pr1", task_id: null, ok: true, created_at: "2026-10-06T10:07:00Z",
+    results: [{ type: "notify", ok: true, message: "2 aviso(s) enviado(s)" }], context: { task_name: "Estudo Preliminar", service_name: "Projeto Arquitetônico" },
+    project: { id: "pr1", name: "Residência Souza", code: "YC-2026-0014" }, rule: { name: "Avisar quando uma etapa atrasar" } },
+  { id: "ar2", rule_id: "au2", event: "task_completed", project_id: "pr2", task_id: null, ok: false, created_at: "2026-10-05T15:30:00Z",
+    results: [{ type: "move_card", ok: false, message: "Coluna não encontrada" }, { type: "notify", ok: true, message: "1 aviso(s) enviado(s)" }],
+    context: { task_name: "Estudo Preliminar", service_name: "Projeto Arquitetônico" },
+    project: { id: "pr2", name: "Clínica Vida", code: "YC-2026-0019" }, rule: { name: "Estudo aprovado vai para revisão" } },
+];
+const NOTIFS: any[] = [
+  { id: "n1", kind: "automation", title: "Etapa atrasada: Estudo Preliminar", body: "Residência Souza (YC-2026-0014) · Projeto Arquitetônico", entity_type: "projects", entity_id: "pr1", data: {}, read_at: null, created_at: new Date(Date.now() - 50 * 60000).toISOString() },
+  { id: "n2", kind: "task_assigned", title: "Nova etapa sob sua responsabilidade", body: "Renderização · Clínica Vida", entity_type: "project_tasks", entity_id: "x", data: {}, read_at: null, created_at: new Date(Date.now() - 5 * 3600000).toISOString() },
+  { id: "n3", kind: "project_awaiting_team", title: "Novo projeto aguardando equipe", body: "Casa de campo", entity_type: "projects", entity_id: "pr8", data: {}, read_at: "2026-10-05T12:00:00Z", created_at: "2026-10-05T11:00:00Z" },
+];
 const BOARD_COLS: any[] = [];
 const BOARD_CARDS: any[] = [];
 const LIBRARY: any[] = ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo", "Projeto Executivo", "Imagens 3D", "Vídeo 3D", "Detalhamento",
@@ -496,6 +531,9 @@ function visibleRows(table: string): any[] {
     return true;
   });
   if (table === "task_library") return LIBRARY;
+  if (table === "automation_rules") return AUTOMATIONS;
+  if (table === "automation_runs") return AUTO_RUNS;
+  if (table === "notifications") return NOTIFS;
   if (table === "project_board_columns") return [...BOARD_COLS].sort((a, b) => a.sort_order - b.sort_order);
   if (table === "project_board_cards") return BOARD_CARDS;
   if (table === "service_families") return FAMILIES;
