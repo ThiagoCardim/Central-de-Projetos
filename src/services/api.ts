@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -131,6 +131,24 @@ export const api = {
     if (error) throw toUserError(error);
     return data as unknown as ProjectListItem[];
   },
+  // ---------- Quadro (Kanban) de projetos da unidade ----------
+  async loadBoard(): Promise<{ columns: BoardColumn[]; cards: BoardCard[] }> {
+    await rpc<void>("board_ensure");
+    const [c, k] = await Promise.all([
+      supabase.from("project_board_columns").select("id, name, sort_order").eq("active", true).order("sort_order"),
+      supabase.from("project_board_cards").select("project_id, column_id, sort_order"),
+    ]);
+    if (c.error) throw toUserError(c.error);
+    if (k.error) throw toUserError(k.error);
+    return { columns: c.data as BoardColumn[], cards: (k.data as BoardCard[]).map((x) => ({ ...x, sort_order: Number(x.sort_order) })) };
+  },
+  boardAddColumn: (name: string) => rpc<string>("board_add_column", { p_name: name }),
+  boardRenameColumn: (id: string, name: string) => rpc<void>("board_rename_column", { p_column: id, p_name: name }),
+  boardReorderColumns: (ids: string[]) => rpc<void>("board_reorder_columns", { p_ids: ids }),
+  boardDeleteColumn: (id: string, moveTo: string, confirm: string) =>
+    rpc<{ moved: number }>("board_delete_column", { p_column: id, p_move_to: moveTo, p_confirm: confirm }),
+  boardMoveCard: (projectId: string, columnId: string, beforeProjectId: string | null) =>
+    rpc<void>("board_move_card", { p_project: projectId, p_column: columnId, p_before: beforeProjectId }),
   async getProject(id: string): Promise<ProjectDetail | null> {
     const { data, error } = await supabase.from("projects")
       .select(`id, code, name, status, client_type, project_type, city, state, address, area_m2, contracted_at, created_at, started_at,

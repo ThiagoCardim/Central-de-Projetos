@@ -5,11 +5,12 @@ import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
 import { Link, useNavigate, useParams, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
 import {
-  Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Select, Skeleton, Tabs,
+  Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
 } from "@/components/ui/primitives";
 import { Drawer, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import { StepAssignPicker, stepKey } from "@/components/ui/StepAssignPicker";
+import { ProjectBoard } from "./ProjectBoard";
 import type { EmploymentType, ProjectDetail, ProjectListItem, ProjectStatus, StaffMember, StepOption, Tenant } from "@/types/domain";
 import {
   ALLOCATION_METHOD_LABEL, CLIENT_TYPE_LABEL, EMPLOYMENT_LABEL, formatDate, formatDateTime, PROJECT_STATUS_LABEL,
@@ -30,6 +31,14 @@ export function ProjectsPage() {
   const { data, error, loading, reload } = useAsync(() => api.listProjects(), []);
   const [tab, setTab] = useState<TabKey>(initialStatus === "in_progress" ? "active" : "pending");
   const [q, setQ] = useState("");
+  const staff = !!permissions?.is_staff;
+  const [view, setViewState] = useState<"board" | "list">(() => {
+    if (initialStatus) return "list";
+    try { return (localStorage.getItem("yc-projects-view") as "board" | "list") || "board"; } catch { return "board"; }
+  });
+  const setView = (v: "board" | "list") => { setViewState(v); try { localStorage.setItem("yc-projects-view", v); } catch { /* sem armazenamento */ } };
+  const [situation, setSituation] = useState<"" | TabKey>("");
+  const showBoard = staff && view === "board";
 
   const all = data ?? [];
   const isPending = (p: ProjectListItem) => p.status === "awaiting_allocation" || p.status === "awaiting_team_assignment";
@@ -39,10 +48,11 @@ export function ProjectsPage() {
     done: all.filter((p) => p.status === "completed" || p.status === "cancelled").length,
     all: all.length,
   };
+  const scope = showBoard ? (situation || "all") : tab;
   const list = all.filter((p) => {
-    if (tab === "pending" && !isPending(p)) return false;
-    if (tab === "active" && !(p.status === "in_progress" || p.status === "on_hold")) return false;
-    if (tab === "done" && !(p.status === "completed" || p.status === "cancelled")) return false;
+    if (scope === "pending" && !isPending(p)) return false;
+    if (scope === "active" && !(p.status === "in_progress" || p.status === "on_hold")) return false;
+    if (scope === "done" && !(p.status === "completed" || p.status === "cancelled")) return false;
     if (q) {
       const s = q.toLowerCase();
       return [p.name, p.code, p.client?.name, p.city].some((v) => v?.toLowerCase().includes(s));
@@ -57,18 +67,33 @@ export function ProjectsPage() {
         subtitle={permissions?.is_manager
           ? "Projetos vendidos ou executados pela sua unidade. Novos projetos chegam pela Central de Entrada."
           : "Projetos em que você está na equipe."}
+        actions={staff ? (
+          <Segmented<"board" | "list"> label="Forma de exibição" value={view} onChange={setView}
+            options={[{ value: "board", label: "Quadro" }, { value: "list", label: "Lista" }]} />
+        ) : undefined}
       />
-      <Tabs<TabKey> label="Situação dos projetos" value={tab} onChange={setTab} tabs={[
-        { value: "pending", label: "Aguardando ação", count: counts.pending },
-        { value: "active", label: "Em andamento", count: counts.active },
-        { value: "done", label: "Encerrados", count: counts.done },
-        { value: "all", label: "Todos", count: counts.all },
-      ]} />
-      <FilterBar active={!!q} onClear={() => setQ("")}>
+      {!showBoard && (
+        <Tabs<TabKey> label="Situação dos projetos" value={tab} onChange={setTab} tabs={[
+          { value: "pending", label: "Aguardando ação", count: counts.pending },
+          { value: "active", label: "Em andamento", count: counts.active },
+          { value: "done", label: "Encerrados", count: counts.done },
+          { value: "all", label: "Todos", count: counts.all },
+        ]} />
+      )}
+      <FilterBar active={!!q || (showBoard && !!situation)} onClear={() => { setQ(""); setSituation(""); }}>
         <SearchInput placeholder="Buscar por projeto, código, cliente ou cidade" aria-label="Buscar projetos" value={q} onChange={(e) => setQ(e.target.value)} />
+        {showBoard && (
+          <Select aria-label="Situação" value={situation} onChange={(e) => setSituation(e.target.value as "" | TabKey)}>
+            <option value="">Todas as situações · {counts.all}</option>
+            <option value="pending">Aguardando ação · {counts.pending}</option>
+            <option value="active">Em andamento · {counts.active}</option>
+            <option value="done">Encerrados · {counts.done}</option>
+          </Select>
+        )}
       </FilterBar>
 
-      {error ? <LoadError message={error} onRetry={reload} /> :
+      {showBoard && !error && data ? <ProjectBoard projects={list} canEdit={!!permissions?.is_manager} /> :
+       error ? <LoadError message={error} onRetry={reload} /> :
        loading && !data ? (
         <div className="pgrid">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} height={150} radius={16} />)}</div>
       ) : list.length === 0 ? (

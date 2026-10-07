@@ -48,6 +48,16 @@ const scenes = [
   { name: "intake", url: "/entrada?as=global_admin", vp: DESKTOP, full: true },
   { name: "intake-edit", url: "/entrada?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByText("Gustavo Lima Arquitetura").first().click(); } },
   { name: "projects", url: "/projetos?as=global_admin", vp: DESKTOP, full: true },
+  { name: "board-light", url: "/projetos?as=global_admin", vp: DESKTOP, light: true },
+  { name: "board-menu", url: "/projetos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Ações da coluna Em andamento" }).click(); } },
+  { name: "board-delete", url: "/projetos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Ações da coluna Em andamento" }).click();
+    await p.getByRole("menuitem", { name: "Excluir coluna" }).click(); await p.getByLabel(/digite o nome da coluna/).fill("em and"); } },
+  { name: "board-add", url: "/projetos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Nova coluna" }).click(); await p.keyboard.type("Aprovação prefeitura"); await p.keyboard.press("Enter"); await p.waitForTimeout(400); } },
+  { name: "board-drag", url: "/projetos?as=global_admin", vp: DESKTOP, action: async (p) => {
+    await p.locator(".kcard").first().dragTo(p.locator(".kcol").nth(2).locator(".kcol__list")); await p.waitForTimeout(500); } },
+  { name: "board-leader", url: "/projetos?as=leader", vp: DESKTOP },
+  { name: "board-clt", url: "/projetos?as=clt", vp: DESKTOP },
+  { name: "m-board", url: "/projetos?as=global_admin", vp: MOBILE },
   { name: "projects-active", url: "/projetos?as=leader&status=in_progress", vp: DESKTOP, full: true },
   { name: "project-awaiting", url: "/projetos/pr8?as=unit_admin", vp: DESKTOP, full: true },
   { name: "project-team", url: "/projetos/pr8?as=unit_admin&acao=equipe", vp: DESKTOP },

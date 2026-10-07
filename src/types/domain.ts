@@ -243,6 +243,9 @@ export interface ProjectListItem {
   services: { id: string; status: ProjectServiceStatus; active: boolean; service: { name: string } | null }[];
 }
 
+export interface BoardColumn { id: string; name: string; sort_order: number }
+export interface BoardCard { project_id: string; column_id: string; sort_order: number }
+
 export interface ProjectRole { code: string; name: string; sort_order: number; required: boolean }
 
 export interface ProjectDetail extends Omit<ProjectListItem, "services" | "client"> {

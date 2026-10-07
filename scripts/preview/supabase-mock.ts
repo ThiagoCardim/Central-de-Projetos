@@ -200,6 +200,29 @@ function rpc(name: string, _args?: any) {
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":
       return delay({ data: null, error: null }, 300);
     case "reorder_task_library": return delay({ data: null, error: null }, 200);
+    case "board_ensure": {
+      if (!BOARD_COLS.length) {
+        BOARD_COLS.push({ id: "bc1", name: "A iniciar", sort_order: 10, active: true }, { id: "bc2", name: "Em andamento", sort_order: 20, active: true },
+          { id: "bc3", name: "Revisão com cliente", sort_order: 30, active: true }, { id: "bc4", name: "Encerrados", sort_order: 40, active: true });
+        PROJECTS.forEach((x: any, i: number) => BOARD_CARDS.push({ project_id: x.id, sort_order: (i + 1) * 10,
+          column_id: x.status.startsWith("awaiting") ? "bc1" : ["completed", "cancelled"].includes(x.status) ? "bc4" : i % 2 ? "bc3" : "bc2" }));
+      }
+      return delay({ data: null, error: null }, 100);
+    }
+    case "board_add_column": { const id = `bc${Date.now()}`; BOARD_COLS.push({ id, name: _args.p_name, sort_order: 999, active: true }); return delay({ data: id, error: null }, 200); }
+    case "board_rename_column": { const c = BOARD_COLS.find((x) => x.id === _args.p_column); if (c) c.name = _args.p_name; return delay({ data: null, error: null }, 200); }
+    case "board_reorder_columns": { (_args.p_ids as string[]).forEach((id, i) => { const c = BOARD_COLS.find((x) => x.id === id); if (c) c.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 150); }
+    case "board_delete_column": {
+      const c = BOARD_COLS.find((x) => x.id === _args.p_column)!;
+      if (c.name.toLowerCase() !== String(_args.p_confirm).trim().toLowerCase()) return delay({ data: null, error: { message: `Para excluir, digite exatamente o nome da coluna: ${c.name}` } });
+      let moved = 0; BOARD_CARDS.forEach((k) => { if (k.column_id === c.id) { k.column_id = _args.p_move_to; moved++; } }); c.active = false;
+      return delay({ data: { moved }, error: null }, 300);
+    }
+    case "board_move_card": {
+      const k = BOARD_CARDS.find((x) => x.project_id === _args.p_project);
+      if (k) { k.column_id = _args.p_column; k.sort_order = 9999; } else BOARD_CARDS.push({ project_id: _args.p_project, column_id: _args.p_column, sort_order: 9999 });
+      return delay({ data: null, error: null }, 150);
+    }
     case "project_step_options": {
       const pr = PROJECTS.find((x) => x.id === _args?.p_project);
       const rows = (pr?.services ?? []).flatMap((x: any, si: number) => {
@@ -375,6 +398,8 @@ const CHANGES: any[] = [
     created_at: new Date(Date.now() - 9 * 86400000).toISOString(), author: { name: "Beatriz Nogueira" } },
 ];
 
+const BOARD_COLS: any[] = [];
+const BOARD_CARDS: any[] = [];
 const LIBRARY: any[] = ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo", "Projeto Executivo", "Imagens 3D", "Vídeo 3D", "Detalhamento",
   "Renderização", "Compatibilização", "Projeto Legal", "Verificação"].map((name, i) => ({ id: `lib-${i}`, name, description: null, family_id: null,
   default_duration_days: i < 5 ? [20, 7, 20, 30, 10][i] : null, duration_type: "fixed", active: true, created_by: null, created_at: "2026-10-05T12:00:00Z", sort_order: (i + 1) * 10 }));
@@ -471,6 +496,8 @@ function visibleRows(table: string): any[] {
     return true;
   });
   if (table === "task_library") return LIBRARY;
+  if (table === "project_board_columns") return [...BOARD_COLS].sort((a, b) => a.sort_order - b.sort_order);
+  if (table === "project_board_cards") return BOARD_CARDS;
   if (table === "service_families") return FAMILIES;
   if (table === "schedule_templates") return TEMPLATES;
   if (table === "template_task_dependencies") return TEMPLATE_DEPS;
