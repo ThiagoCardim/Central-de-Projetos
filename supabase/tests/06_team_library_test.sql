@@ -69,8 +69,10 @@ select tst.ok((select responsible_user_id from public.project_services where id 
 select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).responsible_user_id = tst.uid('arq@hq'), 'Etapas da Arquitetura nascem com a arquiteta');
 select tst.ok((tst.task('projeto_estrutural', 'planejamento')).responsible_user_id = tst.uid('est@hq'), 'Etapas do Estrutural nascem com o engenheiro do estrutural');
 select tst.ok((tst.task('projeto_eletrico', 'planejamento')).responsible_user_id = tst.uid('comp@hq'), 'Etapas dos Complementares nascem com o outro engenheiro');
-select tst.ok((select count(*) from public.project_team where project_id = (select id from public.projects where external_id = '3001') and active) = 4,
-  'Equipe: líder + 3 pessoas (um vínculo por pessoa e função)');
+select tst.ok((select count(distinct user_id) from public.project_team where project_id = (select id from public.projects where external_id = '3001') and active) = 4,
+  'Equipe: líder + 3 pessoas');
+select tst.ok((select count(*) from public.project_team where project_id = (select id from public.projects where external_id = '3001') and active and project_role like 'lead%') = 3,
+  'Líder único informado vira líder das 3 áreas');
 
 -- Colaborador indireto numa etapa específica
 select tst.login('r3d@hq'); set role authenticated;

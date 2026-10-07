@@ -259,7 +259,8 @@ function rpc(name: string, _args?: any) {
 // ---------- Etapa 2 ----------
 const svc = (id: string, name: string, family: string, role: string, status = "active", contracted = d(-2)) =>
   ({ id: `ps-${id}`, status, active: true, contracted_at: contracted, contract_source: "pipefy",
-     service: { id, name, code: id, family: { name: family, default_project_role: role } } });
+     service: { id, name, code: id, leadership_area: family === "Engenharia" ? "engineering" : family.startsWith("Aprova") ? "approval" : "architecture",
+       family: { name: family, default_project_role: role } } });
 
 const RESP: Record<string, [string, string, string]> = { arq: ["p-c1", "Beatriz Nogueira", "clt"], est: ["p-pj", "Camila Rocha", "pj"], int: ["p-c2", "Lucas Ferreira", "clt"] };
 const PROJECTS: any[] = [
@@ -287,7 +288,9 @@ const PROJECTS: any[] = [
                svc("int", "Design de Interiores", "Interiores", "interiors", "active", d(-48)),
                svc("ele", "Projeto Elétrico", "Engenharia", "engineering", "pending_review", d(-3))],
     team: [
-      { id: "tm1", project_role: "project_lead", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-ld", name: "Rafael Andrade", avatar_url: null, employment_type: "clt" } },
+      { id: "tm1", project_role: "lead_architecture", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-ld", name: "Rafael Andrade", avatar_url: null, employment_type: "clt" } },
+      { id: "tm1b", project_role: "lead_engineering", employment_type: "pj", active: true, assigned_at: d(-46), user: { id: "p-pj", name: "Camila Rocha", avatar_url: null, employment_type: "pj" } },
+      { id: "tm1c", project_role: "lead_approval", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-ld", name: "Rafael Andrade", avatar_url: null, employment_type: "clt" } },
       { id: "tm2", project_role: "architecture", employment_type: "clt", active: true, assigned_at: d(-46), user: { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, employment_type: "clt" } },
       { id: "tm3", project_role: "engineering", employment_type: "pj", active: true, assigned_at: d(-3), user: { id: "p-pj", name: "Camila Rocha", avatar_url: null, employment_type: "pj" } },
       { id: "tm5", project_role: "interiors", employment_type: "clt", active: true, assigned_at: d(-3), user: { id: "p-c2", name: "Lucas Ferreira", avatar_url: null, employment_type: "clt" } },
@@ -300,7 +303,7 @@ const PROJECTS: any[] = [
     client: { id: "c-4", tenant_id: HQ, name: "Clínica Vida", client_type: "b2b", email: "contato@clinicavida.com.br", phone: null, document: null, company_name: null, status: "ativo" },
     origin: { name: "YouCon Franqueadora" }, commercial: { name: "YouCon Franqueadora" }, delivery: { name: "YouCon Franqueadora" },
     services: [svc("int", "Design de Interiores", "Interiores", "interiors", "active", d(-20))],
-    team: [{ id: "tm4", project_role: "project_lead", employment_type: "clt", active: true, assigned_at: d(-19), user: { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, employment_type: "clt" } }],
+    team: [{ id: "tm4", project_role: "lead_architecture", employment_type: "clt", active: true, assigned_at: d(-19), user: { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, employment_type: "clt" } }],
     allocations: [] },
   { id: "pr4", code: "YC-2026-0007", name: "Apartamento 1201", status: "completed", client_type: "b2c", project_type: "Residencial",
     city: "Pouso Alegre", state: "MG", address: null, area_m2: 98, contracted_at: d(-160), created_at: d(-160) + "T10:00:00Z", started_at: d(-158),
@@ -451,7 +454,8 @@ const CATALOG = [
   ["int", "f-interiores", "design_interiores", "Design de Interiores", true, true, true],
   ["apr", "f-aprovacoes", "aprovacao_projeto_legal", "Aprovação / Projeto Legal", true, true, true],
 ].map(([id, family_id, code, name, b2c, b2b, has], i) => ({ id, family_id, code, name, description: null, available_for_b2c: b2c, available_for_b2b: b2b,
-  has_schedule_template: has, requires_area_rule: code === "design_interiores", sort_order: i * 10, active: true, aliases: code === "projeto_arquitetonico" ? ["Arquitetura"] : [] }));
+  has_schedule_template: has, requires_area_rule: code === "design_interiores",
+  leadership_area: family_id === "f-engenharia" || family_id === "f-orcamentos" ? "engineering" : family_id === "f-aprovacoes" ? "approval" : "architecture", sort_order: i * 10, active: true, aliases: code === "projeto_arquitetonico" ? ["Arquitetura"] : [] }));
 const tplTasks = (tid: string, defs: [string, string, number | null, string?][]) => defs.map(([code, name, days, type = "fixed"], i) => ({
   id: `${tid}-${code}`, template_id: tid, code, name, description: null, sort_order: (i + 1) * 10, default_duration_days: days, duration_type: type,
   include_if_service_codes: code === "compatibilizacao_interiores" ? ["design_interiores"] : null, client_visible: true, active: true }));

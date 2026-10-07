@@ -56,6 +56,9 @@ const scenes = [
   { name: "bell", url: "/?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: /^Avisos/ }).first().click(); await p.waitForTimeout(400); } },
   { name: "m-bell", url: "/?as=global_admin", vp: MOBILE, action: async (p) => { await p.getByRole("button", { name: /^Avisos/ }).last().click(); await p.waitForTimeout(400); } },
   { name: "m-auto", url: "/automacoes?as=global_admin", vp: MOBILE, full: true },
+  { name: "leaders-drawer", url: "/projetos/pr8?as=unit_admin&acao=equipe", vp: { width: 1440, height: 1100 } },
+  { name: "leaders-same", url: "/projetos/pr8?as=unit_admin&acao=equipe", vp: { width: 1440, height: 1100 }, action: async (p) => {
+    await p.getByLabel("Líder de Arquitetura").selectOption({ index: 1 }); await p.getByRole("button", { name: "Usar nas 3" }).first().click(); await p.waitForTimeout(200); } },
   { name: "board-light", url: "/projetos?as=global_admin", vp: DESKTOP, light: true },
   { name: "board-menu", url: "/projetos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Ações da coluna Em andamento" }).click(); } },
   { name: "board-delete", url: "/projetos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Ações da coluna Em andamento" }).click();

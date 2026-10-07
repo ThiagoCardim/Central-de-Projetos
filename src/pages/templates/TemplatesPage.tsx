@@ -9,7 +9,7 @@ import {
 import { ConfirmDialog, Drawer, Modal, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import type {
-  CatalogService, ClientType, DurationType, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
+  CatalogService, ClientType, DurationType, LeadershipArea, ScheduleTemplate, ServiceFamily, TaskLibraryItem, TemplateDependency,
 } from "@/types/domain";
 import { cx, formatDate, plural } from "@/utils/format";
 import { StepPicker } from "@/components/ui/StepPicker";
@@ -195,6 +195,7 @@ function ServiceWorkspace({ service, family, canEdit, onChanged }: { service: Ca
   const facts = [
     service.available_for_b2c && service.available_for_b2b ? "Atende B2C e B2B" : service.available_for_b2c ? "Só B2C" : "Só B2B",
     service.requires_area_rule ? "Prazos variam com a área" : "Prazo único para qualquer área",
+    `Liderança: ${({ architecture: "Arquitetura", engineering: "Engenharia", approval: "Aprovação" } as const)[service.leadership_area ?? "architecture"]}`,
   ];
 
   return (
@@ -615,6 +616,7 @@ function ServiceSettings({ service, onClose, onSaved }: { service: CatalogServic
   const [b2c, setB2c] = useState(service.available_for_b2c);
   const [b2b, setB2b] = useState(service.available_for_b2b);
   const [area, setArea] = useState(service.requires_area_rule);
+  const [lead, setLead] = useState<LeadershipArea>(service.leadership_area ?? "architecture");
   const [aliases, setAliases] = useState(service.aliases.join(", "));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -625,7 +627,7 @@ function ServiceSettings({ service, onClose, onSaved }: { service: CatalogServic
           if (!b2c && !b2b) { setErr("O serviço precisa atender B2C, B2B ou ambos."); return; }
           setBusy(true); setErr(null);
           try {
-            await api.updateService(service.id, { available_for_b2c: b2c, available_for_b2b: b2b, requires_area_rule: area,
+            await api.updateService(service.id, { available_for_b2c: b2c, available_for_b2b: b2b, requires_area_rule: area, leadership_area: lead,
               aliases: aliases.split(",").map((a) => a.trim()).filter(Boolean) });
             toast("Serviço atualizado."); onSaved();
           } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
@@ -636,6 +638,12 @@ function ServiceSettings({ service, onClose, onSaved }: { service: CatalogServic
           <legend className="label">Quem pode contratar</legend>
           <OptionRow checked={b2c} onChange={setB2c} title="Clientes B2C" text="Pessoa física (residencial)." />
           <OptionRow checked={b2b} onChange={setB2b} title="Clientes B2B" text="Empresas, incorporadoras e construtoras." />
+        </fieldset>
+        <fieldset className="form__group">
+          <legend className="label">Liderança</legend>
+          <Segmented<LeadershipArea> label="Área de liderança" value={lead} onChange={setLead}
+            options={[{ value: "architecture", label: "Arquitetura" }, { value: "engineering", label: "Engenharia" }, { value: "approval", label: "Aprovação" }]} />
+          <p className="subtext">Nos projetos, este serviço fica sob o líder desta área.</p>
         </fieldset>
         <fieldset className="form__group">
           <legend className="label">Prazos</legend>

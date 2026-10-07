@@ -36,7 +36,7 @@ const ACTIONS: { value: AutomationActionType; label: string; icon: IconName }[] 
   { value: "set_task_responsible", label: "Definir responsável de uma etapa", icon: "user" },
 ];
 const RECIPIENTS: { value: string; label: string; task?: boolean }[] = [
-  { value: "project_lead", label: "Líder do projeto" },
+  { value: "project_lead", label: "Líder da área do serviço" },
   { value: "task_responsible", label: "Responsável pela etapa", task: true },
   { value: "service_responsible", label: "Responsável direto do serviço" },
   { value: "project_team", label: "Toda a equipe do projeto" },

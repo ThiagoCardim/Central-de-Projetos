@@ -11,13 +11,21 @@ import { Drawer, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import { StepAssignPicker, stepKey } from "@/components/ui/StepAssignPicker";
 import { ProjectBoard } from "./ProjectBoard";
-import type { EmploymentType, ProjectDetail, ProjectListItem, ProjectStatus, StaffMember, StepOption, Tenant } from "@/types/domain";
+import type { EmploymentType, LeadershipArea, ProjectDetail, ProjectListItem, ProjectStatus, StaffMember, StepOption, Tenant } from "@/types/domain";
 import {
   ALLOCATION_METHOD_LABEL, CLIENT_TYPE_LABEL, EMPLOYMENT_LABEL, formatDate, formatDateTime, PROJECT_STATUS_LABEL,
   PROJECT_STATUS_TONE, ROLE_LABEL, SERVICE_STATUS_LABEL,
 } from "@/utils/format";
 
 type TabKey = "pending" | "active" | "done" | "all";
+
+/** Liderança da YouCon: um líder por área (pode ser a mesma pessoa nas três). */
+const LEAD_AREAS: { area: LeadershipArea; role: string; label: string }[] = [
+  { area: "architecture", role: "lead_architecture", label: "Arquitetura" },
+  { area: "engineering", role: "lead_engineering", label: "Engenharia" },
+  { area: "approval", role: "lead_approval", label: "Aprovação" },
+];
+const LEAD_ROLES = new Set(LEAD_AREAS.map((a) => a.role));
 
 /* ==========================================================================
    Lista
@@ -315,7 +323,7 @@ function ProjectStateBand({ p, canAssign, canDistribute, onAssign, onDistribute,
     return (
       <Alert tone="warning" title="Aguardando equipe"
         action={canAssign ? <Button size="sm" onClick={onAssign}>Revisar e atribuir equipe</Button> : undefined}>
-        Defina o Líder do Projeto e os responsáveis por função. A confirmação inicia o projeto e libera o acesso da equipe e do cliente.
+        Defina os líderes de Arquitetura, Engenharia e Aprovação e os responsáveis por serviço. A confirmação inicia o projeto e libera o acesso da equipe e do cliente.
       </Alert>
     );
   }
@@ -345,10 +353,11 @@ function TeamCard({ project, canAssign, staff, me }: { project: ProjectDetail; c
     [staff, project]);
   const stepsOf = (userId: string) => (stepOpts.data ?? []).filter((o) => o.user_id === userId);
   const team = project.team.filter((t) => t.active && t.user);
-  const lead = team.find((t) => t.project_role === "project_lead")?.user ?? null;
+  const leaders = LEAD_AREAS.map((a) => ({ ...a, user: team.find((t) => t.project_role === a.role)?.user ?? null }));
+  const leaderIds = new Set(leaders.map((l) => l.user?.id).filter(Boolean));
   const services = activeServices(project);
   const directIds = new Set(services.map((s) => s.responsible_user_id).filter(Boolean));
-  const indirect = team.filter((t) => t.project_role === "support" && t.user && !directIds.has(t.user.id) && t.user.id !== lead?.id);
+  const indirect = team.filter((t) => t.project_role === "support" && t.user && !directIds.has(t.user.id) && !leaderIds.has(t.user.id));
   const empty = team.length === 0;
   const Person = ({ u }: { u: { id: string; name: string; avatar_url: string | null; employment_type: EmploymentType | null } }) => (
     <span className="ident">
@@ -362,12 +371,20 @@ function TeamCard({ project, canAssign, staff, me }: { project: ProjectDetail; c
     <Card title="Equipe" count={team.length ? new Set(team.map((t) => t.user!.id)).size : undefined}>
       {empty ? (
         <EmptyState compact icon="users" title="Equipe ainda não definida."
-          text={canAssign ? "Defina o Líder do Projeto e o responsável direto de cada serviço para iniciar." : "O líder da unidade executora definirá a equipe."} />
+          text={canAssign ? "Defina os líderes de Arquitetura, Engenharia e Aprovação e o responsável direto de cada serviço para iniciar." : "O líder da unidade executora definirá a equipe."} />
       ) : (
         <div className="stack" style={{ gap: 16 }}>
-          <ul className="team-list">
-            <li><span className="label team-list__role">Líder do projeto</span>{lead ? <Person u={lead} /> : <span className="text-warning">A definir</span>}</li>
-          </ul>
+          <div>
+            <p className="label team-list__group">Liderança</p>
+            <ul className="team-list">
+              {leaders.map((l) => (
+                <li key={l.area}>
+                  <span className="team-list__role team-list__svc">{l.label}</span>
+                  {l.user ? <Person u={l.user} /> : <span className="text-warning">A definir</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
           <div>
             <p className="label team-list__group">Responsáveis diretos · contato com o cliente</p>
             <ul className="team-list">
@@ -412,7 +429,7 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
   const staff = useAsync(() => (open && project.delivery_tenant_id ? api.listStaff(project.delivery_tenant_id) : Promise.resolve([] as StaffMember[])),
     [open, project.delivery_tenant_id]);
   const services = useMemo(() => activeServices(project), [project]);
-  const [lead, setLead] = useState("");
+  const [leads, setLeads] = useState<Record<LeadershipArea, string>>({ architecture: "", engineering: "", approval: "" });
   const [byService, setByService] = useState<Record<string, string>>({});
   const steps = useAsync(() => (open ? api.projectStepOptions(project.id) : Promise.resolve([] as StepOption[])), [open, project.id]);
   const [indirect, setIndirect] = useState<{ user: string; steps: string[] }[]>([]);
@@ -424,7 +441,8 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
   useEffect(() => {
     if (!open) return;
     const team = project.team.filter((t) => t.active && t.user);
-    setLead(team.find((t) => t.project_role === "project_lead")?.user?.id ?? "");
+    const legacyLead = team.find((t) => t.project_role === "project_lead")?.user?.id ?? "";
+    setLeads(Object.fromEntries(LEAD_AREAS.map((a) => [a.area, team.find((t) => t.project_role === a.role)?.user?.id ?? legacyLead])) as Record<LeadershipArea, string>);
     // Responsável direto salvo; para projetos da Etapa 2, sugere quem tinha a função da família do serviço.
     const initial: Record<string, string> = {};
     const legacyProject = !services.some((s) => s.responsible_user_id);
@@ -453,13 +471,14 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
     x.user === user ? { ...x, steps: keys } : { ...x, steps: x.steps.filter((k) => !keys.includes(k)) }));
 
   async function save() {
-    if (!lead) { setErr("Escolha o Líder do Projeto."); return; }
+    const missingLead = LEAD_AREAS.filter((a) => !leads[a.area]);
+    if (missingLead.length) { setErr(`Escolha o líder de ${missingLead.map((a) => a.label).join(", ")}. Pode ser a mesma pessoa nas três áreas.`); return; }
     const noSteps = stepOptions.length ? indirect.filter((x) => x.steps.length === 0) : [];
     if (noSteps.length) { setErr(`Escolha ao menos uma etapa para ${noSteps.map((x) => nameOf(x.user)).join(", ")}, ou remova a pessoa.`); return; }
     setSaving(true); setErr(null);
     try {
       const assignments = [
-        { project_role: "project_lead", user_id: lead },
+        ...LEAD_AREAS.map((a) => ({ project_role: a.role, user_id: leads[a.area] })),
         ...services.filter((s) => byService[s.id]).map((s) => ({ project_service_id: s.id, user_id: byService[s.id] })),
         ...indirect.map((x) => ({ project_role: "support", user_id: x.user })),
       ];
@@ -505,14 +524,32 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
           </Alert>
         ) : (
           <>
-            <Field label="Líder do Projeto" required>
-              {({ id }) => (
-                <Select id={id} value={lead} onChange={(e) => setLead(e.target.value)}>
-                  <option value="">Selecione</option>
-                  {people.map((m) => <option key={m.id} value={m.id}>{label(m)}</option>)}
-                </Select>
-              )}
-            </Field>
+            <fieldset className="form__group">
+              <legend className="label">Liderança <span className="req" aria-hidden="true">*</span></legend>
+              <p className="subtext">Um líder por área, definido desde já. Pode ser a mesma pessoa nas três. Se o cliente contratar um serviço de outra área depois, o líder já estará definido.</p>
+              {LEAD_AREAS.map((a) => {
+                const covered = services.filter((s) => (s.service?.leadership_area ?? "architecture") === a.area).map((s) => s.service?.name).filter(Boolean);
+                const other = leads[a.area] && LEAD_AREAS.some((b) => b.area !== a.area && leads[b.area] !== leads[a.area]);
+                return (
+                  <Field key={a.area} label={`Líder de ${a.label}`} required
+                    hint={covered.length ? `Neste projeto: ${covered.join(", ")}` : "Nenhum serviço desta área contratado ainda"}>
+                    {({ id, describedBy }) => (
+                      <div className="lead-row">
+                        <Select id={id} aria-describedby={describedBy} value={leads[a.area]}
+                          onChange={(e) => setLeads((l) => ({ ...l, [a.area]: e.target.value }))}>
+                          <option value="">Selecione</option>
+                          {people.map((m) => <option key={m.id} value={m.id}>{label(m)}</option>)}
+                        </Select>
+                        {other && (
+                          <Button variant="ghost" size="sm" title="Usar esta pessoa nas três áreas"
+                            onClick={() => setLeads({ architecture: leads[a.area], engineering: leads[a.area], approval: leads[a.area] })}>Usar nas 3</Button>
+                        )}
+                      </div>
+                    )}
+                  </Field>
+                );
+              })}
+            </fieldset>
 
             <fieldset className="form__group">
               <legend className="label">Responsáveis diretos</legend>
@@ -576,7 +613,7 @@ function TeamDrawer({ open, project, onClose, onSaved }: {
               <div className="row">
                 <Select aria-label="Adicionar colaborador indireto" value={adding} onChange={(e) => setAdding(e.target.value)}>
                   <option value="">Escolha o colaborador…</option>
-                  {people.filter((m) => m.id !== lead && !indirect.some((x) => x.user === m.id))
+                  {people.filter((m) => !Object.values(leads).includes(m.id) && !indirect.some((x) => x.user === m.id))
                     .map((m) => <option key={m.id} value={m.id}>{label(m)}</option>)}
                 </Select>
                 <Button variant="outline" size="sm" icon="plus" disabled={!adding}

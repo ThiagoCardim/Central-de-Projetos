@@ -263,7 +263,7 @@ export interface ProjectDetail extends Omit<ProjectListItem, "services" | "clien
     id: string; status: ProjectServiceStatus; active: boolean; contracted_at: string | null; contract_source: string | null;
     responsible_user_id: string | null;
     responsible: { id: string; name: string; avatar_url: string | null; employment_type: EmploymentType | null } | null;
-    service: { id: string; name: string; code: string; family: { name: string; default_project_role: string | null; sort_order?: number } | null } | null;
+    service: { id: string; name: string; code: string; leadership_area?: LeadershipArea; family: { name: string; default_project_role: string | null; sort_order?: number } | null } | null;
   }[];
   team: {
     id: string; project_role: string; employment_type: EmploymentType | null; active: boolean; assigned_at: string;
@@ -377,8 +377,9 @@ export interface ServiceFamily { id: string; code: string; name: string; sort_or
 export interface CatalogService {
   id: string; family_id: string; code: string; name: string; description: string | null;
   available_for_b2c: boolean; available_for_b2b: boolean; has_schedule_template: boolean; requires_area_rule: boolean;
-  sort_order: number; active: boolean; aliases: string[];
+  sort_order: number; active: boolean; aliases: string[]; leadership_area: LeadershipArea;
 }
+export type LeadershipArea = "architecture" | "engineering" | "approval";
 export interface TemplateTask {
   id: string; template_id: string; code: string; name: string; description: string | null; sort_order: number;
   default_duration_days: number | null; duration_type: DurationType; include_if_service_codes: string[] | null;

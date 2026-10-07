@@ -869,3 +869,6 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
   .chippick { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .auto-runs li { flex-wrap: wrap; }
 }
+.lead-row { display: flex; align-items: center; gap: var(--s2); }
+.lead-row .select { flex: 1; min-width: 0; }
+.form__group > legend .req { color: var(--brand-text); margin-left: 2px; }

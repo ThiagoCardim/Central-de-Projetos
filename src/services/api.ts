@@ -185,7 +185,7 @@ export const api = {
         origin:tenants!projects_origin_tenant_id_fkey(name),
         commercial:tenants!projects_commercial_tenant_id_fkey(name),
         delivery:tenants!projects_delivery_tenant_id_fkey(name),
-        services:project_services(id, status, active, contracted_at, contract_source, responsible_user_id, responsible:profiles!project_services_responsible_user_id_fkey(id, name, avatar_url, employment_type), service:services(id, name, code, family:service_families(name, default_project_role, sort_order))),
+        services:project_services(id, status, active, contracted_at, contract_source, responsible_user_id, responsible:profiles!project_services_responsible_user_id_fkey(id, name, avatar_url, employment_type), service:services(id, name, code, leadership_area, family:service_families(name, default_project_role, sort_order))),
         team:project_team(id, project_role, employment_type, active, assigned_at, user:profiles!project_team_user_id_fkey(id, name, avatar_url, employment_type)),
         allocations:project_allocations(id, allocation_method, allocation_status, allocated_at, notes, created_at, delivery:tenants!project_allocations_delivery_tenant_id_fkey(name))`)
       .eq("id", id).maybeSingle();
@@ -356,7 +356,7 @@ export const api = {
   async listCatalog(): Promise<{ families: ServiceFamily[]; services: CatalogService[] }> {
     const [f, s] = await Promise.all([
       supabase.from("service_families").select("id, code, name, sort_order, active").order("sort_order"),
-      supabase.from("services").select("id, family_id, code, name, description, available_for_b2c, available_for_b2b, has_schedule_template, requires_area_rule, sort_order, active, aliases").order("sort_order"),
+      supabase.from("services").select("id, family_id, code, name, description, available_for_b2c, available_for_b2b, has_schedule_template, requires_area_rule, sort_order, active, aliases, leadership_area").order("sort_order"),
     ]);
     if (f.error) throw toUserError(f.error);
     if (s.error) throw toUserError(s.error);
@@ -395,7 +395,7 @@ export const api = {
     }
     return out;
   },
-  async updateService(id: string, patch: Partial<Pick<CatalogService, "available_for_b2c" | "available_for_b2b" | "requires_area_rule" | "description" | "aliases" | "active">>): Promise<void> {
+  async updateService(id: string, patch: Partial<Pick<CatalogService, "available_for_b2c" | "available_for_b2b" | "requires_area_rule" | "description" | "aliases" | "active" | "leadership_area">>): Promise<void> {
     const { error } = await supabase.from("services").update(patch).eq("id", id);
     if (error) throw toUserError(error);
   },
