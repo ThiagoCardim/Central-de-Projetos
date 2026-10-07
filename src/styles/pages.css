@@ -741,3 +741,8 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 }
 
 [data-theme="light"] .gantt { --gantt-weekend: rgba(115, 115, 115, 0.07); }
+.gbar.is-movable::before { content: ""; flex: none; width: 4px; height: 12px; margin-left: 6px; margin-right: -2px; opacity: 0.6;
+  background-image: radial-gradient(currentColor 1px, transparent 1.2px); background-size: 4px 4px; }
+.gbar.is-locked { cursor: not-allowed; }
+.gtip--notice { transform: none; width: max-content; display: inline-flex; align-items: center; gap: 6px; max-width: 340px; white-space: normal; text-align: left; line-height: 1.35; z-index: 9; }
+.gtip--notice .icon { flex: none; }

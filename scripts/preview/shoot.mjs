@@ -86,6 +86,11 @@ const scenes = [
     await p.mouse.move(box.x + 4, box.y + box.height / 2); await p.mouse.down(); await p.mouse.move(box.x + 64, box.y + box.height / 2, { steps: 6 });
     await p.screenshot({ path: "scripts/preview/shots/gantt-resizing.png" });
     await p.mouse.up(); await p.waitForTimeout(700); } },
+  { name: "gantt-locked", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => {
+    await gantt(p); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.waitForTimeout(300);
+    const bar = p.getByRole("button", { name: /^Envio do Briefing:/ }).first(); const box = await bar.boundingBox();
+    await p.mouse.move(box.x + 10, box.y + box.height / 2); await p.mouse.down(); await p.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 5 });
+    await p.mouse.up(); await p.waitForTimeout(300); } },
   { name: "gantt-light", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, light: true, action: gantt },
   { name: "m-gantt", url: "/projetos/pr1/cronograma?as=leader", vp: MOBILE, action: async (p) => { await gantt(p); await p.locator(".gantt").scrollIntoViewIfNeeded(); } },
   { name: "sched-clt", url: "/projetos/pr1/cronograma?as=clt&etapa=tr-arq-estudo_preliminar", vp: DESKTOP },

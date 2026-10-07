@@ -74,6 +74,8 @@ export function GanttView({ schedule, staff, filters, me, editable, canManage, o
   const [drag, setDrag] = useState<{ id: string; kind: "move" | "resize"; x0: number; delta: number; moved: boolean; locked: boolean } | null>(null);
   const [kbd, setKbd] = useState<{ id: string; kind: "move" | "resize"; delta: number } | null>(null);
   const [change, setChange] = useState<Change | null>(null);
+  const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
+  useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 3500); return () => clearTimeout(t); }, [notice]);
   const scroller = useRef<HTMLDivElement>(null);
   const dayW = DAY_W[scale];
   const staffById = useMemo(() => new Map(staff.map((m) => [m.id, m])), [staff]);
@@ -156,8 +158,25 @@ export function GanttView({ schedule, staff, filters, me, editable, canManage, o
     // Sem permissão para mover: o clique só seleciona a etapa.
     setDrag({ id: t.id, kind, x0: e.clientX, delta: 0, moved: false, locked: kind === "move" && !canMove(t) });
   }
+  /** Por que esta barra não pode ser arrastada (mostrado ao tentar). */
+  function lockReason(t: ScheduleTask): string {
+    if (!editable) return canManage ? "Ative o Modo gestão (no topo da página) para ajustar prazos arrastando." : "Somente o líder do projeto ajusta prazos.";
+    if (t.status === "completed") return "Etapa concluída: as datas reais ficam registradas e não podem ser arrastadas.";
+    if (t.status === "cancelled") return "Etapa cancelada não ocupa prazo.";
+    if (isStarted(t)) return canResize(t) ? "Etapa já iniciada: o início não muda. Arraste a borda direita para ajustar a duração." : "Etapa já iniciada: o início não muda.";
+    if (!t.planned_start_date) return "Etapa sem data: ela é posicionada pelas dependências.";
+    return "Esta etapa não pode ser movida.";
+  }
   function onPointerMove(e: RPointerEvent) {
-    if (!drag || drag.locked) return;
+    if (!drag) return;
+    if (drag.locked) {
+      if (!drag.moved && Math.abs(e.clientX - drag.x0) > 6) {
+        setDrag({ ...drag, moved: true });
+        const t = schedule.tasks.find((x) => x.id === drag.id);
+        if (t) setNotice({ id: t.id, text: lockReason(t) });
+      }
+      return;
+    }
     const dx = e.clientX - drag.x0;
     const delta = Math.round(dx / dayW);
     if (delta !== drag.delta || (!drag.moved && Math.abs(dx) > 3)) setDrag({ ...drag, delta, moved: drag.moved || Math.abs(dx) > 3 });
@@ -167,6 +186,7 @@ export function GanttView({ schedule, staff, filters, me, editable, canManage, o
     const d = drag;
     setDrag(null);
     if (!d.moved) { setSelected((s) => (s === t.id ? null : t.id)); return; }
+    if (d.locked) return;
     if (d.delta !== 0) proposeChange(t, d.kind, d.delta);
   }
   function proposeChange(t: ScheduleTask, kind: "move" | "resize", delta: number) {
@@ -185,7 +205,7 @@ export function GanttView({ schedule, staff, filters, me, editable, canManage, o
     if (!editable) return;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       const kind = e.shiftKey ? "resize" : "move";
-      if ((kind === "move" && !canMove(t)) || (kind === "resize" && !canResize(t))) return;
+      if ((kind === "move" && !canMove(t)) || (kind === "resize" && !canResize(t))) { setNotice({ id: t.id, text: lockReason(t) }); return; }
       e.preventDefault();
       const step = e.key === "ArrowRight" ? 1 : -1;
       setKbd((k) => (k && k.id === t.id && k.kind === kind ? { ...k, delta: k.delta + step } : { id: t.id, kind, delta: step }));
@@ -212,7 +232,7 @@ export function GanttView({ schedule, staff, filters, me, editable, canManage, o
         <Button variant="outline" size="sm" icon="calendar" onClick={goToday}>Hoje</Button>
         <span className="grow" />
         <span className="gantt-hint">
-          {editable ? <><Icon name="grip" size={14} /> Arraste a barra para mudar o início; arraste a borda direita para mudar a duração. Nada muda sem a sua confirmação.</>
+          {editable ? <><Icon name="grip" size={14} /> Etapas não iniciadas: arraste a barra para mudar o início. Em aberto: arraste a borda direita para mudar a duração. Concluídas não se movem. Nada muda sem a sua confirmação.</>
             : canManage ? "Ative o Modo gestão para ajustar prazos arrastando as barras."
             : "Clique numa etapa para destacar o que vem antes e depois dela."}
         </span>
@@ -275,7 +295,8 @@ export function GanttView({ schedule, staff, filters, me, editable, canManage, o
                 selected={selected === r.task.id}
                 relation={related ? (related.preds.has(r.task.id) ? "pred" : related.succs.has(r.task.id) ? "succ" : selected === r.task.id ? "self" : "none") : null}
                 movable={canMove(r.task)} resizable={canResize(r.task)}
-                ghost={active && active.id === r.task.id ? { kind: active.kind, delta: active.delta } : null}
+                ghost={active && active.id === r.task.id && !(drag?.locked) ? { kind: active.kind, delta: active.delta } : null}
+                notice={notice?.id === r.task.id ? notice.text : null} editable={editable}
                 onOpen={() => onOpen(r.task.id)}
                 onPointerDown={(e, kind) => onPointerDown(e, r.task, kind)} onPointerMove={onPointerMove} onPointerUp={() => onPointerUp(r.task)}
                 onKey={(e) => onBarKey(e, r.task)} onBlur={() => { if (kbd?.id === r.task.id) setKbd(null); }} />
@@ -303,11 +324,11 @@ const LEGEND = { done: "Concluída", doing: "Em andamento", todo: "Não iniciada
 const leftWidth = (el: HTMLElement) => parseFloat(getComputedStyle(el).getPropertyValue("--gantt-left")) || 0;
 
 /* ---------- Linha de etapa ---------- */
-function TaskRow({ row, x, dayW, hi, today, responsible, avatar, selected, relation, movable, resizable, ghost,
+function TaskRow({ row, x, dayW, hi, today, responsible, avatar, selected, relation, movable, resizable, ghost, notice, editable,
   onOpen, onPointerDown, onPointerMove, onPointerUp, onKey, onBlur }: {
   row: Extract<Row, { kind: "task" }>; x: (d: number) => number; dayW: number; hi: number; today: string;
   responsible: string | null; avatar: string | null; selected: boolean; relation: "pred" | "succ" | "self" | "none" | null;
-  movable: boolean; resizable: boolean; ghost: { kind: "move" | "resize"; delta: number } | null;
+  movable: boolean; resizable: boolean; ghost: { kind: "move" | "resize"; delta: number } | null; notice: string | null; editable: boolean;
   onOpen: () => void; onPointerDown: (e: RPointerEvent, kind: "move" | "resize") => void; onPointerMove: (e: RPointerEvent) => void;
   onPointerUp: () => void; onKey: (e: KeyboardEvent) => void; onBlur: () => void;
 }) {
@@ -329,7 +350,8 @@ function TaskRow({ row, x, dayW, hi, today, responsible, avatar, selected, relat
           <span className="gbar gbar--origin" style={{ left: x(b.start), width: Math.max(dayW, (end - b.start + 1) * dayW) }} aria-hidden="true" />
         )}
         <span role="button" tabIndex={0} aria-label={label} aria-pressed={selected}
-          className={cx("gbar", `gbar--${tone}`, b.end == null && "gbar--open", movable && "is-movable", ghost && "is-dragging", relation && `is-${relation}`)}
+          className={cx("gbar", `gbar--${tone}`, b.end == null && "gbar--open", movable && "is-movable", editable && !movable && !resizable && "is-locked",
+            ghost && "is-dragging", relation && `is-${relation}`)}
           style={{ left, width: w }} title={`${t.name}\n${b.end ? `${short(b.start)} – ${short(b.end)}` : short(b.start)} · ${durationText(t)}`}
           onPointerDown={(ev) => onPointerDown(ev, "move")} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
           onDoubleClick={onOpen} onKeyDown={onKey} onBlur={onBlur}>
@@ -342,6 +364,9 @@ function TaskRow({ row, x, dayW, hi, today, responsible, avatar, selected, relat
           )}
         </span>
         {w <= 70 && <span className="gbar__outside" style={{ left: left + w + 6 }}>{t.name}</span>}
+        {notice && !ghost && (
+          <span className="gtip gtip--notice" role="status" style={{ left }}><Icon name="lock" size={12} /> {notice}</span>
+        )}
         {ghost && (
           <span className="gtip" style={{ left: left + w / 2 }}>
             {ghost.kind === "move"
