@@ -396,6 +396,10 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .impact__head { margin: 0; line-height: 1.6; }
 .impact__head .icon { display: inline-block; color: var(--text-3); vertical-align: -2px; margin: 0 4px; }
 .impact__count { font-weight: 700; color: var(--warning-text); }
+.impact__delay { margin: 0; display: flex; align-items: flex-start; gap: var(--s2); padding: 8px var(--s3); border-radius: var(--r-control); background: var(--warning-pastel); color: var(--warning-text); font-size: var(--fs-sub); font-weight: 600; }
+.impact__delay svg { flex: none; margin-top: 2px; }
+.impact__group { display: grid; gap: 4px; padding-left: var(--s3); border-left: 2px solid var(--border); }
+.impact__group-title { margin: 0; font-size: var(--fs-sub); font-weight: 600; }
 .impact__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sub); }
 .impact__list li { display: flex; align-items: center; gap: 6px; }
 .impact__list .icon { color: var(--text-3); flex: none; }

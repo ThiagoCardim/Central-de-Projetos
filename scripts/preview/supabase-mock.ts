@@ -190,11 +190,14 @@ function rpc(name: string, _args?: any) {
       task: { id: _args?.p_task, name: "Estudo Preliminar", service: "Projeto Arquitetônico", before_start: d(-30), before_end: d(-2), after_start: d(-30), after_end: d(3),
         before_duration: 20, after_duration: 25 },
       impacted: [
-        { id: "a", name: "Alterações", service: "Projeto Arquitetônico", before_start: d(-1), before_end: d(41), after_start: d(4), after_end: d(46) },
-        { id: "b", name: "Imagens 3D e Vídeo", service: "Projeto Arquitetônico", before_start: d(42), before_end: d(55), after_start: d(47), after_end: d(60) },
-        { id: "c", name: "Tempo de Produção da Arquitetura", service: "Projeto Estrutural", before_start: d(-40), before_end: d(-2), after_start: d(-40), after_end: d(3) },
-        { id: "e", name: "Revisão APR x ARQ x ENG", service: "Projeto Estrutural", before_start: d(-1), before_end: d(0), after_start: d(4), after_end: d(5) },
-      ], impacted_count: 4, forecast_before: d(55), forecast_after: d(60) }, error: null }, 300);
+        { id: "a", name: "Alterações", service: "Projeto Arquitetônico", same_service: true, before_start: d(-1), before_end: d(41), after_start: d(4), after_end: d(46) },
+        { id: "b", name: "Imagens 3D e Vídeo", service: "Projeto Arquitetônico", same_service: true, before_start: d(42), before_end: d(55), after_start: d(47), after_end: d(60) },
+        { id: "c", name: "Tempo de Produção da Arquitetura", service: "Projeto Estrutural", same_service: false, before_start: d(-40), before_end: d(-2), after_start: d(-40), after_end: d(3) },
+        { id: "e", name: "Revisão APR x ARQ x ENG", service: "Projeto Estrutural", same_service: false, before_start: d(-1), before_end: d(0), after_start: d(4), after_end: d(5) },
+        { id: "f", name: "Planejamento", service: "Projeto Estrutural", same_service: false, before_start: d(1), before_end: d(10), after_start: d(6), after_end: d(15) },
+        { id: "g", name: "Planejamento", service: "Design de Interiores", same_service: false, before_start: d(12), before_end: d(30), after_start: d(17), after_end: d(35) },
+        { id: "h", name: "Projeto de Interiores", service: "Design de Interiores", same_service: false, before_start: d(31), before_end: d(52), after_start: d(36), after_end: d(57) },
+      ], impacted_count: 7, delay_days: 5, other_services_count: 2, forecast_before: d(55), forecast_after: d(60) }, error: null }, 300);
     case "reschedule_task": case "set_task_status": case "add_task_dependency": case "remove_task_dependency":
       return delay({ data: { impacted_count: 3, status: _args?.p_status }, error: null }, 300);
     case "set_task_responsible": case "set_profile_avatar": case "save_template_draft": case "publish_template": case "discard_template_draft":

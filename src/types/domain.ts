@@ -394,8 +394,11 @@ export interface SchedulePreviewItem {
 }
 export interface SchedulePreview {
   task: SchedulePreviewItem & { before_duration: number | null; after_duration: number | null };
-  impacted: SchedulePreviewItem[];
+  impacted: (SchedulePreviewItem & { same_service?: boolean })[];
   impacted_count: number;
+  /** Dias úteis de atraso da etapa alterada (0 quando não atrasa). Esse atraso empurra o contrato inteiro. */
+  delay_days?: number;
+  other_services_count?: number;
   forecast_before: string | null;
   forecast_after: string | null;
 }

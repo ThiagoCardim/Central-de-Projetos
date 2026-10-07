@@ -210,7 +210,7 @@ function ReschedulePanel({ task, onChanged, toast }: { task: ScheduleTask; onCha
     <section className="tdrawer__section resched" aria-label="Ajustar prazo">
       <div className="row-between"><h3 className="label">Ajustar prazo deste projeto</h3>
         <Button variant="ghost" size="sm" onClick={() => setOpenPanel(false)}>Fechar</Button></div>
-      <p className="subtext">Muda só este projeto. Para alterar o padrão YouCon, use Serviços e Cronogramas.</p>
+      <p className="subtext">Vale para este contrato: um atraso empurra as etapas à frente de todos os serviços dele. O padrão YouCon (Serviços e Cronogramas) não muda.</p>
       {err && <Alert tone="danger">{err}</Alert>}
       <div className="form__cols">
         {canStart && (
