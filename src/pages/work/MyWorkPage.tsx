@@ -12,6 +12,9 @@ import { OptionPicker } from "@/components/ui/OptionPicker";
 import type { MyStep, TaskStatus, WorkItem } from "@/types/domain";
 import { cx, formatDate, formatToday, plural } from "@/utils/format";
 import { todayISO } from "@/pages/schedule/model";
+import { useAuth } from "@/services/auth";
+import { can } from "@/permissions";
+import { TeamWorkView } from "@/pages/work/TeamWork";
 
 /* ==========================================================================
    Datas e leitura das etapas
@@ -72,14 +75,16 @@ function deadline(s: MyStep, today: string): { text: string; tone: "danger" | "w
 /* ==========================================================================
    Página
    ========================================================================== */
-type Tab = "hoje" | "etapas" | "agenda";
+type Tab = "hoje" | "etapas" | "agenda" | "equipe";
 
 export function MyWorkPage() {
   useDocumentTitle("Minhas tarefas");
   const toast = useToast();
   const navigate = useNavigate();
+  const { permissions } = useAuth();
+  const isLead = can(permissions, "manager");
   const initialTab = useSearchParam("aba") as Tab | null;
-  const [tab, setTab] = useState<Tab>(initialTab && ["hoje", "etapas", "agenda"].includes(initialTab) ? initialTab : "hoje");
+  const [tab, setTab] = useState<Tab>(initialTab && ["hoje", "etapas", "agenda", ...(isLead ? ["equipe"] : [])].includes(initialTab) ? initialTab : "hoje");
   const steps = useAsync(() => api.mySteps(), []);
   const itemsQ = useAsync(() => api.listWorkItems(), []);
   const [items, setItems] = useState<WorkItem[]>([]);
@@ -98,7 +103,8 @@ export function MyWorkPage() {
     done30: all.filter((s) => isDone(s) && s.actual_end_date && s.actual_end_date >= addDays(today, -30)).length,
   };
 
-  const openStep = (s: { id: string; project_id: string }) => navigate(`/projetos/${s.project_id}/cronograma?etapa=${s.id}`);
+  const openStep = (s: { id: string; project_id: string }) =>
+    navigate(s.id ? `/projetos/${s.project_id}/cronograma?etapa=${s.id}` : `/projetos/${s.project_id}`);
   async function startStep(s: MyStep) {
     setBusy(s.id);
     try { await api.setTaskStatus(s.id, "in_progress"); toast(`“${s.name}” iniciada.`); void steps.reload(); }
@@ -116,7 +122,12 @@ export function MyWorkPage() {
   // Tarefas do dia: atualização imediata na tela, gravação em seguida.
   const items$ = {
     add: async (input: { title: string; due_date: string; project_task_id?: string | null }) => {
-      try { const it = await api.addWorkItem(input); setItems((xs) => [...xs, it]); return true; }
+      try {
+        const it = await api.addWorkItem(input);
+        const st = all.find((s) => s.id === it.project_task_id);
+        setItems((xs) => [...xs, { ...it, step_name: st?.name ?? null, project_name: st?.project_name ?? null, project_code: st?.project_code ?? null, assigned_by: null }]);
+        return true;
+      }
       catch (e) { toast((e as Error).message, "error"); return false; }
     },
     toggle: async (it: WorkItem) => {
@@ -146,17 +157,18 @@ export function MyWorkPage() {
   return (
     <div className="page mywork">
       <PageHead title="Minhas tarefas" subtitle={<>{formatToday()} <span className="sep" aria-hidden="true" /> Tudo o que está sob sua responsabilidade</>} />
-      <div className="metrics">
+      {tab !== "equipe" && <div className="metrics">
         <MetricCard label="Atrasadas" value={counts.overdue} tone={counts.overdue ? "danger" : "quiet"} hint="Etapas e tarefas" onClick={() => setTab("hoje")} />
         <MetricCard label="Para hoje" value={counts.today} tone={counts.today ? "brand" : "quiet"} hint="Tarefas e entregas" onClick={() => setTab("hoje")} />
         <MetricCard label="Etapas em andamento" value={counts.doing} onClick={() => setTab("etapas")} />
         <MetricCard label="Entregas em 7 dias" value={counts.week} onClick={() => setTab("agenda")} />
         <MetricCard label="Concluídas (30 dias)" value={counts.done30} tone="quiet" onClick={() => setTab("etapas")} />
-      </div>
+      </div>}
       <Tabs<Tab> label="Visões" value={tab} onChange={setTab} tabs={[
         { value: "hoje", label: "Hoje", count: counts.overdue + counts.today || undefined },
         { value: "etapas", label: "Minhas etapas", count: open.length || undefined },
         { value: "agenda", label: "Agenda" },
+        ...(isLead ? [{ value: "equipe" as Tab, label: "Tarefas da equipe" }] : []),
       ]} />
       {error ? <LoadError message={error} onRetry={() => { void steps.reload(); void itemsQ.reload(); }} /> :
         loading ? <><Skeleton height={120} radius={16} /><Skeleton height={260} radius={16} /></> : (
@@ -164,6 +176,7 @@ export function MyWorkPage() {
             {tab === "hoje" && <TodayView steps={all} items={items} today={today} actions={items$} stepActions={stepActions} onOpen={openStep} />}
             {tab === "etapas" && <StepsView steps={all} today={today} stepActions={stepActions} onOpen={openStep} />}
             {tab === "agenda" && <AgendaView steps={all} items={items} today={today} actions={items$} onOpen={openStep} />}
+            {tab === "equipe" && isLead && <TeamWorkView today={today} onOpen={openStep} />}
           </>
         )}
       <ConfirmDialog open={!!confirming} title={`Concluir “${confirming?.name ?? ""}”?`}
@@ -300,29 +313,37 @@ function ItemRow({ item, step, today, actions, onOpen, late }: {
   item: WorkItem; step?: MyStep; today: string; actions: ItemActions; onOpen: (s: { id: string; project_id: string }) => void; late?: boolean;
 }) {
   const done = !!item.done_at;
+  const fromLead = !!item.assigned_by;
+  const projectLabel = item.project_code ?? item.project_name ?? step?.project_code ?? step?.project_name;
+  const stepLabel = item.step_name ?? step?.name;
+  const linkLabel = [projectLabel, stepLabel].filter(Boolean).join(" · ");
   return (
-    <li className={cx("mw-item", done && "is-done", late && "is-late")}>
+    <li className={cx("mw-item", done && "is-done", late && "is-late", fromLead && "is-assigned")}>
       <button type="button" className={cx("mw-check", done && "is-on")} aria-pressed={done}
         aria-label={done ? `Desmarcar “${item.title}”` : `Marcar “${item.title}” como feita`} onClick={() => actions.toggle(item)}>
         {done && <Icon name="check" size={14} />}
       </button>
       <span className="mw-item__main">
         <span className="mw-item__title">{item.title}</span>
+        {item.description && <span className="mw-item__desc">{item.description}</span>}
         <span className="mw-item__meta">
+          {fromLead && <span className="mw-from"><Icon name="user" size={12} /> Da liderança · {item.assigned_by!.name}</span>}
           {late && <span className="mw-late">era para {formatDate(item.due_date)} · {plural(diffDays(item.due_date, today), "dia", "dias")} de atraso</span>}
           {!late && item.due_date !== today && !done && <span>{formatDate(item.due_date)}</span>}
-          {step && (
-            <button type="button" className="mw-link" onClick={() => onOpen(step)}>
-              {step.project_code ?? step.project_name} · {step.name}
+          {linkLabel && item.project_id && (
+            <button type="button" className="mw-link" onClick={() => onOpen({ id: item.project_task_id ?? "", project_id: item.project_id! })}>
+              {linkLabel}
             </button>
           )}
         </span>
       </span>
-      <span className="mw-item__side">
-        {!done && item.due_date !== today && <Button size="sm" variant="ghost" onClick={() => actions.move(item, today)}>Para hoje</Button>}
-        {!done && item.due_date <= today && <Button size="sm" variant="ghost" onClick={() => actions.move(item, addDays(today, 1))}>Amanhã</Button>}
-        <Button size="sm" variant="ghost" iconOnly icon="x" onClick={() => actions.remove(item)}>Excluir</Button>
-      </span>
+      {!fromLead && (
+        <span className="mw-item__side">
+          {!done && item.due_date !== today && <Button size="sm" variant="ghost" onClick={() => actions.move(item, today)}>Para hoje</Button>}
+          {!done && item.due_date <= today && <Button size="sm" variant="ghost" onClick={() => actions.move(item, addDays(today, 1))}>Amanhã</Button>}
+          <Button size="sm" variant="ghost" iconOnly icon="x" onClick={() => actions.remove(item)}>Excluir</Button>
+        </span>
+      )}
     </li>
   );
 }

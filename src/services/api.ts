@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -272,13 +272,14 @@ export const api = {
   },
   // ---------- Minhas tarefas ----------
   mySteps: () => rpc<MyStep[]>("my_steps", { p_done_since: null }),
-  async listWorkItems(): Promise<WorkItem[]> {
-    const { data, error } = await supabase.from("work_items")
-      .select("id, title, due_date, done_at, project_task_id, project_id, created_at")
-      .order("due_date").order("created_at").limit(1000);
-    if (error) throw toUserError(error);
-    return data as WorkItem[];
-  },
+  /** Minhas tarefas do dia (pessoais e atribuídas pela liderança). */
+  listWorkItems: () => rpc<WorkItem[]>("my_work_items"),
+  /** Tarefas atribuídas que eu acompanho como liderança. */
+  teamWorkItems: (since?: string | null) => rpc<WorkItem[]>("team_work_items", { p_since: since ?? null }),
+  assignablePeople: () => rpc<TeamPerson[]>("assignable_people"),
+  assignWorkItems: (input: { owners: string[]; title: string; due_date: string; description?: string | null; task_id?: string | null; project_id?: string | null }) =>
+    rpc<number>("assign_work_items", { p_owners: input.owners, p_title: input.title.trim(), p_due: input.due_date,
+      p_description: input.description?.trim() || null, p_task: input.task_id || null, p_project: input.project_id || null }),
   async addWorkItem(input: { title: string; due_date: string; project_task_id?: string | null }): Promise<WorkItem> {
     const { data, error } = await supabase.from("work_items")
       .insert({ title: input.title.trim(), due_date: input.due_date, project_task_id: input.project_task_id || null })
@@ -286,7 +287,7 @@ export const api = {
     if (error) throw toUserError(error);
     return data as WorkItem;
   },
-  async updateWorkItem(id: string, patch: Partial<Pick<WorkItem, "title" | "due_date" | "done_at">>): Promise<void> {
+  async updateWorkItem(id: string, patch: Partial<Pick<WorkItem, "title" | "description" | "due_date" | "done_at" | "project_task_id" | "project_id"> & { owner_id: string }>): Promise<void> {
     const { error } = await supabase.from("work_items").update(patch).eq("id", id);
     if (error) throw toUserError(error);
   },

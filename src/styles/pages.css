@@ -1153,3 +1153,61 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
   .mw-day__todo { position: absolute; top: 2px; right: 2px; min-width: 15px; height: 15px; padding: 0 3px; font-size: 9px; }
   .mw-cal-title { min-width: 0; }
 }
+
+/* Tarefas atribuídas pela liderança (lado do colaborador) */
+.mw-item.is-assigned { box-shadow: inset 3px 0 0 var(--brand); }
+.mw-item.is-late.is-assigned { box-shadow: inset 3px 0 0 var(--danger); }
+.mw-item__desc { font-size: var(--fs-sub); color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mw-from { display: inline-flex; align-items: center; gap: 4px; color: var(--brand-text); font-weight: 600; }
+
+/* Tarefas da equipe (liderança) */
+.tw-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); }
+.tw-head__text { margin: 0; max-width: 640px; }
+.tw-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--s3); }
+.tw-person { display: grid; gap: var(--s2); padding: var(--s3) var(--s4); border: 1px solid var(--border); border-radius: var(--r-control); background: var(--card);
+  color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.tw-person:hover { border-color: var(--border-strong); }
+.tw-person.is-sel { border-color: var(--brand); background: var(--brand-pastel); }
+.tw-person:focus-visible { outline: none; box-shadow: var(--focus); }
+.tw-person__head { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.tw-person__head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-person__stats { display: flex; flex-wrap: wrap; gap: 4px var(--s3); font-size: var(--fs-sub); color: var(--text-2); }
+.tw-person__stats b { color: var(--text); }
+.tw-person__stats .is-danger, .tw-person__stats .is-danger b { color: var(--danger-text); }
+.tw-person__stats .is-success b { color: var(--success-text); }
+.tw-list { list-style: none; margin: 0; padding: 0; }
+.tw-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 200px 190px 76px; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border-top: 1px solid var(--border); }
+.tw-row:first-child { border-top: 0; }
+.tw-row.is-late { background: color-mix(in srgb, var(--danger-pastel) 60%, transparent); }
+.tw-state { display: grid; place-items: center; width: 20px; height: 20px; border: 2px solid var(--border-strong); border-radius: 50%; color: var(--text-on-brand); }
+.tw-row.is-late .tw-state { border-color: var(--danger); }
+.tw-row.is-today .tw-state { border-color: var(--warning); }
+.tw-state.is-on { border-color: var(--success); background: var(--success); }
+.tw-row.is-done_late .tw-state.is-on { border-color: var(--warning); background: var(--warning); }
+.tw-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tw-row__title { font-weight: 600; overflow-wrap: anywhere; }
+.tw-row.is-done .tw-row__title, .tw-row.is-done_late .tw-row__title { color: var(--text-2); }
+.tw-row__desc { font-size: var(--fs-sub); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-row__meta { display: flex; flex-wrap: wrap; gap: 4px var(--s2); font-size: var(--fs-sub); color: var(--text-3); }
+.tw-row__who { display: flex; align-items: center; gap: var(--s2); min-width: 0; font-size: var(--fs-body); }
+.tw-row__who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-row__when { display: grid; justify-items: start; gap: 4px; }
+.tw-row__date { font-size: var(--fs-sub); color: var(--text-3); }
+.tw-row__actions { display: flex; justify-content: flex-end; gap: 2px; }
+.tw-form .field { margin: 0; }
+.tw-date { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.tw-date .input { width: 170px; }
+.tw-link { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+@media (max-width: 1023px) {
+  .tw-row { grid-template-columns: 24px minmax(0, 1fr) auto; grid-template-areas: "s m a" "s who when"; row-gap: var(--s2); }
+  .tw-state { grid-area: s; align-self: start; margin-top: 2px; }
+  .tw-row__main { grid-area: m; }
+  .tw-row__actions { grid-area: a; align-self: start; }
+  .tw-row__who { grid-area: who; }
+  .tw-row__when { grid-area: when; justify-items: end; }
+}
+@media (max-width: 767px) {
+  .tw-link { grid-template-columns: 1fr; }
+  .tw-row { grid-template-areas: "s m a" "s who who" "s when when"; }
+  .tw-row__when { justify-items: start; grid-auto-flow: column; align-items: center; }
+}

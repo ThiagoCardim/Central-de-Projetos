@@ -221,6 +221,16 @@ function rpc(name: string, _args?: any) {
     case "reopen_task": return delay({ data: { impacted_count: 4 }, error: null }, 300);
     case "reschedule_task_with_reason": return delay({ data: { impacted_count: 3 }, error: null }, 300);
     case "client_schedule_changes": return delay({ data: [...CLIENT_CHANGES].sort((a, b) => b.changed_at.localeCompare(a.changed_at)), error: null }, 150);
+    case "my_work_items": seedWorkItems(); return delay({ data: WORK_ITEMS.filter((w) => w.owner_id === me()?.id).map(workJson).sort((a, b) => a.due_date.localeCompare(b.due_date)), error: null }, 150);
+    case "team_work_items": return delay({ data: teamWork(), error: null }, 200);
+    case "assignable_people": return delay({ data: profiles.filter((t) => t.status !== "inativo" && canLead(me(), t)).map((t) => ({ id: t.id, name: t.name, avatar_url: t.avatar_url ?? null, role: t.role, employment_type: t.employment_type })), error: null }, 150);
+    case "assign_work_items": {
+      seedWorkItems();
+      (_args.p_owners as string[]).forEach((o) => { const t = TASKS.find((x) => x.id === _args.p_task);
+        WORK_ITEMS.push({ id: `wi${Date.now()}${o}`, owner_id: o, title: _args.p_title, description: _args.p_description, due_date: _args.p_due, done_at: null,
+          project_task_id: _args.p_task, project_id: t?.project_id ?? _args.p_project, created_at: new Date().toISOString(), assigned_by: me()?.id, assigned_at: new Date().toISOString() }); });
+      return delay({ data: (_args.p_owners as string[]).length, error: null }, 250);
+    }
     case "my_steps": return delay({ data: mySteps(), error: null }, 200);
     case "my_notifications": return delay({ data: NOTIFS, error: null }, 100);
     case "automation_save": {
@@ -634,16 +644,41 @@ function seedWorkItems() {
   if (WORK_ITEMS.length) return;
   const mine = TASKS.filter((t) => t.responsible_user_id === "p-c1" && t.status !== "completed");
   const at = (n: number, h = 0) => new Date(Date.now() + n * 86400000 + h * 3600000).toISOString();
-  const add = (title: string, due: string, task: any = null, done_at: string | null = null) =>
-    WORK_ITEMS.push({ id: `wi${WORK_ITEMS.length + 1}`, owner_id: "p-c1", title, due_date: due, done_at, project_task_id: task?.id ?? null, project_id: task?.project_id ?? null, created_at: at(-3) });
+  const add = (title: string, due: string, task: any = null, done_at: string | null = null, owner = "p-c1", by: string | null = null, description: string | null = null) =>
+    WORK_ITEMS.push({ id: `wi${WORK_ITEMS.length + 1}`, owner_id: owner, title, description, due_date: due, done_at, project_task_id: task?.id ?? null,
+      project_id: task?.project_id ?? null, created_at: at(-3), assigned_by: by, assigned_at: by ? at(-3) : null });
   add("Enviar planta revisada para o cliente", d(-2), mine[0]);
   add("Ligar para a construtora sobre o levantamento", d(-1));
   add("Revisar cortes e fachadas do estudo", d(0), mine[0]);
-  add("Ajustar layout da cozinha conforme reunião", d(0), mine[1]);
   add("Separar referências para a renderização", d(0), null);
   add("Conferir medidas do levantamento", d(0), mine[0], at(0, -2));
   add("Reunião de alinhamento com a engenharia", d(1));
-  add("Preparar prancha de apresentação", d(3), mine[1]);
+  // Atribuídas pela liderança
+  add("Atualizar memorial descritivo", d(-1), mine[0], null, "p-c1", "p-ld", "Usar o modelo novo da pasta Padrões e conferir áreas.");
+  add("Ajustar layout da cozinha conforme reunião", d(0), mine[1], null, "p-c1", "p-ld");
+  add("Organizar acervo de pranchas do 2º trimestre", d(3), null, null, "p-c1", "p-ld");
+  add("Levantamento fotográfico do terreno", d(-3), null, null, "p-c2", "p-ld", "Fotos das divisas e da calçada.");
+  add("Conferir quantitativos do orçamento", d(0), null, null, "p-c2", "p-ld");
+  add("Enviar ART para assinatura", d(-4), null, at(-2), "p-c2", "p-ld");
+  add("Revisar pranchas elétricas", d(-2), null, at(-2, 2), "p-pj", "p-ld");
+  add("Compatibilizar quadro de cargas", d(2), null, null, "p-pj", "p-ua");
+  add("Organizar arquivos do Revit", d(-6), null, at(-5), "p-c1", "p-ld");
+}
+function workJson(w: any) {
+  const prof = (id: string | null) => profiles.find((x) => x.id === id);
+  const o = prof(w.owner_id); const a = prof(w.assigned_by);
+  const t = TASKS.find((x) => x.id === w.project_task_id); const pr = PROJECTS.find((x) => x.id === w.project_id);
+  return { ...w, project_name: pr?.name ?? null, project_code: pr?.code ?? null, step_name: t?.name ?? null,
+    owner: o ? { id: o.id, name: o.name, avatar_url: o.avatar_url ?? null, role: o.role, employment_type: o.employment_type } : null,
+    assigned_by: a ? { id: a.id, name: a.name } : null };
+}
+const canLead = (me: any, t: any) => !!me && !!t && me.id !== t.id && ["leader", "unit_admin", "global_admin"].includes(me.role)
+  && ["collaborator", "leader", "unit_admin"].includes(t.role) && (me.role === "global_admin" || me.tenant_id === t.tenant_id)
+  && ["collaborator", "leader", "unit_admin", "global_admin"].indexOf(t.role) <= ["collaborator", "leader", "unit_admin", "global_admin"].indexOf(me.role);
+function teamWork() {
+  seedWorkItems(); const p = me();
+  return WORK_ITEMS.filter((w) => w.assigned_by && (w.assigned_by === p?.id || canLead(p, profiles.find((x) => x.id === w.owner_id))))
+    .map(workJson).sort((a, b) => a.due_date.localeCompare(b.due_date));
 }
 
 function visibleRows(table: string): any[] {

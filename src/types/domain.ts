@@ -364,9 +364,17 @@ export interface MyStep {
 
 /** Tarefa do dia (checklist pessoal). */
 export interface WorkItem {
-  id: string; title: string; due_date: string; done_at: string | null;
+  id: string; title: string; description?: string | null; due_date: string; done_at: string | null;
   project_task_id: string | null; project_id: string | null; created_at: string;
+  assigned_at?: string | null;
+  project_name?: string | null; project_code?: string | null; step_name?: string | null;
+  owner?: TeamPerson;
+  /** Preenchido quando a tarefa foi atribuída pela liderança. */
+  assigned_by?: { id: string; name: string } | null;
 }
+
+/** Pessoa da equipe para quem a liderança pode atribuir tarefas. */
+export interface TeamPerson { id: string; name: string; avatar_url: string | null; role: UserRole; employment_type: EmploymentType | null }
 
 /** Observação de uma etapa (registro com autor e data). */
 export interface TaskNote { id: string; body: string; created_at: string; author: { name: string } | null }

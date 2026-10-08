@@ -238,6 +238,19 @@ const scenes = [
   { name: "work-agenda", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, full: true },
   { name: "work-agenda-list", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("radio", { name: "Lista" }).click(); } },
   { name: "work-light", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, light: true },
+  { name: "team-work", url: "/minhas-tarefas?as=leader&aba=equipe", vp: DESKTOP, full: true },
+  { name: "team-new", url: "/minhas-tarefas?as=leader&aba=equipe", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Nova tarefa" }).first().click(); await p.waitForTimeout(500); } },
+  { name: "team-create", url: "/minhas-tarefas?as=leader&aba=equipe", vp: DESKTOP, full: true, action: async (p) => {
+    await p.getByRole("button", { name: "Nova tarefa" }).first().click();
+    await p.getByPlaceholder("Ex.: Atualizar memorial descritivo").fill("Revisar detalhamento da escada");
+    await p.getByRole("combobox", { name: "Responsáveis" }).click(); await p.getByRole("option", { name: /Lucas Ferreira/ }).click();
+    await p.getByRole("option", { name: /Camila Rocha/ }).click(); await p.keyboard.press("Escape");
+    await p.getByRole("button", { name: "Amanhã" }).click();
+    await p.getByRole("combobox", { name: "Projeto", exact: true }).click(); await p.getByRole("option", { name: /Residência Souza/ }).click();
+    await p.waitForTimeout(600);
+    await p.getByRole("combobox", { name: "Etapa", exact: true }).click(); await p.getByRole("option").first().click();
+    await p.getByRole("button", { name: /Criar para 2 pessoas/ }).click(); await p.waitForTimeout(900); } },
+  { name: "m-team-work", url: "/minhas-tarefas?as=leader&aba=equipe", vp: MOBILE, full: true },
   { name: "m-work-today", url: "/minhas-tarefas?as=clt", vp: MOBILE, full: true },
   { name: "m-work-agenda", url: "/minhas-tarefas?as=clt&aba=agenda", vp: MOBILE, full: true, action: async (p) => { await p.getByRole("radio", { name: "Mês" }).click(); } },
 ];
