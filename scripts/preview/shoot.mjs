@@ -244,6 +244,7 @@ const scenes = [
   { name: "m-home-tasks-clt", url: "/?as=clt", vp: MOBILE, full: true },
   { name: "agenda-leader", url: "/minhas-tarefas?as=leader&aba=agenda", vp: DESKTOP, full: true },
   { name: "agenda-leader-list", url: "/minhas-tarefas?as=leader&aba=agenda", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("radio", { name: "Lista" }).click(); } },
+  { name: "team-sectors", url: "/equipe?as=unit_admin", vp: DESKTOP, full: true },
   { name: "perf-team", url: "/performance?as=unit_admin", vp: DESKTOP, full: true },
   { name: "perf-matrix", url: "/performance?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("radio", { name: "Engenharia" }).click(); await p.getByRole("radio", { name: "Por atividade" }).click(); } },
   { name: "perf-person", url: "/performance?as=leader", vp: DESKTOP, action: async (p) => { await p.locator(".prow__who", { hasText: "Beatriz" }).click(); await p.waitForTimeout(800); } },

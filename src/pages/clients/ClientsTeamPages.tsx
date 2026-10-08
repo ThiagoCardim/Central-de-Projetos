@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/primitives";
 import { Drawer, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
+import { OptionPicker } from "@/components/ui/OptionPicker";
 import type { ClientListItem, ClientType } from "@/types/domain";
 import { CLIENT_TYPE_LABEL, cx, EMPLOYMENT_LABEL, formatDate, ROLE_LABEL } from "@/utils/format";
 
@@ -188,9 +189,32 @@ export function TeamPage() {
   const work = useAsync(() => api.teamWorkload(isGlobal ? null : permissions?.tenant_id ?? null), [isGlobal, permissions?.tenant_id]);
   const tenants = useAsync(() => api.listTenants(), []);
   const [emp, setEmp] = useState<"all" | "clt" | "pj">("all");
+  const [sector, setSector] = useState("all");
+  const sectors = useAsync(() => api.listSectors(), []);
+  const toast = useToast();
+  const [sectorOf, setSectorOf] = useState<Record<string, string | null>>({});
+  const sectorId = (p: { id: string; sector_family_id?: string | null }) => (p.id in sectorOf ? sectorOf[p.id] : p.sector_family_id ?? null);
+  const RANK: Record<string, number> = { collaborator: 1, leader: 2, unit_admin: 3, global_admin: 4 };
+  const canEditSector = (p: { id: string; role: string }) =>
+    !!permissions && (permissions.can_manage_users || (p.id !== permissions.profile_id && RANK[p.role] <= RANK[permissions.role]));
+  async function changeSector(p: { id: string; name: string }, familyId: string) {
+    const prev = sectorOf[p.id];
+    setSectorOf((m) => ({ ...m, [p.id]: familyId || null }));
+    try {
+      await api.setProfileSector(p.id, familyId || null);
+      const name = sectors.data?.find((x) => x.id === familyId)?.name;
+      toast(name ? `${p.name} agora é de ${name}.` : `Setor de ${p.name} removido.`);
+    } catch (e) {
+      setSectorOf((m) => { const n = { ...m }; if (prev === undefined) delete n[p.id]; else n[p.id] = prev; return n; });
+      toast((e as Error).message, "error");
+    }
+  }
 
-  const people = (staff.data ?? []).filter((p) => p.status === "ativo" && p.role !== "client" && p.role !== "global_admin"
+  const team = (staff.data ?? []).filter((p) => p.status === "ativo" && p.role !== "client" && p.role !== "global_admin"
     && (emp === "all" || p.employment_type === emp));
+  const people = team.filter((p) => sector === "all" || (sectorId(p) ?? "none") === sector);
+  const withoutSector = team.filter((p) => !sectorId(p)).length;
+  const sectorOptions = (sectors.data ?? []).map((x) => ({ value: x.id, label: x.name }));
   const byUser = new Map<string, { id: string; name: string; role: string }[]>();
   (work.data ?? []).forEach((w) => {
     if (!w.project || ["completed", "cancelled"].includes(w.project.status)) return;
@@ -203,10 +227,21 @@ export function TeamPage() {
 
   return (
     <div className="page">
-      <PageHead title="Equipe" subtitle="Quem está disponível e em quantos projetos ativos cada pessoa está. Performance e metas (CLT) chegam nas próximas etapas." />
+      <PageHead title="Equipe" subtitle="Quem faz parte do time, de qual setor é e em quantos projetos ativos cada pessoa está." />
       <Tabs<"all" | "clt" | "pj"> label="Vínculo" value={emp} onChange={setEmp} tabs={[
         { value: "all", label: "Todos" }, { value: "clt", label: "CLT" }, { value: "pj", label: "PJ" },
       ]} />
+      <div className="team-filters">
+        <Segmented<string> label="Setor" value={sector} onChange={setSector}
+          options={[{ value: "all", label: "Todos os setores" }, ...sectorOptions.filter((o) => team.some((p) => sectorId(p) === o.value)),
+            ...(withoutSector ? [{ value: "none", label: `Sem setor (${withoutSector})` }] : [])]} />
+      </div>
+      {withoutSector > 0 && sector !== "none" && (
+        <Alert tone="warning" title={`${withoutSector} ${withoutSector === 1 ? "pessoa está" : "pessoas estão"} sem setor`}
+          action={<Button size="sm" variant="outline" onClick={() => setSector("none")}>Ver quem falta</Button>}>
+          O setor define em qual ranking a pessoa entra na Performance e quem concorre ao destaque de cada setor.
+        </Alert>
+      )}
       {staff.error ? <LoadError message={staff.error} onRetry={staff.reload} /> :
        staff.loading && !staff.data ? <Skeleton height={240} radius={16} /> :
        people.length === 0 ? (
@@ -225,6 +260,12 @@ export function TeamPage() {
                   </span>
                   {p.employment_type && <Badge tag outline>{EMPLOYMENT_LABEL[p.employment_type]}</Badge>}
                 </header>
+                <div className="person__sector">
+                  <span className="label">Setor</span>
+                  <OptionPicker label={`Setor de ${p.name}`} value={sectorId(p) ?? ""} clearable placeholder="Definir setor"
+                    options={sectorOptions} loading={sectors.loading} disabled={!canEditSector(p)} invalid={!sectorId(p)}
+                    onChange={(v) => void changeSector(p, v)} />
+                </div>
                 <div className="person__load">
                   <span className="label">Projetos ativos</span>
                   <span className="person__count num">{projects.length}</span>

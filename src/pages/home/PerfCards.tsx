@@ -36,7 +36,7 @@ export function HighlightsCard({ isManager }: { isManager: boolean }) {
         <HighlightsGrid items={data.items} onOpen={isManager ? () => navigate("/performance") : undefined} />
       ) : (
         <EmptyState compact icon="trophy" title="Sem destaques ainda."
-          text={isManager ? "Defina o setor de cada pessoa em Performance. O destaque é a maior nota do setor no mês."
+          text={isManager ? "Defina o setor de cada pessoa na Equipe. O destaque é a maior nota do setor no mês."
             : `O destaque de cada setor é quem tem a maior nota com pelo menos ${plural(data.settings.min_volume, "entrega prevista", "entregas previstas")}.`} />
       )}
     </Card>

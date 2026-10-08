@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "@/services/auth";
+import { Link } from "@/lib/router";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
 import { PageHead } from "@/layouts/AppLayout";
 import {
   Avatar, Badge, Button, Card, EmptyState, Field, Input, LoadError, MetricCard, Segmented, Skeleton,
 } from "@/components/ui/primitives";
 import { Drawer, Modal, useToast } from "@/components/ui/overlays";
-import { OptionPicker } from "@/components/ui/OptionPicker";
 import type { PerfHighlights, PerfOverview, PerfRow, PerfSettings } from "@/types/domain";
 import { cx, plural } from "@/utils/format";
 import { todayISO } from "@/pages/schedule/model";
@@ -30,16 +30,6 @@ export function PerformancePage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [config, setConfig] = useState(false);
   const isCurrent = month === monthOf(todayISO());
-
-  async function setSector(row: PerfRow, familyId: string) {
-    try {
-      await api.setProfileSector(row.id, familyId || null);
-      const sector = data?.sectors.find((s) => s.id === familyId) ?? null;
-      setData((d) => d && { ...d, people: d.people.map((p) => (p.id === row.id ? { ...p, sector } : p)) });
-      toast(sector ? `${row.name} agora é de ${sector.name}.` : "Setor removido.");
-      void hl.reload();
-    } catch (e) { toast((e as Error).message, "error"); }
-  }
 
   const monthBar = (
     <div className="row pmonth">
@@ -66,7 +56,7 @@ export function PerformancePage() {
           <ScoreExplain settings={data.settings} />
         </div>
       ) : (
-        <TeamView data={data} highlights={hl.data} loading={q.loading} onOpen={setOpenId} onSector={setSector} />
+        <TeamView data={data} highlights={hl.data} loading={q.loading} onOpen={setOpenId} />
       )}
 
       <Drawer open={!!openId} onClose={() => setOpenId(null)} wide
@@ -98,7 +88,7 @@ type View = "ranking" | "matrix";
 
 function TeamView({ data, highlights, loading, onOpen, onSector }: {
   data: PerfOverview; highlights: PerfHighlights | null | undefined; loading: boolean;
-  onOpen: (id: string) => void; onSector: (row: PerfRow, familyId: string) => void;
+  onOpen: (id: string) => void;
 }) {
   const mobile = useIsMobile();
   const [view, setView] = useState<View>("ranking");
@@ -151,16 +141,12 @@ function TeamView({ data, highlights, loading, onOpen, onSector }: {
             return (
               <Card key={sec.id} title={sec.name} count={rows.length} flush>
                 {sec.id === "none" && data.can_set_sector && (
-                  <p className="subtext prank__hint">Defina o setor de cada pessoa para entrar no ranking e no destaque do setor.</p>
+                  <p className="subtext prank__hint">Sem setor, a pessoa fica fora do ranking e do destaque. O setor é definido na <Link to="/equipe" className="link">Equipe</Link>.</p>
                 )}
                 <ol className="prank">
                   {rows.map((p, i) => (
                     <RankRow key={p.id} row={p} pos={p.score != null && sec.id !== "none" ? i + 1 : null} trend={data.trend[p.id]}
-                      onOpen={() => onOpen(p.id)}
-                      sectorPicker={sec.id === "none" && data.can_set_sector ? (
-                        <OptionPicker label={`Setor de ${p.name}`} value="" placeholder="Definir setor" options={data.sectors.map((x) => ({ value: x.id, label: x.name }))}
-                          onChange={(v) => onSector(p, v)} />
-                      ) : null} />
+                      onOpen={() => onOpen(p.id)} />
                   ))}
                 </ol>
               </Card>
@@ -172,8 +158,8 @@ function TeamView({ data, highlights, loading, onOpen, onSector }: {
   );
 }
 
-function RankRow({ row: p, pos, trend, onOpen, sectorPicker }: {
-  row: PerfRow; pos: number | null; trend: PerfOverview["trend"][string] | undefined; onOpen: () => void; sectorPicker: ReactNode;
+function RankRow({ row: p, pos, trend, onOpen }: {
+  row: PerfRow; pos: number | null; trend: PerfOverview["trend"][string] | undefined; onOpen: () => void;
 }) {
   return (
     <li className={cx("prow", p.band && `is-${p.band}`)}>
@@ -193,7 +179,7 @@ function RankRow({ row: p, pos, trend, onOpen, sectorPicker }: {
         <span className={cx(p.late_open > 0 && "is-danger")}>{p.late_open} em atraso</span>
       </span>
       <span className="prow__trend"><TrendBars points={trend} compact /></span>
-      <span className="prow__band">{sectorPicker ?? <BandPill band={p.band} />}</span>
+      <span className="prow__band"><BandPill band={p.band} /></span>
     </li>
   );
 }

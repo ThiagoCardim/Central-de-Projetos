@@ -1466,3 +1466,6 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .ptable__act { display: inline-flex; align-items: center; gap: 6px; }
 .phl__score { flex-wrap: wrap; justify-content: center; }
 .pset section + section { padding-top: var(--s4); border-top: 1px solid var(--border); }
+/* Equipe: setor */
+.team-filters { display: flex; flex-wrap: wrap; gap: var(--s3); margin-bottom: var(--s1); }
+.person__sector { display: grid; gap: 6px; }
