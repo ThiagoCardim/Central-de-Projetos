@@ -11,6 +11,9 @@ import { Icon } from "@/components/ui/Icon";
 import { AwaitingTeamCard, StepTimeline, TaskList } from "@/components/domain/cards";
 import { computeNextStep, type NextStep } from "./nextStep";
 import { PendingAdjustmentsCard } from "@/pages/schedule/Adjustments";
+import { MyDayCard, TeamTasksCard, useWorkSummary } from "./WorkCards";
+import { myDayStats, teamStats } from "@/pages/work/workStats";
+import { todayISO } from "@/pages/schedule/model";
 import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
 import {
   cx, EMPLOYMENT_LABEL, firstName, formatDate, formatToday, greeting, PROJECT_STATUS_LABEL, ROLE_LABEL, TENANT_TYPE_LABEL,
@@ -76,6 +79,13 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
   const names = useMemo(() => new Map((ops?.team_load ?? []).map((m) => [m.id, m.name])), [ops]);
   const navigate = useNavigate();
   const pendingAdj = useAsync(() => (perms?.is_manager ? api.myPendingAdjustments() : Promise.resolve([])), [perms?.is_manager]);
+  const isManager = !!perms?.is_manager;
+  const work = useWorkSummary(isManager);
+  const today = todayISO();
+  const day = work.mine ? myDayStats(work.mine, today) : null;
+  const team = work.team ? teamStats(work.team, today) : null;
+  const toTasks = () => navigate("/minhas-tarefas");
+  const toTeam = () => navigate("/minhas-tarefas?aba=equipe");
 
   return (
     <>
@@ -90,6 +100,10 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
             <MetricCard label="Aguardando cliente" value={ops.counts.tasks_waiting_client} tone={ops.counts.tasks_waiting_client ? "warning" : "quiet"} />
             <MetricCard label="Sem responsável" value={ops.counts.tasks_unassigned} tone={ops.counts.tasks_unassigned ? "warning" : "quiet"} />
             <MetricCard label="Vencem em 7 dias" value={ops.counts.due_next_7} />
+            {isManager && team && (
+              <MetricCard label="Tarefas atrasadas" value={team.late} tone={team.late ? "danger" : "quiet"} onClick={toTeam}
+                hint={`Da equipe · ${team.open} em aberto`} />
+            )}
           </>
         ) : (
           <>
@@ -99,6 +113,14 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
             <MetricCard label="Próximos 7 dias" value={mine.counts.due_next_7} />
             <MetricCard label="Aguardando cliente" value={mine.counts.waiting_client} tone={mine.counts.waiting_client ? "warning" : "quiet"} />
             <MetricCard label="Bloqueadas" value={mine.counts.blocked} tone={mine.counts.blocked ? "warning" : "quiet"} />
+            {day && (
+              <>
+                <MetricCard label="Tarefas para hoje" value={day.dueToday.length} tone={day.dueToday.length ? "brand" : "quiet"} onClick={toTasks}
+                  hint={`${day.doneToday.length} ${day.doneToday.length === 1 ? "feita" : "feitas"} hoje`} />
+                <MetricCard label="Tarefas atrasadas" value={day.late.length} tone={day.late.length ? "danger" : "quiet"} onClick={toTasks}
+                  hint={day.fromLead ? `${day.fromLead} da liderança` : "Pendentes de dias anteriores"} />
+              </>
+            )}
           </>
         )}
       </div>
@@ -107,6 +129,8 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
         <div className="home__main">
           <PendingAdjustmentsCard items={pendingAdj.data ?? []}
             onOpen={(r) => navigate(`/projetos/${r.project_id}/cronograma?aba=ajustes`)} />
+          {!ops && work.mine && <MyDayCard items={work.mine} today={today} onChange={work.setMine} />}
+          {isManager && work.team && <TeamTasksCard items={work.team} today={today} />}
           {ops && (
             <Card title="Novos projetos aguardando equipe" count={ops.awaiting_team.length || undefined}>
               {ops.awaiting_team.length ? (
@@ -133,6 +157,7 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
         </div>
 
         <aside className="home__side">
+          {ops && work.mine && <MyDayCard items={work.mine} today={today} onChange={work.setMine} />}
           {ops && <TeamLoadCard team={ops.team_load} />}
           {ops && <MyTasksCard mine={mine} />}
           {d.admin && <UsersCard d={d} perms={perms} />}

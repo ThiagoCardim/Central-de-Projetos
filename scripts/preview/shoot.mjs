@@ -238,6 +238,10 @@ const scenes = [
   { name: "work-agenda", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, full: true },
   { name: "work-agenda-list", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("radio", { name: "Lista" }).click(); } },
   { name: "work-light", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, light: true },
+  { name: "home-tasks-clt", url: "/?as=clt", vp: DESKTOP, full: true },
+  { name: "home-tasks-leader", url: "/?as=leader", vp: DESKTOP, full: true },
+  { name: "home-tasks-admin", url: "/?as=unit_admin", vp: DESKTOP },
+  { name: "m-home-tasks-clt", url: "/?as=clt", vp: MOBILE, full: true },
   { name: "team-work", url: "/minhas-tarefas?as=leader&aba=equipe", vp: DESKTOP, full: true },
   { name: "team-new", url: "/minhas-tarefas?as=leader&aba=equipe", vp: DESKTOP, action: async (p) => { await p.getByRole("button", { name: "Nova tarefa" }).first().click(); await p.waitForTimeout(500); } },
   { name: "team-create", url: "/minhas-tarefas?as=leader&aba=equipe", vp: DESKTOP, full: true, action: async (p) => {

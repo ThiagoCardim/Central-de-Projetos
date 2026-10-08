@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "@/services/auth";
 import { useAsync } from "@/hooks";
+import { useSearchParam } from "@/lib/router";
 import {
   Avatar, Button, Card, EmptyState, Field, Input, LoadError, MetricCard, ProgressBar, Segmented, Skeleton,
 } from "@/components/ui/primitives";
@@ -10,17 +11,11 @@ import { Icon } from "@/components/ui/Icon";
 import { OptionPicker } from "@/components/ui/OptionPicker";
 import type { TeamPerson, WorkItem } from "@/types/domain";
 import { cx, formatDate, plural } from "@/utils/format";
+import { addDays, diffDays, doneDay, teamStats } from "@/pages/work/workStats";
 
 /* ==========================================================================
    Tarefas da equipe — a liderança agenda tarefas e acompanha a execução
    ========================================================================== */
-const parse = (iso: string) => { const [y, m, d] = iso.slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
-const toIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const addDays = (s: string, n: number) => { const d = parse(s); d.setDate(d.getDate() + n); return toIso(d); };
-const diffDays = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / 86400000);
-/** Dia (local) em que a tarefa foi marcada como feita. */
-const doneDay = (w: WorkItem) => (w.done_at ? toIso(new Date(w.done_at)) : null);
-
 type Tone = "danger" | "warning" | "neutral" | "success";
 function workState(w: WorkItem, today: string): { text: string; tone: Tone; key: "late" | "today" | "upcoming" | "done" | "done_late" } {
   const dd = doneDay(w);
@@ -49,38 +44,14 @@ export function TeamWorkView({ today, onOpen }: { today: string; onOpen: (s: { i
   const [status, setStatus] = useState<StatusFilter>("open");
   const [person, setPerson] = useState("");
   const [mine, setMine] = useState<"all" | "mine">("all");
-  const [editing, setEditing] = useState<WorkItem | "new" | null>(null);
+  const [editing, setEditing] = useState<WorkItem | "new" | null>(useSearchParam("nova") ? "new" : null);
   const [removing, setRemoving] = useState<WorkItem | null>(null);
   const [busy, setBusy] = useState(false);
 
   const scoped = items.filter((w) => mine === "all" || w.assigned_by?.id === profile?.id);
   const ofPerson = scoped.filter((w) => !person || w.owner?.id === person);
-  const since30 = addDays(today, -30);
-  const stats = useMemo(() => {
-    const open = ofPerson.filter((w) => !w.done_at);
-    const done30 = ofPerson.filter((w) => w.done_at && (doneDay(w) ?? "") >= since30);
-    const onTime = done30.filter((w) => (doneDay(w) ?? "") <= w.due_date).length;
-    return {
-      open: open.length,
-      today: open.filter((w) => w.due_date === today).length,
-      late: open.filter((w) => w.due_date < today).length,
-      done30: done30.length,
-      onTimePct: done30.length ? Math.round((onTime / done30.length) * 100) : null,
-    };
-  }, [ofPerson, today, since30]);
-
-  // Resumo por pessoa (de quem tem tarefas no recorte)
-  const perPerson = useMemo(() => {
-    const m = new Map<string, { p: TeamPerson; open: number; late: number; done: number; total: number }>();
-    scoped.forEach((w) => {
-      if (!w.owner) return;
-      const r = m.get(w.owner.id) ?? { p: w.owner, open: 0, late: 0, done: 0, total: 0 };
-      r.total += 1;
-      if (w.done_at) r.done += 1; else { r.open += 1; if (w.due_date < today) r.late += 1; }
-      m.set(w.owner.id, r);
-    });
-    return [...m.values()].sort((a, b) => b.late - a.late || b.open - a.open || a.p.name.localeCompare(b.p.name));
-  }, [scoped, today]);
+  const stats = useMemo(() => teamStats(ofPerson, today), [ofPerson, today]);
+  const perPerson = useMemo(() => teamStats(scoped, today).people, [scoped, today]);
 
   const order = { late: 0, today: 1, upcoming: 2, done_late: 3, done: 3 } as const;
   const list = ofPerson

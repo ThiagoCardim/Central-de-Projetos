@@ -1211,3 +1211,35 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
   .tw-row { grid-template-areas: "s m a" "s who who" "s when when"; }
   .tw-row__when { justify-items: start; grid-auto-flow: column; align-items: center; }
 }
+
+/* Página inicial: tarefas do dia e da equipe */
+.wsum { display: flex; flex-wrap: wrap; gap: 6px var(--s4); margin-bottom: var(--s2); font-size: var(--fs-sub); color: var(--text-2); }
+.wsum__item { display: inline-flex; align-items: center; gap: 4px; }
+.wsum__item b { font-size: var(--fs-md); color: var(--text); }
+.wsum__item.is-danger, .wsum__item.is-danger b { color: var(--danger-text); }
+.wsum__item.is-success b { color: var(--success-text); }
+.wsum__item.is-brand { color: var(--brand-text); font-weight: 600; }
+.wday { margin-top: var(--s3); }
+.wday .mw-item { min-height: 44px; }
+.wday__more { display: inline-block; margin-top: var(--s2); font-size: var(--fs-sub); }
+.tsum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); margin-bottom: var(--s3); }
+.tsum__kpi { display: grid; gap: 2px; padding: var(--s2) var(--s3); border-radius: var(--r-control); background: var(--surface); }
+.tsum__kpi b { font-size: var(--fs-title); font-weight: 700; line-height: 1.2; }
+.tsum__kpi.is-danger b { color: var(--danger-text); }
+.tsum__kpi.is-brand b { color: var(--brand-text); }
+.tsum__kpi .subtext { font-size: 11px; }
+.tsum__people { list-style: none; margin: 0; padding: 0; display: grid; }
+.tsum__person { display: grid; grid-template-columns: auto minmax(0, 1fr) 120px 110px; align-items: center; gap: var(--s3); padding: 8px 0;
+  border-top: 1px solid var(--border); color: inherit; text-decoration: none; }
+.tsum__people li:first-child .tsum__person { border-top: 0; }
+.tsum__person:hover .tsum__name { color: var(--brand-text); }
+.tsum__name { font-weight: 600; }
+.tsum__state { justify-self: end; font-size: var(--fs-sub); color: var(--text-2); white-space: nowrap; }
+.tsum__state.is-danger { color: var(--danger-text); font-weight: 600; }
+.tsum__state.is-success { color: var(--success-text); }
+@media (max-width: 767px) {
+  .tsum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tsum__person { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .tsum__bar { display: none; }
+}
+.home .metrics { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
