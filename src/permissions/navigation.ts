@@ -38,4 +38,10 @@ export const NAVIGATION: NavSection[] = [
       { key: "reports", label: "Relatórios", to: "/relatorios", icon: "chart", requires: "manager", stage: "Futuro" },
     ],
   },
+  {
+    title: "Ajuda",
+    items: [
+      { key: "faq", label: "Dúvidas frequentes", to: "/duvidas", icon: "help", requires: "home", mobile: true },
+    ],
+  },
 ];

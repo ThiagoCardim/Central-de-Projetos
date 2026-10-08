@@ -10,18 +10,21 @@ import { Icon } from "@/components/ui/Icon";
 import { OptionPicker } from "@/components/ui/OptionPicker";
 import type { JobFunctionRow, PerfSettings, SectorRow } from "@/types/domain";
 import { plural } from "@/utils/format";
+import { FaqSettings } from "./FaqSettings";
 
 /* ==========================================================================
    Configurações (administração): setores da empresa e regras de performance
    ========================================================================== */
-type Tab = "setores" | "funcoes" | "performance";
+type Tab = "setores" | "funcoes" | "performance" | "faq";
 
 export function SettingsPage() {
   useDocumentTitle("Configurações");
   const { permissions } = useAuth();
   const isGlobal = permissions?.role === "global_admin";
   const initial = useSearchParam("aba") as Tab | null;
-  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" ? initial : "setores");
+  // O FAQ é único para toda a rede: só a administração global edita.
+  const canFaq = !!permissions?.can_manage_tenants;
+  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" || (initial === "faq" && canFaq) ? initial : "setores");
   const [tenant, setTenant] = useState(permissions?.tenant_id ?? "");
   const tenants = useAsync(() => (isGlobal ? api.listTenants() : Promise.resolve([])), [isGlobal]);
 
@@ -31,15 +34,16 @@ export function SettingsPage() {
       <div className="settings__bar">
         <Tabs<Tab> label="Configurações" value={tab} onChange={setTab} tabs={[
           { value: "setores", label: "Setores" }, { value: "funcoes", label: "Funções" }, { value: "performance", label: "Regras de performance" },
+          ...(canFaq ? [{ value: "faq" as Tab, label: "FAQ" }] : []),
         ]} />
-        {isGlobal && (
+        {isGlobal && tab !== "faq" && (
           <div className="settings__unit">
             <OptionPicker label="Unidade" value={tenant} loading={tenants.loading}
               options={(tenants.data ?? []).map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => v && setTenant(v)} />
           </div>
         )}
       </div>
-      {tenant && (tab === "setores" ? <SectorsSettings key={tenant} tenantId={tenant} />
+      {tab === "faq" ? <FaqSettings /> : tenant && (tab === "setores" ? <SectorsSettings key={tenant} tenantId={tenant} />
         : tab === "funcoes" ? <FunctionsSettings key={tenant} tenantId={tenant} />
         : <PerformanceRules key={tenant} tenantId={tenant} />)}
     </div>

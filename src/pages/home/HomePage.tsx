@@ -5,7 +5,7 @@ import { useAsync, useDocumentTitle } from "@/hooks";
 import { Link, useNavigate } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
 import {
-  Avatar, Badge, Button, Card, EmptyState, LoadError, MetricCard, ProgressBar, Skeleton,
+  Avatar, Badge, Button, Card, EmptyState, LoadError, MetricCard, ProgressBar, SearchInput, Skeleton,
 } from "@/components/ui/primitives";
 import { Icon } from "@/components/ui/Icon";
 import { AwaitingTeamCard, StepTimeline, TaskList } from "@/components/domain/cards";
@@ -302,10 +302,13 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
   const changes = useAsync(() => api.clientScheduleChanges(null, 100), []);
   if (projects.length === 0) {
     return (
-      <Card>
-        <EmptyState icon="folder" title="Seu projeto ainda não tem cronograma."
-          text="A equipe YouCon está organizando as próximas etapas. Você será avisado quando tudo estiver definido." />
-      </Card>
+      <div className="stack client">
+        <Card>
+          <EmptyState icon="folder" title="Seu projeto ainda não tem cronograma."
+            text="A equipe YouCon está organizando as próximas etapas. Você será avisado quando tudo estiver definido." />
+        </Card>
+        <FaqPrompt />
+      </div>
     );
   }
   return (
@@ -314,7 +317,29 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
         <ClientProjectCard key={p.id} project={p}
           changes={changes.data ? changes.data.filter((c) => c.project_id === p.id) : null} />
       ))}
+      <FaqPrompt />
     </div>
+  );
+}
+
+/** Atalho para as Dúvidas frequentes: o cliente já escreve a dúvida aqui. */
+function FaqPrompt() {
+  const navigate = useNavigate();
+  const [text, setText] = useState("");
+  return (
+    <Card className="faqp">
+      <div className="faqp__text">
+        <span className="faqp__icon" aria-hidden="true"><Icon name="help" /></span>
+        <div>
+          <h2 className="faqp__title">Ficou com alguma dúvida?</h2>
+          <p className="faqp__sub">Documentação, aprovação, taxas, prazos: escreva sua pergunta e veja a resposta na hora.</p>
+        </div>
+      </div>
+      <form className="faqp__form" role="search" onSubmit={(e) => { e.preventDefault(); navigate(text.trim() ? `/duvidas?q=${encodeURIComponent(text.trim())}` : "/duvidas"); }}>
+        <SearchInput aria-label="Sua dúvida" placeholder="Ex.: quem paga as taxas?" value={text} maxLength={300} onChange={(e) => setText(e.target.value)} />
+        <Button type="submit" icon="search">Buscar</Button>
+      </form>
+    </Card>
   );
 }
 

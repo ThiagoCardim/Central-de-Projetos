@@ -601,3 +601,11 @@ export interface ProjectTeamMember {
   id: string; name: string; avatar_url: string | null; bio: string | null; is_leader: boolean;
   roles: string[]; areas: string[]; functions: string[];
 }
+
+/* ---------- Dúvidas frequentes (FAQ) ---------- */
+export interface FaqCategory { id: string; title: string; sort_order: number }
+export interface FaqItem {
+  id: string; category_id: string; question: string; answer: string;
+  keywords: string | null; sort_order: number; updated_at: string;
+}
+export interface FaqFeedback { id: string; item_id: string | null; helpful: boolean; query: string | null; created_at: string }

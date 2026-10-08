@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -302,6 +302,29 @@ export const api = {
   setPersonProfile: (profileId: string, functionIds: string[], bio: string | null) =>
     rpc<void>("set_person_profile", { p_profile: profileId, p_functions: functionIds, p_bio: bio }),
   clientProjectTeam: (projectId: string) => rpc<ProjectTeamMember[]>("client_project_team", { p_project: projectId }),
+  // Dúvidas frequentes: leitura para todos; edição só da administração global (validado no banco)
+  async listFaq(): Promise<{ categories: FaqCategory[]; items: FaqItem[] }> {
+    const [c, i] = await Promise.all([
+      supabase.from("faq_categories").select("id, title, sort_order").is("archived_at", null).order("sort_order"),
+      supabase.from("faq_items").select("id, category_id, question, answer, keywords, sort_order, updated_at").is("archived_at", null).order("sort_order"),
+    ]);
+    if (c.error) throw toUserError(c.error);
+    if (i.error) throw toUserError(i.error);
+    return { categories: c.data as FaqCategory[], items: i.data as FaqItem[] };
+  },
+  faqCategorySave: (id: string | null, title: string) => rpc<string>("faq_category_save", { p_id: id, p_title: title }),
+  faqCategoryArchive: (id: string) => rpc<void>("faq_category_archive", { p_id: id }),
+  faqItemSave: (input: { id: string | null; category_id: string; question: string; answer: string; keywords: string | null }) =>
+    rpc<string>("faq_item_save", { p_id: input.id, p_category: input.category_id, p_question: input.question, p_answer: input.answer, p_keywords: input.keywords }),
+  faqItemArchive: (id: string) => rpc<void>("faq_item_archive", { p_id: id }),
+  faqFeedback: (itemId: string | null, helpful: boolean, query: string | null) =>
+    rpc<void>("faq_feedback_add", { p_item: itemId, p_helpful: helpful, p_query: query }),
+  async listFaqFeedback(limit = 200): Promise<FaqFeedback[]> {
+    const { data, error } = await supabase.from("faq_feedback").select("id, item_id, helpful, query, created_at")
+      .order("created_at", { ascending: false }).limit(limit);
+    if (error) throw toUserError(error);
+    return data as FaqFeedback[];
+  },
   sectorList: (tenantId: string) => rpc<SectorRow[]>("sector_list", { p_tenant: tenantId }),
   sectorSave: (tenantId: string | null, id: string | null, name: string) => rpc<string>("sector_save", { p_tenant: tenantId, p_id: id, p_name: name }),
   sectorDelete: (id: string) => rpc<number>("sector_delete", { p_id: id }),

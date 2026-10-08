@@ -21,6 +21,7 @@ import { AutomationsPage } from "@/pages/automations/AutomationsPage";
 import { MyWorkPage } from "@/pages/work/MyWorkPage";
 import { PerformancePage } from "@/pages/performance/PerformancePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { FaqPage } from "@/pages/faq/FaqPage";
 
 function Boot() {
   return <div className="boot" aria-busy="true" aria-label="Carregando"><BrandMark className="boot__mark" /></div>;
@@ -97,6 +98,7 @@ export function App() {
             { path: "/projetos/:id/cronograma", element: <Protected requires="staff"><ProjectSchedulePage /></Protected> },
             { path: "/minhas-tarefas", element: <Protected requires="staff"><MyWorkPage /></Protected> },
             { path: "/configuracoes", element: <Protected requires="manageUnit"><SettingsPage /></Protected> },
+            { path: "/duvidas", element: <Protected><FaqPage /></Protected> },
             { path: "/performance", element: <Protected requires="performance"><PerformancePage /></Protected> },
             { path: "/cronograma", element: <Protected requires="staff"><MySchedulePage /></Protected> },
             { path: "/servicos", element: <Protected requires="manager"><TemplatesPage /></Protected> },

@@ -275,6 +275,19 @@ const scenes = [
   { name: "m-team-work", url: "/minhas-tarefas?as=leader&aba=equipe", vp: MOBILE, full: true },
   { name: "m-work-today", url: "/minhas-tarefas?as=clt", vp: MOBILE, full: true },
   { name: "m-work-agenda", url: "/minhas-tarefas?as=clt&aba=agenda", vp: MOBILE, full: true, action: async (p) => { await p.getByRole("radio", { name: "Mês" }).click(); } },
+  { name: "faq-browse", url: "/duvidas?as=client", vp: DESKTOP },
+  { name: "faq-search", url: "/duvidas?as=client", vp: DESKTOP, full: true, action: async (p) => { await p.getByLabel("Qual é a sua dúvida?").fill("quanto tempo demora a aprovação na prefeitura"); await p.waitForTimeout(500); } },
+  { name: "faq-related-open", url: "/duvidas?as=client&q=" + encodeURIComponent("posso mandar foto do documento pelo whatsapp"), vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(400); await p.locator(".faq-row__q").first().click(); await p.waitForTimeout(200); } },
+  { name: "faq-lowconf", url: "/duvidas?as=client&q=" + encodeURIComponent("posso pagar parcelado no cartão"), vp: DESKTOP, full: true },
+  { name: "faq-none", url: "/duvidas?as=client&q=" + encodeURIComponent("xyz banana"), vp: DESKTOP },
+  { name: "faq-feedback", url: "/duvidas?as=client&q=" + encodeURIComponent("quem paga as taxas"), vp: DESKTOP, action: async (p) => { await p.waitForTimeout(400); await p.getByRole("button", { name: "Sim" }).first().click(); await p.waitForTimeout(300); } },
+  { name: "m-faq", url: "/duvidas?as=client", vp: MOBILE, full: true },
+  { name: "m-faq-search", url: "/duvidas?as=client&q=" + encodeURIComponent("o que é ART"), vp: MOBILE, full: true },
+  { name: "faq-light", url: "/duvidas?as=client&q=" + encodeURIComponent("posso alterar o projeto depois de aprovado"), vp: DESKTOP, light: true, full: true },
+  { name: "faq-admin", url: "/configuracoes?as=global_admin&aba=faq", vp: DESKTOP, full: true },
+  { name: "faq-admin-edit", url: "/configuracoes?as=global_admin&aba=faq", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(400); await p.getByRole("button", { name: "Editar pergunta" }).nth(2).click(); await p.waitForTimeout(300); } },
+  { name: "faq-admin-search", url: "/configuracoes?as=global_admin&aba=faq", vp: DESKTOP, action: async (p) => { await p.getByLabel("Buscar pergunta").fill("taxa"); await p.waitForTimeout(300); } },
+  { name: "faq-home-client", url: "/?as=client", vp: DESKTOP, full: true },
 ];
 
 const browser = await chromium.launch();

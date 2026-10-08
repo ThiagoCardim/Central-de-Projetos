@@ -1,6 +1,7 @@
 // Supabase simulado para PREVIEW VISUAL local (scripts/preview). Nunca é usado no build de produção.
 // Escolha o perfil com ?as=global_admin | unit_admin | leader | clt | pj | client | empty
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import FAQ_RAW from "./faq-data.json";
 
 const today = new Date();
 const d = (offset: number) => {
@@ -11,6 +12,19 @@ const d = (offset: number) => {
 const HQ = "00000000-0000-4000-8000-000000000001";
 const POCOS = "00000000-0000-4000-8000-0000000000a1";
 const CAMPINAS = "00000000-0000-4000-8000-0000000000b1";
+
+// Dúvidas frequentes (mesmo conteúdo do FAQ YouCon semeado no banco)
+const FAQ_CATS: any[] = (FAQ_RAW as any[]).map((c, i) => ({ id: `fc-${i}`, title: c.title, sort_order: (i + 1) * 10, archived_at: null }));
+const FAQ_ITEMS: any[] = (FAQ_RAW as any[]).flatMap((c, i) => c.items.map((it: any) => ({
+  id: `fi-${it.n}`, category_id: `fc-${i}`, question: it.q, answer: it.a, keywords: null, sort_order: it.n * 10, archived_at: null, updated_at: "2026-10-08T12:00:00Z",
+})));
+const FAQ_FB: any[] = [
+  { id: "fb-1", item_id: null, helpful: false, query: "consigo pagar a taxa parcelado?", created_at: "2026-10-07T14:10:00Z" },
+  { id: "fb-2", item_id: "fi-110", helpful: false, query: "recebi um comunique-se da prefeitura", created_at: "2026-10-06T19:22:00Z" },
+  { id: "fb-3", item_id: "fi-131", helpful: true, query: "quanto tempo demora a aprovação", created_at: "2026-10-06T11:05:00Z" },
+  { id: "fb-4", item_id: null, helpful: false, query: "vocês fazem projeto de piscina?", created_at: "2026-10-05T09:40:00Z" },
+  { id: "fb-5", item_id: "fi-128", helpful: true, query: "quem paga as taxas", created_at: "2026-10-04T16:30:00Z" },
+];
 
 const tenants = [
   { id: HQ, name: "YouCon Franqueadora", type: "franqueadora", status: "ativo", parent_tenant_id: null, slug: "youcon", city: "Poços de Caldas", state: "MG", created_at: "2026-01-10T12:00:00Z" },
@@ -257,6 +271,23 @@ function rpc(name: string, _args?: any) {
       profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
     case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "faq_feedback_add": FAQ_FB.unshift({ id: `fb-${Date.now()}`, item_id: _args.p_item, helpful: _args.p_helpful, query: _args.p_query, created_at: new Date().toISOString() }); return delay({ data: null, error: null }, 150);
+    case "faq_item_save": {
+      const x = _args.p_id ? FAQ_ITEMS.find((y) => y.id === _args.p_id) : null;
+      if (x) Object.assign(x, { category_id: _args.p_category, question: _args.p_question, answer: _args.p_answer, keywords: _args.p_keywords, archived_at: null });
+      else FAQ_ITEMS.push({ id: `fi-new-${Date.now()}`, category_id: _args.p_category, question: _args.p_question, answer: _args.p_answer, keywords: _args.p_keywords, sort_order: 99999, archived_at: null, updated_at: new Date().toISOString() });
+      return delay({ data: x?.id ?? FAQ_ITEMS[FAQ_ITEMS.length - 1].id, error: null }, 150);
+    }
+    case "faq_item_archive": { const x = FAQ_ITEMS.find((y) => y.id === _args.p_id); if (x) x.archived_at = new Date().toISOString(); return delay({ data: null, error: null }, 150); }
+    case "faq_category_save": {
+      const x = _args.p_id ? FAQ_CATS.find((y) => y.id === _args.p_id) : null;
+      if (x) { x.title = _args.p_title; return delay({ data: x.id, error: null }, 150); }
+      const id = `fc-new-${Date.now()}`; FAQ_CATS.push({ id, title: _args.p_title, sort_order: 9999, archived_at: null }); return delay({ data: id, error: null }, 150);
+    }
+    case "faq_category_archive": {
+      if (FAQ_ITEMS.some((y) => y.category_id === _args.p_id && !y.archived_at)) return delay({ data: null, error: { message: "Mova ou exclua as perguntas desta categoria antes de excluí-la", code: "23514" } }, 150);
+      const x = FAQ_CATS.find((y) => y.id === _args.p_id); if (x) x.archived_at = new Date().toISOString(); return delay({ data: null, error: null }, 150);
+    }
     case "client_project_team": return delay({ data: clientTeam(_args.p_project), error: null }, 200);
     case "sector_list": return delay({ data: sectorList(_args.p_tenant), error: null }, 120);
     case "sector_save": {
@@ -852,6 +883,9 @@ function visibleRows(table: string): any[] {
   if (table === "project_board_columns") return [...BOARD_COLS].sort((a, b) => a.sort_order - b.sort_order);
   if (table === "project_board_cards") return BOARD_CARDS;
   if (table === "service_families") return FAMILIES;
+  if (table === "faq_categories") return FAQ_CATS.filter((x) => !x.archived_at).sort((a, b) => a.sort_order - b.sort_order);
+  if (table === "faq_items") return FAQ_ITEMS.filter((x) => !x.archived_at).sort((a, b) => a.sort_order - b.sort_order);
+  if (table === "faq_feedback") return global ? FAQ_FB : [];
   if (table === "job_functions") return JOB_FNS.filter((x) => global || x.tenant_id === p.tenant_id).sort((a, b) => a.sort_order - b.sort_order);
   if (table === "sectors") return SECTORS.filter((x) => global || x.tenant_id === p.tenant_id).sort((a, b) => a.sort_order - b.sort_order);
   if (table === "schedule_templates") return TEMPLATES;

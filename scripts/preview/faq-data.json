@@ -1,0 +1,963 @@
+[
+ {
+  "n": 1,
+  "title": "Documentação do Imóvel",
+  "items": [
+   {
+    "n": 1,
+    "q": "O que é uma matrícula?",
+    "a": "É o documento que individualiza juridicamente o imóvel no Cartório de Registro de Imóveis. Nela constam informações como proprietário, área, medidas, confrontações, localização e eventuais registros e averbações relacionados ao imóvel.\n\nA matrícula funciona como uma das principais referências documentais utilizadas para compreender a situação jurídica do imóvel."
+   },
+   {
+    "n": 2,
+    "q": "O que é uma matrícula atualizada?",
+    "a": "É a matrícula que representa a situação mais recente registrada para o imóvel. A atualização é importante porque podem ter ocorrido alterações desde a emissão de uma matrícula anterior, como mudança de proprietário, averbação de construção, alteração de área, desmembramento, unificação ou outros registros.\n\nPor isso, não devemos considerar automaticamente que uma matrícula antiga representa a situação atual do imóvel."
+   },
+   {
+    "n": 3,
+    "q": "Qual a diferença entre matrícula e certidão de matrícula?",
+    "a": "A matrícula é o registro individual do imóvel mantido pelo Cartório de Registro de Imóveis.\n\nA certidão de matrícula é o documento emitido pelo cartório que reproduz ou certifica as informações constantes desse registro, conforme o tipo de certidão solicitada.\n\nEm processos de aprovação, é importante verificar qual documento o órgão responsável está exigindo e qual a data de emissão aceita."
+   },
+   {
+    "n": 4,
+    "q": "O que é uma certidão?",
+    "a": "É um documento oficial emitido por um órgão público ou entidade competente que atesta determinada informação ou situação.\n\nA certidão pode ser utilizada para comprovar, por exemplo, a situação de um imóvel, a existência ou inexistência de débitos ou determinada informação cadastral."
+   },
+   {
+    "n": 5,
+    "q": "O que é uma CND?",
+    "a": "CND significa Certidão Negativa de Débitos. É um documento utilizado para comprovar a inexistência de determinados débitos perante o órgão ou entidade responsável pela emissão.\n\nImportante observar que existem diferentes tipos de certidões e diferentes órgãos emissores. Portanto, a CND solicitada deve ser analisada de acordo com o processo específico."
+   },
+   {
+    "n": 6,
+    "q": "O que é um contrato de compra e venda?",
+    "a": "É o instrumento que formaliza o acordo entre comprador e vendedor para a compra e venda de um imóvel. Nele podem constar informações como partes envolvidas, valor, forma de pagamento, condições da negociação e demais obrigações estabelecidas entre as partes.\n\nImportante: o contrato de compra e venda, por si só, não substitui a matrícula nem significa que o comprador já consta como proprietário perante o Registro de Imóveis."
+   },
+   {
+    "n": 7,
+    "q": "Qual a diferença entre matrícula, certidão e contrato de compra e venda?",
+    "a": "- Matrícula: identifica juridicamente o imóvel e registra sua situação perante o Cartório de Registro de Imóveis.\n- Certidão: comprova oficialmente determinada informação ou situação perante o órgão que a emitiu.\n- Contrato de compra e venda: formaliza o acordo entre comprador e vendedor.\n\nCada documento possui uma finalidade diferente e, por isso, um não deve ser utilizado automaticamente como substituto do outro."
+   },
+   {
+    "n": 8,
+    "q": "O que é a inscrição imobiliária?",
+    "a": "É o número utilizado pelo município para identificar o imóvel em seu cadastro imobiliário. Ela está relacionada ao cadastro municipal e pode ser utilizada para consultar informações como localização, identificação cadastral e dados tributários do imóvel.\n\nA inscrição imobiliária não substitui a matrícula, pois cada documento possui uma finalidade diferente."
+   },
+   {
+    "n": 9,
+    "q": "O que é IPTU e por que ele pode ser solicitado?",
+    "a": "O IPTU é o Imposto Predial e Territorial Urbano, cobrado pelo município.\n\nDocumentos relacionados ao IPTU podem ser utilizados para conferir informações cadastrais do imóvel, como inscrição imobiliária, endereço e dados utilizados pelo município.\n\nA necessidade desse documento depende do processo e das exigências do órgão responsável."
+   },
+   {
+    "n": 10,
+    "q": "Por que preciso fornecer tantos documentos?",
+    "a": "Os documentos permitem que a equipe conheça a situação documental, cadastral e física do imóvel antes do desenvolvimento do projeto e do início da aprovação.\n\nCada documento possui uma finalidade específica. Alguns confirmam informações do imóvel, outros verificam sua situação perante o município ou outros órgãos e alguns são necessários para atender às exigências do processo.\n\nA documentação também permite identificar possíveis divergências antes do protocolo, evitando retrabalho e atrasos. Quanto mais completas e consistentes forem as informações fornecidas no início, maior a segurança para desenvolver e aprovar o projeto."
+   },
+   {
+    "n": 11,
+    "q": "Preciso enviar todos os documentos antes de começar o projeto?",
+    "a": "A documentação necessária pode variar conforme o tipo de projeto, as características do imóvel e o processo que será realizado. Alguns documentos são fundamentais para iniciar o desenvolvimento, enquanto outros podem ser necessários em etapas posteriores.\n\nA equipe orientará quais documentos são necessários para cada etapa."
+   },
+   {
+    "n": 12,
+    "q": "Se o imóvel tiver mais de um proprietário, há algum cuidado adicional?",
+    "a": "Sim. A documentação deve refletir corretamente quem são os proprietários e, quando necessário, deve-se verificar quem possui legitimidade para assinar documentos, autorizar o projeto ou representar os demais.\n\nA necessidade de procuração ou de assinatura dos demais proprietários depende do procedimento e das exigências aplicáveis."
+   }
+  ]
+ },
+ {
+  "n": 2,
+  "title": "Arquitetura e Implantação",
+  "items": [
+   {
+    "n": 13,
+    "q": "O que é estudo de viabilidade?",
+    "a": "É a análise inicial realizada para verificar se determinada proposta é tecnicamente, legalmente e, conforme o escopo contratado, operacionalmente possível para o imóvel. Pode envolver a análise de documentação, legislação, parâmetros urbanísticos, características do terreno, restrições e necessidades do cliente.\n\nO estudo de viabilidade ajuda a identificar condicionantes antes do desenvolvimento completo do projeto."
+   },
+   {
+    "n": 14,
+    "q": "O que é estudo preliminar?",
+    "a": "É uma etapa inicial do desenvolvimento arquitetônico em que são estudadas alternativas de implantação, organização dos ambientes, volumetria e demais características principais da edificação.\n\nO estudo preliminar permite avaliar e definir a solução que será desenvolvida nas etapas seguintes."
+   },
+   {
+    "n": 15,
+    "q": "O que é um projeto arquitetônico?",
+    "a": "É o conjunto de informações técnicas que representa e define a edificação, incluindo sua organização, ambientes, dimensões, implantação, acessos, aberturas e demais características necessárias ao desenvolvimento da construção.\n\nAlém de atender às necessidades do cliente, o projeto precisa considerar as características do terreno, a legislação aplicável e sua compatibilização com os demais projetos."
+   },
+   {
+    "n": 16,
+    "q": "O que é implantação?",
+    "a": "É a representação de como a edificação será posicionada dentro do terreno. A implantação considera elementos como limites do lote, recuos, acessos, orientação, níveis, topografia, edificações existentes, áreas permeáveis e demais parâmetros aplicáveis.\n\nPor isso, a posição da construção não é definida apenas pela preferência do proprietário."
+   },
+   {
+    "n": 17,
+    "q": "O que são parâmetros urbanísticos?",
+    "a": "São regras que determinam como determinado terreno pode ser ocupado e utilizado.\n\nPodem envolver, por exemplo:\n\n- uso permitido;\n- recuos;\n- taxa de ocupação;\n- coeficiente de aproveitamento;\n- altura;\n- número de pavimentos;\n- área permeável;\n- afastamentos;\n- outras condições específicas."
+   },
+   {
+    "n": 18,
+    "q": "O que é uso e ocupação do solo?",
+    "a": "É o conjunto de regras que determina quais atividades podem ser realizadas em determinado local e de que forma o terreno pode ser ocupado.\n\nPor isso, antes de desenvolver uma edificação, é necessário verificar se o uso pretendido e sua implantação são permitidos para aquele imóvel."
+   },
+   {
+    "n": 19,
+    "q": "Como sabemos se posso construir determinado tipo de edificação no meu terreno?",
+    "a": "É necessário analisar a localização do imóvel, seu zoneamento, o uso pretendido, os parâmetros urbanísticos, as características do lote, eventuais restrições e as exigências dos órgãos envolvidos.\n\nA possibilidade de construção não deve ser presumida apenas com base no tamanho do terreno."
+   },
+   {
+    "n": 20,
+    "q": "O que são recuos?",
+    "a": "São as distâncias mínimas que devem ser respeitadas entre a edificação e os limites do terreno, conforme as regras aplicáveis ao imóvel. Os recuos podem variar conforme localização, zoneamento, uso da edificação, altura e demais características previstas na legislação."
+   },
+   {
+    "n": 21,
+    "q": "O que é taxa de ocupação?",
+    "a": "É a relação entre a área ocupada pela projeção da edificação no terreno e a área do lote, conforme os critérios definidos pela legislação aplicável. Ela ajuda a determinar quanto da área do terreno pode ser ocupado pela edificação em sua projeção."
+   },
+   {
+    "n": 22,
+    "q": "O que é coeficiente de aproveitamento?",
+    "a": "É o índice utilizado para relacionar a área construída computável com a área do terreno, conforme os critérios estabelecidos pela legislação urbanística. Ele ajuda a definir o potencial construtivo do imóvel."
+   },
+   {
+    "n": 23,
+    "q": "O que é área construída?",
+    "a": "É a área resultante das partes da edificação consideradas conforme os critérios aplicáveis à legislação e ao processo. É importante diferenciar área construída, área computável, área ocupada e outras classificações, pois cada uma pode possuir finalidade diferente no projeto e na aprovação."
+   },
+   {
+    "n": 24,
+    "q": "O que é área permeável?",
+    "a": "É a parcela do terreno que permite a infiltração da água no solo, de acordo com os critérios estabelecidos pela legislação aplicável. Sua dimensão pode ser um dos parâmetros que precisam ser atendidos na implantação da edificação."
+   },
+   {
+    "n": 25,
+    "q": "O que é gabarito de altura?",
+    "a": "É o limite ou parâmetro relacionado à altura máxima ou ao número de pavimentos permitido para determinada edificação, conforme a legislação aplicável. O critério utilizado pode variar conforme o município, zoneamento e características do imóvel."
+   },
+   {
+    "n": 26,
+    "q": "Como sabemos onde a edificação pode ser implantada no terreno?",
+    "a": "A implantação é definida a partir da análise conjunta de:\n\n- limites e dimensões do terreno;\n- levantamento planialtimétrico;\n- matrícula e documentação;\n- legislação urbanística;\n- recuos;\n- taxa de ocupação;\n- coeficiente de aproveitamento;\n- área permeável;\n- gabarito;\n- acessos;\n- topografia;\n- restrições específicas do imóvel.\n\nA posição final precisa atender às condições técnicas e legais aplicáveis."
+   },
+   {
+    "n": 27,
+    "q": "Posso construir até o limite do terreno?",
+    "a": "Não necessariamente.\n\nA possibilidade de construir junto aos limites depende da legislação aplicável e das condições específicas do imóvel. Devem ser analisados os recuos, características da edificação, zoneamento e demais exigências."
+   },
+   {
+    "n": 28,
+    "q": "Por que não posso colocar a casa onde eu quiser no lote?",
+    "a": "Porque a implantação precisa respeitar condições técnicas e legais. Além da legislação, a posição da edificação deve considerar topografia, acessos, drenagem, fundações, orientação, áreas permeáveis, recuos e possíveis interferências com edificações existentes ou vizinhas."
+   },
+   {
+    "n": 29,
+    "q": "Por que a posição da edificação precisa considerar os níveis do terreno?",
+    "a": "Porque o desnível interfere diretamente na implantação e na execução. A topografia pode influenciar:\n\n- acessos;\n- escadas e rampas;\n- cortes e aterros;\n- fundações;\n- contenções;\n- drenagem;\n- níveis internos e externos.\n\nIgnorar os níveis pode resultar em soluções inadequadas ou incompatíveis com o terreno real."
+   },
+   {
+    "n": 30,
+    "q": "Por que a topografia é tão importante para a arquitetura?",
+    "a": "Porque a arquitetura precisa ser desenvolvida sobre a condição real do terreno. A topografia interfere na implantação, nos níveis, nos acessos, nos cortes e aterros, na drenagem, nas fundações e em outras decisões de projeto.\n\nO projeto não deve ser pensado como se o terreno fosse plano quando ele não é."
+   },
+   {
+    "n": 31,
+    "q": "O projeto precisa considerar os imóveis vizinhos?",
+    "a": "Sim. As construções vizinhas podem interferir na implantação, nos acessos, nos limites, na drenagem, nos afastamentos e em outras condições do projeto.\n\nAlém disso, os confrontantes e suas divisas precisam estar corretamente representados na base utilizada para o desenvolvimento."
+   },
+   {
+    "n": 32,
+    "q": "Por que a drenagem precisa ser considerada desde a arquitetura?",
+    "a": "Porque a água influencia diretamente a implantação e o funcionamento da edificação e do terreno.\n\nA drenagem precisa ser pensada em conjunto com níveis, áreas impermeáveis, acessos, cobertura, terreno e demais elementos para evitar que a solução seja definida apenas depois que o projeto já estiver consolidado."
+   },
+   {
+    "n": 33,
+    "q": "O que acontece quando o terreno possui grande declividade?",
+    "a": "A declividade pode exigir soluções específicas de implantação e engenharia.\n\nPodem ser necessários:\n\n- cortes;\n- aterros;\n- contenções;\n- drenagem;\n- adaptações de acesso;\n- soluções específicas de fundação.\n\nA necessidade dessas soluções deve ser definida a partir das características reais do terreno e dos estudos técnicos pertinentes."
+   },
+   {
+    "n": 34,
+    "q": "Quando são necessários cortes e aterros?",
+    "a": "Quando a implantação projetada exige alteração dos níveis naturais do terreno.\n\nA necessidade e a dimensão dessas intervenções devem ser avaliadas considerando topografia, projeto, acessos, drenagem, estabilidade e demais condições técnicas."
+   },
+   {
+    "n": 35,
+    "q": "Quando pode ser necessária uma contenção?",
+    "a": "A contenção pode ser necessária quando existe uma diferença de nível ou condição de terreno que exige estabilização do solo ou retenção de material. A solução adequada depende das características geotécnicas, da geometria do terreno, das cargas envolvidas e do projeto."
+   },
+   {
+    "n": 36,
+    "q": "O que é uma edificação existente e como ela interfere no novo projeto?",
+    "a": "É uma construção que já existe no imóvel. Ela precisa ser considerada no desenvolvimento porque pode interferir na área construída, implantação, afastamentos, estrutura, acessos, demolições, ampliações e situação de regularização."
+   },
+   {
+    "n": 37,
+    "q": "Como sabemos se uma construção existente está regularizada?",
+    "a": "É necessário confrontar a situação física da edificação com os registros e documentos disponíveis e, quando necessário, consultar o cadastro ou o órgão municipal competente.\n\nA análise pode envolver área construída, projetos aprovados, averbações e demais registros aplicáveis."
+   },
+   {
+    "n": 38,
+    "q": "O que acontece se a construção existente não estiver regularizada?",
+    "a": "A situação precisa ser analisada antes de definir a nova intervenção. Dependendo do caso, pode ser necessário realizar um procedimento de regularização, adequar o projeto ou atender a outras exigências do município."
+   },
+   {
+    "n": 39,
+    "q": "O que é um projeto de regularização?",
+    "a": "É o projeto desenvolvido para representar e formalizar a situação de uma edificação existente perante o órgão competente, buscando sua regularização conforme o procedimento aplicável.\n\nPode envolver levantamento da situação existente, documentação, análise dos parâmetros urbanísticos e demais elementos exigidos."
+   },
+   {
+    "n": 40,
+    "q": "O que é um projeto de reforma?",
+    "a": "É o projeto desenvolvido para representar e orientar alterações realizadas em uma edificação existente, como modificações de ambientes, elementos construtivos ou características da construção. A necessidade de aprovação e os documentos envolvidos dependem do tipo e da extensão da intervenção."
+   },
+   {
+    "n": 41,
+    "q": "O que é uma ampliação?",
+    "a": "É a intervenção que aumenta a área ou o volume de uma edificação existente.\n\nA ampliação deve ser analisada em conjunto com a situação existente, os parâmetros urbanísticos, a estrutura, as instalações e os demais requisitos aplicáveis."
+   },
+   {
+    "n": 42,
+    "q": "Posso reformar, ampliar ou construir sobre uma edificação existente?",
+    "a": "Depende das condições do imóvel, da edificação existente, da legislação e do tipo de intervenção pretendida. É necessário verificar a situação documental e cadastral da construção, suas características e os parâmetros aplicáveis à nova intervenção."
+   },
+   {
+    "n": 43,
+    "q": "Posso demolir uma parte da construção existente?",
+    "a": "A possibilidade depende das características da edificação, da intervenção pretendida e dos procedimentos aplicáveis. Quando houver demolição, também devem ser avaliadas as necessidades documentais, técnicas e de aprovação correspondentes."
+   },
+   {
+    "n": 44,
+    "q": "O que acontece quando o projeto possui uma edificação existente e uma nova construção?",
+    "a": "As duas situações precisam ser analisadas conjuntamente.\n\nÉ necessário verificar a situação da edificação existente, sua regularidade, a área construída, os afastamentos, a implantação da nova construção e possíveis interferências entre as duas."
+   },
+   {
+    "n": 45,
+    "q": "Posso alterar a posição ou o tamanho dos ambientes depois que o projeto começou?",
+    "a": "Em muitos casos, sim, desde que a alteração seja analisada antes de ser incorporada.\n\nUma mudança aparentemente simples pode afetar estrutura, instalações, área construída, implantação, aprovação e compatibilização. Por isso, alterações devem ser consultadas antes da continuidade do desenvolvimento."
+   },
+   {
+    "n": 46,
+    "q": "Uma alteração na arquitetura pode afetar a estrutura ou as instalações?",
+    "a": "Sim. Uma alteração arquitetônica pode gerar impactos em outras disciplinas.\n\nPor exemplo:\n\n*Arquitetura → Estrutura → Instalações → Compatibilização → Aprovação*\n\nPor isso, nenhuma alteração deve ser considerada isoladamente quando o projeto já estiver avançado."
+   },
+   {
+    "n": 47,
+    "q": "Por que a arquitetura precisa ser compatibilizada com a engenharia?",
+    "a": "Porque arquitetura e engenharia possuem informações que precisam funcionar conjuntamente. Uma posição de parede, abertura, nível, equipamento ou ambiente pode interferir na estrutura, nas instalações, nas fundações ou em outras soluções técnicas.\n\nA compatibilização permite identificar essas interferências antes da execução."
+   },
+   {
+    "n": 48,
+    "q": "Por que uma mudança aparentemente pequena pode gerar várias alterações?",
+    "a": "Porque os projetos são interdependentes.\n\nUma alteração em um ambiente, por exemplo, pode modificar paredes, portas, estrutura, instalações, áreas, quantitativos, documentação e até parâmetros de aprovação. Por isso, o impacto de uma alteração deve ser analisado antes de sua incorporação."
+   },
+   {
+    "n": 49,
+    "q": "Posso aumentar a área construída depois que o projeto começou?",
+    "a": "É possível avaliar a alteração, mas primeiro é necessário verificar se o aumento permanece dentro dos parâmetros permitidos.\n\nDevem ser analisados, entre outros:\n\n- recuos;\n- taxa de ocupação;\n- coeficiente de aproveitamento;\n- área permeável;\n- implantação;\n- estrutura;\n- instalações;\n- situação do processo de aprovação."
+   },
+   {
+    "n": 50,
+    "q": "O que acontece se a área construída ultrapassar o permitido?",
+    "a": "O projeto pode deixar de atender aos parâmetros urbanísticos aplicáveis. Dependendo da situação, será necessário adequar a proposta, verificar a possibilidade de regularização ou adotar o procedimento indicado pelo órgão competente."
+   },
+   {
+    "n": 51,
+    "q": "O projeto aprovado é igual ao projeto executivo?",
+    "a": "Não necessariamente.\n\nO projeto destinado à aprovação atende aos requisitos necessários para análise pelo órgão competente, enquanto o projeto executivo contém informações técnicas necessárias para orientar a execução, conforme seu escopo.\n\nUm projeto aprovado não deve ser automaticamente considerado equivalente ao conjunto completo de informações executivas da obra."
+   },
+   {
+    "n": 52,
+    "q": "Posso começar a construir enquanto o projeto está em aprovação?",
+    "a": "Isso depende das autorizações e condições aplicáveis ao empreendimento e ao município. O simples protocolo do projeto não significa autorização para iniciar a obra. Antes de iniciar qualquer atividade construtiva, devem ser verificadas as autorizações necessárias."
+   },
+   {
+    "n": 53,
+    "q": "A aprovação do projeto significa que posso iniciar a obra?",
+    "a": "Normalmente, não.\n\nA aprovação do projeto e a autorização para iniciar a construção podem corresponder a etapas diferentes, conforme o procedimento municipal. É necessário verificar se o alvará ou outra autorização necessária já foi emitida."
+   },
+   {
+    "n": 54,
+    "q": "O projeto precisa seguir exatamente o que foi aprovado?",
+    "a": "A execução deve respeitar o projeto e as condições aprovadas, observando também os demais projetos e documentos aplicáveis. Alterações posteriores devem ser analisadas antes de serem executadas."
+   },
+   {
+    "n": 55,
+    "q": "O que acontece se eu construir diferente do projeto aprovado?",
+    "a": "A construção pode ficar em desacordo com o projeto e com as condições aprovadas. Dependendo da alteração, podem ser necessárias correções, regularização, alteração do projeto ou outras providências perante o órgão competente."
+   },
+   {
+    "n": 56,
+    "q": "O que acontece se o projeto aprovado precisar ser alterado durante a obra?",
+    "a": "A alteração deve ser analisada antes de ser executada. Dependendo do caso, pode ser necessário atualizar projetos, obter nova aprovação, realizar procedimento específico ou adequar a obra ao projeto aprovado."
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "title": "Matrícula, Terreno e Regularização",
+  "items": [
+   {
+    "n": 57,
+    "q": "A matrícula e o levantamento planialtimétrico precisam ser compatíveis?",
+    "a": "Sim. As informações devem ser conferidas antes do desenvolvimento e, quando aplicável, do protocolo do projeto.\n\nA matrícula representa a referência documental do imóvel, enquanto o levantamento planialtimétrico representa as condições físicas encontradas no terreno.\n\n*Antes de projetar, precisamos verificar se estamos trabalhando sobre o imóvel correto e com informações confiáveis.*"
+   },
+   {
+    "n": 58,
+    "q": "E se a área da matrícula for diferente da área levantada?",
+    "a": "A divergência deve ser analisada para identificar sua origem. Ela pode estar relacionada ao levantamento, à documentação ou a alterações ocorridas no imóvel ao longo do tempo.\n\nDependendo do caso, pode ser necessário corrigir o levantamento, apresentar documentação complementar, atualizar informações, consultar o órgão responsável ou realizar algum procedimento de regularização.\n\n*A diferença entre as áreas não significa automaticamente que será necessária uma retificação de matrícula.*"
+   },
+   {
+    "n": 59,
+    "q": "O que acontece quando encontramos uma divergência entre documento e terreno?",
+    "a": "A divergência deve ser identificada, registrada e analisada antes de prosseguir. Não devemos simplesmente escolher uma das informações ou alterar o projeto para \"fazer caber\".\n\nÉ necessário entender:\n\n- qual informação está divergente;\n- entre quais documentos existe a diferença;\n- se a origem está no levantamento ou na documentação;\n- se a divergência interfere no projeto;\n- qual procedimento deve ser adotado.\n\nDependendo do caso, pode ser necessário:\n\n- corrigir o levantamento;\n- solicitar documentação complementar;\n- atualizar alguma informação;\n- realizar uma retificação;\n- consultar o órgão responsável;\n- adequar o projeto.\n\n*A divergência deve ser resolvida na origem sempre que possível, e não escondida dentro do projeto.*"
+   },
+   {
+    "n": 60,
+    "q": "O que é uma retificação de matrícula?",
+    "a": "É o procedimento utilizado para corrigir ou atualizar informações da matrícula quando existe alguma divergência ou erro nos dados registrados, como área, medidas, confrontações ou descrição do imóvel."
+   },
+   {
+    "n": 61,
+    "q": "Quem solicita uma retificação de matrícula?",
+    "a": "Em regra, a solicitação é feita pelo proprietário ou por seu representante legal, diretamente ao Cartório de Registro de Imóveis competente, conforme o tipo de retificação. Dependendo do caso, podem ser necessários documentos técnicos e outros procedimentos específicos."
+   },
+   {
+    "n": 62,
+    "q": "Quem faz a retificação?",
+    "a": "A retificação é realizada pelo Cartório de Registro de Imóveis, após apresentação e análise da documentação necessária.\n\nDependendo da situação, pode ser necessária documentação técnica elaborada por profissional habilitado, como levantamento topográfico, planta, memorial descritivo e respectiva ART/RRT."
+   },
+   {
+    "n": 63,
+    "q": "Posso iniciar o projeto sem a matrícula?",
+    "a": "Depende do projeto e do processo.\n\nA matrícula é importante porque confirma os dados documentais que servirão de referência para o desenvolvimento, permitindo conferir área, medidas, confrontantes e localização. Antes de iniciar, devemos verificar se já temos as informações necessárias para desenvolver o projeto sobre uma base documental adequada."
+   },
+   {
+    "n": 64,
+    "q": "Posso utilizar uma matrícula antiga?",
+    "a": "Depende do processo e da situação atual do imóvel.\n\nUma matrícula antiga pode conter informações que continuam válidas, mas também pode não refletir alterações posteriores, como mudanças de proprietário, averbações, construções, alterações de área, desmembramentos ou unificações. Por isso, é necessário verificar se o documento está atualizado e se atende às exigências do processo."
+   },
+   {
+    "n": 65,
+    "q": "Quem deve providenciar a demarcação do terreno?",
+    "a": "Quando a situação física dos limites do imóvel não estiver clara, pode ser necessária uma demarcação ou outro procedimento técnico adequado.\n\nA responsabilidade pela contratação deve ser definida conforme a necessidade do serviço e o escopo contratado."
+   },
+   {
+    "n": 66,
+    "q": "O que acontece se os limites do terreno não estiverem claros?",
+    "a": "A situação deve ser esclarecida antes da definição definitiva da implantação. Pode ser necessário realizar levantamento, demarcação ou obter documentação complementar para identificar corretamente os limites do imóvel."
+   },
+   {
+    "n": 67,
+    "q": "O que acontece se houver divergência entre matrícula, cadastro municipal e levantamento?",
+    "a": "A divergência deve ser analisada entre as diferentes fontes. É necessário identificar qual informação está divergente, compreender sua origem e verificar qual procedimento deve ser adotado.\n\nDependendo do caso, podem ser necessárias correções cadastrais, documentação complementar, atualização do levantamento ou procedimento registral."
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "title": "Levantamento e Características do Terreno",
+  "items": [
+   {
+    "n": 68,
+    "q": "O que é um levantamento planialtimétrico?",
+    "a": "É o levantamento técnico que representa as características físicas e topográficas do terreno.\n\nEle pode apresentar informações como:\n\n- dimensões e limites;\n- área levantada;\n- níveis e desníveis;\n- cotas altimétricas;\n- curvas de nível;\n- posicionamento do terreno;\n- confrontantes;\n- construções e elementos existentes;\n- muros;\n- árvores;\n- postes;\n- cursos d'água;\n- demais elementos relevantes.\n\n*A matrícula mostra o imóvel do ponto de vista documental; o planialtimétrico mostra como esse imóvel se apresenta fisicamente no terreno.*"
+   },
+   {
+    "n": 69,
+    "q": "O que deve constar em um levantamento planialtimétrico?",
+    "a": "O conteúdo necessário depende do projeto e da finalidade do levantamento, mas, de forma geral, devem ser representadas as informações necessárias para compreender corretamente o terreno.\n\nEntre elas podem estar:\n\n- norte;\n- limites e dimensões do lote;\n- área;\n- cotas e níveis;\n- curvas de nível;\n- localização do imóvel;\n- quadra e referência de esquina;\n- confrontantes e respectivas divisas;\n- elementos existentes;\n- curvas de nível que ultrapassem o limite do lote quando necessárias à compreensão da topografia;\n- identificação e informações técnicas do levantamento.\n\nQuando utilizado para desenvolvimento e aprovação, o levantamento deve ser compatível com a finalidade para a qual foi contratado e com as informações exigidas pelo processo."
+   },
+   {
+    "n": 70,
+    "q": "Por que o norte precisa estar indicado?",
+    "a": "A indicação do norte permite compreender a orientação do terreno e sua relação com o entorno. Essa informação é importante para o desenvolvimento do projeto, análise de implantação, orientação dos ambientes e compatibilização com outras informações técnicas."
+   },
+   {
+    "n": 71,
+    "q": "Por que precisamos das curvas de nível?",
+    "a": "As curvas de nível permitem representar graficamente as variações de altitude do terreno.\n\nElas ajudam a compreender:\n\n- declividades;\n- desníveis;\n- pontos altos e baixos;\n- comportamento do terreno;\n- necessidade de cortes e aterros;\n- implantação da edificação;\n- soluções de drenagem e fundação, quando aplicável."
+   },
+   {
+    "n": 72,
+    "q": "Por que precisamos identificar os confrontantes e suas divisas?",
+    "a": "Porque os confrontantes ajudam a confirmar a posição e os limites do imóvel em relação aos terrenos vizinhos. A identificação das divisas e respectivas medidas permite comparar as informações do levantamento com a documentação do imóvel e reduzir o risco de implantação incorreta."
+   },
+   {
+    "n": 73,
+    "q": "Por que precisamos representar elementos existentes no terreno?",
+    "a": "Muros, edificações, árvores, postes, cursos d'água, acessos e outros elementos podem interferir diretamente no desenvolvimento do projeto. Conhecer essas condições permite que a implantação seja feita considerando a realidade encontrada no local."
+   },
+   {
+    "n": 74,
+    "q": "Por que precisamos conferir o planialtimétrico antes de projetar?",
+    "a": "Porque o planialtimétrico representa as condições reais encontradas no terreno e será utilizado como base para o desenvolvimento do projeto.\n\nA conferência permite verificar:\n\n- área;\n- dimensões;\n- formato;\n- confrontantes;\n- localização;\n- níveis;\n- limites físicos;\n- elementos existentes;\n- compatibilidade com a matrícula.\n\nUm erro na base pode ser reproduzido em todas as etapas seguintes."
+   },
+   {
+    "n": 75,
+    "q": "Quem pode realizar o levantamento?",
+    "a": "O levantamento deve ser realizado por profissional habilitado para o serviço, observando suas atribuições profissionais e os requisitos técnicos aplicáveis. Quando exigido, o serviço deve possuir a respectiva responsabilidade técnica formalizada."
+   }
+  ]
+ },
+ {
+  "n": 5,
+  "title": "Projeto e Compatibilização",
+  "items": [
+   {
+    "n": 76,
+    "q": "O que é compatibilização de projetos?",
+    "a": "É a conferência conjunta das diferentes disciplinas e informações envolvidas no empreendimento para identificar conflitos, divergências ou interferências antes da execução.\n\nPode envolver, por exemplo:\n\n- arquitetura × estrutura;\n- estrutura × instalações;\n- arquitetura × instalações;\n- projeto × terreno;\n- parâmetros legais e normativas;\n- posição de equipamentos e elementos construtivos.\n\nA compatibilização busca identificar problemas no papel antes que eles se transformem em problemas na obra."
+   },
+   {
+    "n": 77,
+    "q": "Por que preciso de projetos complementares?",
+    "a": "Além do projeto arquitetônico e dos projetos de engenharia que fazem parte do desenvolvimento da edificação, algumas situações podem exigir projetos ou estudos complementares específicos, de acordo com as características do imóvel, da obra e das exigências dos órgãos responsáveis.\n\nEntre os casos que podem demandar estudos ou projetos adicionais estão:\n\n- projeto de prevenção e combate a incêndio;\n- projeto de drenagem pluvial;\n- projeto de contenção ou muro de arrimo;\n- projeto de terraplenagem;\n- projeto de pavimentação ou acessos;\n- projeto de adequação de acessibilidade;\n- estudos ou projetos relacionados à vegetação e supressão arbórea;\n- estudos ambientais;\n- projetos relacionados à infraestrutura existente no terreno;\n- outros projetos ou estudos específicos exigidos para o empreendimento.\n\nA necessidade desses complementos é avaliada conforme as características do projeto, do terreno e das exigências técnicas e legais aplicáveis ao imóvel."
+   },
+   {
+    "n": 78,
+    "q": "Qual a diferença entre projeto arquitetônico e projeto estrutural?",
+    "a": "O projeto arquitetônico define principalmente a organização e configuração da edificação, como ambientes, implantação, dimensões e características arquitetônicas.\n\nO projeto estrutural trata do dimensionamento e detalhamento da estrutura, considerando as cargas e condições previstas para a edificação.\n\nSão disciplinas diferentes, mas devem trabalhar de forma compatibilizada."
+   },
+   {
+    "n": 79,
+    "q": "O que é um projeto pronto para aprovação?",
+    "a": "É o projeto que passou pelas etapas necessárias de desenvolvimento e conferência para ser apresentado ao órgão responsável, considerando a documentação, informações do imóvel e requisitos aplicáveis ao processo.\n\nAntes do protocolo, devem ser verificadas as informações cadastrais, documentação, projetos, responsabilidades técnicas e demais requisitos necessários."
+   }
+  ]
+ },
+ {
+  "n": 6,
+  "title": "Sondagem e Engenharia",
+  "items": [
+   {
+    "n": 80,
+    "q": "O que é uma sondagem?",
+    "a": "A sondagem é um estudo de investigação do subsolo, realizado para conhecer suas características em profundidade.\n\nEla pode fornecer informações como:\n\n- perfil das camadas do subsolo;\n- resistência do solo;\n- profundidade das camadas;\n- presença de água, quando identificada;\n- condições que podem influenciar a escolha e o dimensionamento das fundações.\n\nEnquanto o planialtimétrico representa principalmente as condições da superfície, a sondagem investiga as condições abaixo dela."
+   },
+   {
+    "n": 81,
+    "q": "O que é sondagem SPT?",
+    "a": "A sondagem SPT (*Standard Penetration Test*) é um método de investigação geotécnica utilizado para obter informações sobre as camadas do subsolo e sua resistência à penetração.\n\nOs resultados auxiliam na avaliação das condições do terreno e no desenvolvimento das soluções de fundação, conforme as características do empreendimento e as normas aplicáveis."
+   },
+   {
+    "n": 82,
+    "q": "Por que preciso realizar uma sondagem?",
+    "a": "A sondagem fornece informações fundamentais para o desenvolvimento das soluções de fundação.\n\nO solo pode apresentar características diferentes em profundidade e em diferentes pontos do terreno. Por isso, a investigação permite que o profissional responsável desenvolva a solução considerando as condições efetivamente encontradas.\n\nA sondagem não deve ser tratada apenas como um documento para aprovação. Ela fornece dados utilizados no desenvolvimento da engenharia da edificação."
+   },
+   {
+    "n": 83,
+    "q": "Quem deve contratar a sondagem?",
+    "a": "A contratação deve ser definida conforme o escopo do serviço e a organização do empreendimento.\n\nQuando a sondagem não estiver incluída na contratação da equipe, o cliente deverá providenciar o serviço com empresa ou profissional habilitado, conforme orientação técnica."
+   },
+   {
+    "n": 84,
+    "q": "A sondagem é necessária para qualquer tipo de obra?",
+    "a": "A necessidade e o tipo de investigação dependem das características da obra, do terreno, da fundação prevista e das exigências técnicas aplicáveis. A definição deve ser feita pelo profissional responsável, considerando as condições específicas do empreendimento."
+   },
+   {
+    "n": 85,
+    "q": "Posso escolher o tipo de fundação antes da sondagem?",
+    "a": "A escolha da fundação deve considerar as características do subsolo.\n\nPor isso, não é adequado definir definitivamente a solução de fundação sem as informações necessárias sobre o terreno, quando a investigação geotécnica for requerida."
+   },
+   {
+    "n": 86,
+    "q": "O resultado da sondagem pode alterar o projeto de fundações?",
+    "a": "Sim. As condições encontradas no subsolo podem indicar uma solução diferente daquela inicialmente considerada. Por isso, a fundação deve ser dimensionada com base nas informações técnicas disponíveis e nas condições efetivamente identificadas."
+   },
+   {
+    "n": 87,
+    "q": "O que acontece se o solo encontrado for diferente do esperado?",
+    "a": "A situação deve ser avaliada pelo profissional responsável.\n\nDependendo das características encontradas, pode ser necessário alterar o tipo, profundidade, dimensões ou outras características da fundação, além de revisar soluções relacionadas ao projeto."
+   },
+   {
+    "n": 88,
+    "q": "A sondagem é necessária para o projeto estrutural?",
+    "a": "Para o dimensionamento adequado das fundações, é necessário conhecer as condições do solo por meio de investigação geotécnica apropriada.\n\nA sondagem fornece dados fundamentais para essa avaliação, e o tipo e a quantidade de investigação devem ser definidos conforme as características do empreendimento, do terreno e as normas técnicas aplicáveis."
+   },
+   {
+    "n": 89,
+    "q": "O que é projeto de fundação?",
+    "a": "É o projeto que define e dimensiona os elementos responsáveis por transmitir as cargas da edificação ao solo. A solução depende das características da estrutura, das cargas, das condições do terreno e dos resultados da investigação geotécnica."
+   },
+   {
+    "n": 90,
+    "q": "Qual a diferença entre fundação e estrutura?",
+    "a": "A estrutura é o conjunto de elementos que recebe e transmite as cargas da edificação. A fundação é o conjunto de elementos responsável por transmitir essas cargas ao solo. As duas partes trabalham conjuntamente e precisam ser dimensionadas e compatibilizadas."
+   },
+   {
+    "n": 91,
+    "q": "O projeto estrutural é realmente necessário?",
+    "a": "A necessidade e o escopo do projeto estrutural dependem das características da edificação e das exigências técnicas e legais aplicáveis. Quando necessário, ele fornece o dimensionamento dos elementos estruturais e as informações necessárias para a execução adequada da estrutura.\n\nNão deve ser entendido apenas como uma exigência burocrática: trata-se de uma etapa técnica do desenvolvimento da edificação."
+   },
+   {
+    "n": 92,
+    "q": "Por que a estrutura precisa ser compatibilizada com a arquitetura?",
+    "a": "Porque os elementos estruturais precisam ocupar posições compatíveis com os ambientes, paredes, aberturas, níveis e demais elementos arquitetônicos. A compatibilização permite identificar conflitos antes da execução e reduzir alterações durante a obra."
+   }
+  ]
+ },
+ {
+  "n": 7,
+  "title": "Responsabilidade Técnica — RT, ART e RRT",
+  "items": [
+   {
+    "n": 93,
+    "q": "O que é RT?",
+    "a": "RT significa Responsável Técnico. É o profissional legalmente habilitado que assume a responsabilidade pela realização de determinado serviço técnico, dentro de suas atribuições profissionais.\n\nO RT pode ser responsável, por exemplo, por:\n\n- projeto;\n- execução;\n- projeto estrutural;\n- instalações;\n- avaliações;\n- outros serviços técnicos.\n\nRT é o profissional responsável. ART e RRT são os registros que formalizam essa responsabilidade, conforme o conselho profissional aplicável."
+   },
+   {
+    "n": 94,
+    "q": "Qual a diferença entre o profissional que projeta e o profissional que executa a obra?",
+    "a": "O profissional responsável pelo projeto responde tecnicamente pelas atividades de projeto que assumiu.\n\nO profissional responsável pela execução responde tecnicamente pelas atividades de execução que assumiu.\n\nSão responsabilidades distintas e podem ser exercidas por profissionais diferentes, desde que habilitados e com atribuições compatíveis."
+   },
+   {
+    "n": 95,
+    "q": "O que é ART?",
+    "a": "ART significa Anotação de Responsabilidade Técnica. É o documento utilizado para registrar a responsabilidade técnica de profissionais vinculados ao sistema CONFEA/CREA.\n\nA ART identifica, entre outras informações:\n\n- profissional responsável;\n- contratante;\n- serviço;\n- atividades técnicas;\n- local de realização.\n\nA ART deve corresponder ao serviço efetivamente realizado e às atribuições do profissional."
+   },
+   {
+    "n": 96,
+    "q": "O que é RRT?",
+    "a": "RRT significa Registro de Responsabilidade Técnica. É utilizado para registrar a responsabilidade técnica dos profissionais vinculados ao CAU: Conselho de Arquitetura e Urbanismo.\n\nDe forma simplificada:\n\n- CREA → ART\n- CAU → RRT"
+   },
+   {
+    "n": 97,
+    "q": "Quando precisamos de ART ou RRT?",
+    "a": "A necessidade depende do serviço realizado, do profissional responsável, de suas atribuições e das exigências aplicáveis ao processo.\n\nÉ necessário verificar:\n\n- qual serviço será realizado;\n- quem será o responsável;\n- qual conselho profissional se aplica;\n- se o profissional possui atribuição compatível;\n- qual documento é exigido pelo órgão.\n\nA ART/RRT deve representar exatamente a responsabilidade técnica que está sendo assumida."
+   },
+   {
+    "n": 98,
+    "q": "Preciso de ART/RRT para todos os serviços?",
+    "a": "A necessidade depende do serviço, das atribuições profissionais, da legislação aplicável e das exigências do órgão ou conselho competente. Por isso, cada atividade deve ser analisada individualmente."
+   },
+   {
+    "n": 99,
+    "q": "Uma ART/RRT de projeto substitui a de execução?",
+    "a": "Não necessariamente.\n\nProjeto e execução são atividades distintas e podem exigir responsabilidades técnicas próprias. É necessário verificar quais atividades serão realizadas e quais registros são necessários para cada uma delas."
+   },
+   {
+    "n": 100,
+    "q": "Posso ter um profissional para o projeto e outro para a execução?",
+    "a": "Sim. Projeto e execução são atividades diferentes e podem possuir responsáveis técnicos diferentes.\n\nUm profissional pode ser responsável pelo projeto e outro pela execução, desde que cada um possua habilitação e atribuição compatíveis com sua atividade e formalize a respectiva responsabilidade técnica."
+   },
+   {
+    "n": 101,
+    "q": "Preciso contratar um responsável pela execução antes da aprovação?",
+    "a": "Não necessariamente.\n\nA necessidade depende do tipo de processo, da legislação aplicável e da etapa em que essa informação é exigida. Quando a definição do executor for necessária, a equipe orientará o cliente sobre o momento adequado e os documentos necessários."
+   },
+   {
+    "n": 102,
+    "q": "O responsável técnico pelo projeto precisa ser o mesmo da obra?",
+    "a": "Não necessariamente.\n\nAs responsabilidades podem ser atribuídas a profissionais diferentes, desde que cada profissional esteja habilitado para a atividade que irá desempenhar e que as responsabilidades técnicas estejam devidamente formalizadas."
+   },
+   {
+    "n": 103,
+    "q": "O que acontece se o responsável técnico mudar durante o processo?",
+    "a": "A alteração deve ser comunicada e formalizada conforme o procedimento aplicável.\n\nPode ser necessário atualizar documentos, registros de responsabilidade técnica, procurações, cadastros ou informações do processo."
+   },
+   {
+    "n": 104,
+    "q": "Quem é responsável por corrigir uma exigência técnica?",
+    "a": "Depende do conteúdo da exigência.\n\nA responsabilidade deve ser direcionada ao profissional ou equipe que possui competência sobre o item solicitado, considerando também o escopo contratado. A equipe de aprovação pode coordenar a resposta, mas a correção técnica deve ser realizada pelo profissional habilitado responsável pela respectiva disciplina, quando aplicável."
+   }
+  ]
+ },
+ {
+  "n": 8,
+  "title": "Processo de Aprovação",
+  "items": [
+   {
+    "n": 105,
+    "q": "Qual a diferença entre aprovação, licenciamento e alvará?",
+    "a": "Aprovação é a manifestação favorável do órgão competente quanto ao projeto ou solicitação apresentada.\n\nLicenciamento corresponde ao procedimento de autorização ou regularização de determinada atividade, conforme o órgão e a legislação aplicável.\n\nAlvará é o documento emitido pelo órgão competente que formaliza determinada autorização, conforme o procedimento específico.\n\nOs conceitos e etapas podem variar conforme o município e o tipo de empreendimento."
+   },
+   {
+    "n": 106,
+    "q": "O que é um protocolo?",
+    "a": "É o registro formal de uma solicitação junto ao órgão responsável. É quando o processo é oficialmente apresentado para análise e recebe uma identificação, como número e data de protocolo.\n\nProtocolar não significa aprovar. Significa apresentar oficialmente o processo para análise."
+   },
+   {
+    "n": 107,
+    "q": "O que acontece depois que meu projeto é protocolado?",
+    "a": "O órgão responsável inicia a análise do processo.\n\nDurante essa etapa, pode:\n\n- aprovar;\n- solicitar correções;\n- emitir exigência;\n- solicitar documentos adicionais;\n- solicitar esclarecimentos;\n- ou tomar outra decisão prevista para aquele procedimento.\n\nA equipe acompanha o processo e atua nas etapas que fazem parte do escopo contratado."
+   },
+   {
+    "n": 108,
+    "q": "O que significa um processo estar \"em análise\"?",
+    "a": "Significa que o processo foi apresentado ao órgão e está sendo avaliado conforme os critérios e procedimentos aplicáveis.\n\nEstar em análise não significa aprovação ou reprovação."
+   },
+   {
+    "n": 109,
+    "q": "O que significa \"aguardando documentação\" ou \"aguardando pagamento\"?",
+    "a": "Significa que existe uma pendência que precisa ser atendida antes da continuidade de determinada etapa do processo.\n\nA pendência deve ser identificada para que seja possível definir quem deve providenciar o documento ou pagamento e qual o impacto sobre o andamento."
+   },
+   {
+    "n": 110,
+    "q": "O que é uma exigência?",
+    "a": "É uma solicitação do órgão para que o processo seja corrigido, complementado ou esclarecido.\n\nPode estar relacionada a:\n\n- documentos;\n- informações;\n- projeto;\n- legislação;\n- dados cadastrais;\n- requisitos específicos do processo.\n\nExigência não significa necessariamente reprovação. É uma etapa de análise que precisa ser atendida para que o processo continue."
+   },
+   {
+    "n": 111,
+    "q": "Quem responde uma exigência?",
+    "a": "Depende do conteúdo da exigência. A equipe deve primeiro analisar o que foi solicitado e identificar quem possui a informação ou competência necessária para solucioná-la.\n\nPode ser necessária a participação:\n\n- da equipe de aprovação;\n- do arquiteto;\n- do engenheiro;\n- do responsável técnico;\n- do cliente;\n- de outro profissional;\n- ou de mais de uma dessas partes."
+   },
+   {
+    "n": 112,
+    "q": "Quem acompanha o processo depois do protocolo?",
+    "a": "A equipe responsável pelo serviço contratado acompanha a tramitação conforme o escopo estabelecido. Quando houver dependência do cliente ou de outro profissional, a continuidade também poderá depender dessas partes."
+   },
+   {
+    "n": 113,
+    "q": "Como o cliente fica sabendo quando houver uma exigência?",
+    "a": "A equipe responsável deve comunicar ao cliente quando a exigência gerar alguma providência ou informação que dependa dele, observando o fluxo de comunicação definido para o processo."
+   },
+   {
+    "n": 114,
+    "q": "O que acontece depois que uma exigência é respondida?",
+    "a": "O processo retorna para análise do órgão.\n\nA partir daí, poderá ocorrer uma nova análise, aprovação, nova exigência, solicitação de esclarecimentos ou outro procedimento previsto. Responder uma exigência não significa que ela foi automaticamente aceita. É necessário aguardar a nova análise do órgão."
+   },
+   {
+    "n": 115,
+    "q": "O que significa um processo indeferido?",
+    "a": "Significa que o órgão responsável decidiu pela não aprovação da solicitação apresentada naquele processo.\n\nNesse caso, é necessário verificar a fundamentação da decisão e avaliar, conforme o procedimento aplicável:\n\n- possibilidade de recurso;\n- correção do projeto;\n- complementação documental;\n- novo protocolo;\n- outras providências."
+   },
+   {
+    "n": 116,
+    "q": "A aprovação depende da equipe?",
+    "a": "A equipe é responsável por preparar, organizar, protocolar e acompanhar o processo conforme o serviço contratado. A decisão final sobre a aprovação pertence ao órgão responsável pela análise. Além disso, algumas etapas dependem de informações e decisões do cliente ou da atuação de outros profissionais.\n\nA equipe trabalha para apresentar o processo de forma completa e adequada, mas a decisão do órgão pertence ao próprio órgão."
+   },
+   {
+    "n": 117,
+    "q": "O que a Prefeitura analisa?",
+    "a": "A análise depende do tipo de processo, mas pode envolver aspectos como documentação, características do imóvel, implantação, parâmetros urbanísticos, atendimento à legislação municipal e demais requisitos aplicáveis. Cada órgão possui suas próprias competências e critérios de análise."
+   },
+   {
+    "n": 118,
+    "q": "O que acontece quando o órgão público demora além do prazo estimado?",
+    "a": "O processo deve continuar sendo acompanhado para verificar sua situação e eventual necessidade de providências. O prazo efetivo pode ser influenciado pelo fluxo interno do órgão, exigências, documentos pendentes e outras circunstâncias do processo."
+   },
+   {
+    "n": 119,
+    "q": "O que é aprovação de projeto?",
+    "a": "É a manifestação favorável do órgão competente quanto ao projeto apresentado, após a análise dos requisitos aplicáveis ao processo. A aprovação deve ser diferenciada de outras etapas e documentos, como alvarás, licenças ou autorizações, que podem ser necessários conforme o empreendimento."
+   },
+   {
+    "n": 120,
+    "q": "O que é alvará de construção?",
+    "a": "É o documento emitido pelo órgão competente que autoriza determinada atividade construtiva, conforme as regras e condições aplicáveis ao imóvel e ao projeto. A aprovação do projeto e a emissão do alvará podem fazer parte de etapas distintas, dependendo do procedimento adotado pelo município."
+   },
+   {
+    "n": 121,
+    "q": "O que é habite-se?",
+    "a": "É o documento emitido pelo órgão competente que atesta, conforme o procedimento municipal aplicável, a condição da edificação para ocupação. Sua emissão normalmente ocorre em uma etapa posterior à execução da obra e está relacionada à conclusão e regularidade da edificação perante o município."
+   },
+   {
+    "n": 122,
+    "q": "Depois que o projeto foi aprovado, o processo está totalmente encerrado?",
+    "a": "Não necessariamente.\n\nDependendo do empreendimento, ainda podem existir etapas posteriores, como emissão de alvará, licenças, autorizações, execução da obra, vistoria, habite-se ou regularização final."
+   },
+   {
+    "n": 123,
+    "q": "A aprovação em um órgão significa que todos os outros órgãos já aprovaram?",
+    "a": "Não. Cada órgão possui competência e critérios próprios.\n\nUm processo pode depender de manifestações, licenças ou aprovações de diferentes órgãos, conforme as características do imóvel e do empreendimento."
+   }
+  ]
+ },
+ {
+  "n": 9,
+  "title": "Taxas e Custos",
+  "items": [
+   {
+    "n": 124,
+    "q": "Por que existem taxas no processo de aprovação?",
+    "a": "As taxas são valores cobrados pelos órgãos responsáveis por determinados serviços, análises, protocolos, licenças, autorizações ou emissões de documentos. O valor e a finalidade dependem do município, tipo de processo, área, serviço e etapa.\n\nA taxa está relacionada ao serviço ou procedimento do órgão. Ela não representa um pagamento pela aprovação em si."
+   },
+   {
+    "n": 125,
+    "q": "Toda aprovação possui as mesmas taxas?",
+    "a": "Não. As cobranças podem variar conforme:\n\n- município;\n- tipo de processo;\n- área;\n- serviço solicitado;\n- etapa;\n- órgão responsável;\n- características do empreendimento.\n\nCada processo deve ser analisado individualmente."
+   },
+   {
+    "n": 126,
+    "q": "Quando a taxa é solicitada?",
+    "a": "Depende do procedimento adotado pelo órgão.\n\nA cobrança pode ocorrer:\n\n- no protocolo;\n- após o protocolo;\n- durante a análise;\n- antes da emissão de determinado documento;\n- em uma etapa específica.\n\nUm fluxo simplificado pode ser:\n\n*Processo → Geração da taxa → Pagamento → Compensação/baixa → Continuidade*"
+   },
+   {
+    "n": 127,
+    "q": "Taxa solicitada significa que o processo foi aprovado?",
+    "a": "Não. É importante diferenciar:\n\n- Taxa gerada → cobrança emitida\n- Taxa paga → cobrança quitada\n- Processo em análise → órgão avaliando\n- Processo aprovado → decisão favorável\n\nO pagamento de uma taxa não significa que o projeto foi aprovado."
+   },
+   {
+    "n": 128,
+    "q": "Quem é responsável pelo pagamento das taxas?",
+    "a": "A responsabilidade deve ser definida conforme o contrato, o escopo do serviço e o fluxo estabelecido para o processo.\n\nQuando houver uma taxa de responsabilidade do cliente, a equipe deve informar claramente:\n\n- o que está sendo cobrado;\n- por que está sendo cobrado;\n- valor;\n- prazo;\n- forma de pagamento;\n- necessidade de comprovante;\n- impacto do pagamento no andamento."
+   },
+   {
+    "n": 129,
+    "q": "Existem outros custos além do projeto?",
+    "a": "Dependendo do empreendimento, podem existir custos relacionados a:\n\n- levantamento topográfico;\n- sondagem;\n- ART/RRT;\n- taxas municipais;\n- licenças e autorizações;\n- cartório;\n- estudos complementares;\n- projetos adicionais;\n- outros serviços técnicos.\n\nO que está ou não incluído deve ser verificado conforme o escopo contratado."
+   }
+  ]
+ },
+ {
+  "n": 10,
+  "title": "Prazos",
+  "items": [
+   {
+    "n": 130,
+    "q": "Quanto tempo leva para meu projeto ficar pronto?",
+    "a": "O prazo de desenvolvimento depende do tipo e da complexidade do serviço, das informações disponíveis, das etapas envolvidas e das condições estabelecidas na contratação.\n\nO prazo de desenvolvimento do projeto é diferente do prazo de análise e aprovação pelo órgão público."
+   },
+   {
+    "n": 131,
+    "q": "Quanto tempo leva para a Prefeitura aprovar?",
+    "a": "O prazo depende do órgão responsável, do tipo de processo e das características da solicitação.\n\nO prazo total também pode ser influenciado por:\n\n- documentação;\n- exigências;\n- alterações;\n- complementações;\n- respostas do cliente;\n- atuação de outros profissionais;\n- tempo de análise do órgão."
+   },
+   {
+    "n": 132,
+    "q": "Por que o processo pode demorar mais do que o previsto?",
+    "a": "Uma previsão inicial pode sofrer alterações quando surgem situações durante a tramitação.\n\nEntre elas:\n\n- novas exigências;\n- documentos pendentes;\n- divergências;\n- alterações solicitadas;\n- estudos complementares;\n- dependência de terceiros;\n- prazo de análise do órgão.\n\nA equipe acompanha essas situações e comunica alterações relevantes que impactem o andamento."
+   },
+   {
+    "n": 133,
+    "q": "O prazo depende somente da equipe?",
+    "a": "Não. O processo envolve diferentes participantes:\n\n- cliente;\n- equipe de aprovação;\n- arquitetura;\n- engenharia;\n- responsáveis técnicos;\n- topógrafos;\n- projetistas;\n- Prefeitura;\n- outros órgãos.\n\nExistem etapas que dependem diretamente da equipe e outras que dependem de terceiros ou do tempo de análise dos órgãos."
+   }
+  ]
+ },
+ {
+  "n": 11,
+  "title": "Alterações e Atualizações",
+  "items": [
+   {
+    "n": 134,
+    "q": "Posso alterar o projeto depois que ele estiver pronto?",
+    "a": "Sim, desde que a alteração seja tecnicamente e processualmente possível. Entretanto, uma mudança pode afetar outras partes do projeto.\n\nPor exemplo, uma alteração arquitetônica pode gerar mudanças na estrutura, instalações, documentação ou processo de aprovação. Por isso, toda alteração deve ser analisada antes de ser incorporada."
+   },
+   {
+    "n": 135,
+    "q": "Posso alterar o projeto depois do protocolo?",
+    "a": "Depende da natureza da alteração e da etapa do processo.\n\nPode ser necessário:\n\n- atualizar documentos;\n- substituir desenhos;\n- realizar nova análise;\n- pagar nova taxa;\n- realizar novo protocolo;\n- seguir procedimento específico do órgão."
+   },
+   {
+    "n": 136,
+    "q": "Posso alterar o projeto depois da aprovação?",
+    "a": "Uma alteração posterior à aprovação não deve ser feita simplesmente sobre o projeto aprovado.\n\nÉ necessário verificar se a mudança:\n\n- mantém as condições da aprovação;\n- pode ser realizada sem novo procedimento;\n- exige alteração do projeto aprovado;\n- precisa passar novamente pela análise do órgão.\n\nO projeto aprovado representa uma configuração específica do imóvel. Alterações posteriores precisam ser avaliadas."
+   },
+   {
+    "n": 137,
+    "q": "O que acontece se houver mudança de proprietário durante o processo?",
+    "a": "A alteração deve ser comunicada à equipe, pois pode exigir atualização de documentos, cadastros, procurações ou informações do processo. O procedimento necessário dependerá da etapa em que o processo se encontra e das regras do órgão responsável."
+   }
+  ]
+ },
+ {
+  "n": 12,
+  "title": "Situações Especiais do Imóvel",
+  "items": [
+   {
+    "n": 138,
+    "q": "O que acontece se houver vegetação no terreno?",
+    "a": "A existência de vegetação deve ser identificada e analisada antes da definição da implantação. Dependendo da espécie, localização, porte, legislação e intervenção pretendida, pode haver necessidade de autorização, licenciamento ou procedimento específico."
+   },
+   {
+    "n": 139,
+    "q": "Quando é necessária autorização para supressão vegetal?",
+    "a": "A necessidade depende da existência de vegetação protegida, das características da área, do tipo de intervenção e da legislação ambiental aplicável. Antes de remover qualquer vegetação, é necessário verificar a necessidade de autorização junto ao órgão competente."
+   },
+   {
+    "n": 140,
+    "q": "O que acontece se houver uma árvore próxima ao local da construção?",
+    "a": "A árvore deve ser considerada no desenvolvimento do projeto. Sua localização pode interferir na implantação, fundações, circulação e execução, além de poder existir restrição ambiental ou necessidade de autorização para poda ou supressão."
+   },
+   {
+    "n": 141,
+    "q": "O que acontece se houver um curso d'água no terreno ou próximo dele?",
+    "a": "A presença de curso d'água pode gerar restrições específicas relacionadas à proteção ambiental, drenagem e implantação. É necessário identificar a situação e verificar as regras e autorizações aplicáveis antes de definir a intervenção."
+   },
+   {
+    "n": 142,
+    "q": "O que é uma APP?",
+    "a": "APP significa Área de Preservação Permanente.\n\nÉ uma área protegida ambientalmente em razão de determinadas características, como a presença de recursos hídricos ou outras situações previstas na legislação. A existência de uma APP pode limitar ou condicionar a ocupação do imóvel."
+   },
+   {
+    "n": 143,
+    "q": "Quando é necessária análise ambiental?",
+    "a": "A necessidade depende das características do imóvel, da vegetação, dos recursos hídricos, da localização, da intervenção pretendida e da legislação aplicável. Quando houver alguma condição que possa gerar restrição ambiental, a situação deve ser analisada antes da definição da implantação."
+   },
+   {
+    "n": 144,
+    "q": "Quando é necessário projeto de drenagem?",
+    "a": "A necessidade depende das características do terreno, da edificação, da impermeabilização, dos níveis, do sistema de escoamento e das exigências aplicáveis. Em terrenos com declividade, grande área impermeabilizada ou condições específicas, pode ser necessária uma solução ou projeto de drenagem."
+   },
+   {
+    "n": 145,
+    "q": "Quando é necessária contenção de talude?",
+    "a": "Quando existe uma condição de terreno que exige estabilização ou retenção de solo, especialmente em situações de desnível, corte, aterro ou risco de movimentação. A necessidade e a solução devem ser definidas tecnicamente."
+   },
+   {
+    "n": 146,
+    "q": "O que acontece se o terreno estiver em área de risco ou possuir alguma restrição específica?",
+    "a": "A condição deve ser identificada e analisada antes da definição definitiva do projeto. Dependendo da restrição, podem ser necessários estudos complementares, adequações, autorizações ou soluções técnicas específicas."
+   },
+   {
+    "n": 147,
+    "q": "Quando pode ser necessária análise de outros órgãos, como órgãos ambientais ou aeroportuários?",
+    "a": "Quando as características do imóvel ou do empreendimento estiverem relacionadas às competências de outros órgãos. Isso pode ocorrer, por exemplo, em situações envolvendo áreas ambientais, recursos hídricos, vegetação, patrimônio, segurança aeroportuária ou outras restrições específicas."
+   },
+   {
+    "n": 148,
+    "q": "A existência de uma condição especial significa que não posso construir?",
+    "a": "Não necessariamente. A existência de uma restrição ou condição especial significa que o imóvel precisa ser analisado conforme as regras aplicáveis.\n\nDependendo da situação, a construção pode ser possível com determinadas condições, adequações ou autorizações."
+   },
+   {
+    "n": 149,
+    "q": "Posso descobrir essas restrições somente durante a aprovação?",
+    "a": "Algumas restrições podem ser identificadas previamente por meio da análise documental, urbanística, ambiental e técnica.\n\nPor isso, quanto mais completa for a análise inicial, maior a possibilidade de identificar condicionantes antes do protocolo. Ainda assim, determinados apontamentos podem surgir durante a análise do órgão."
+   },
+   {
+    "n": 150,
+    "q": "O que acontece se o terreno estiver em condomínio?",
+    "a": "Além das exigências dos órgãos públicos, podem existir regras internas do condomínio relacionadas à implantação, fachada, recuos, alterações, padrões construtivos ou documentação.\n\nPor isso, o regulamento e as exigências do condomínio devem ser considerados quando aplicáveis."
+   },
+   {
+    "n": 151,
+    "q": "O condomínio pode ter regras diferentes das regras da Prefeitura?",
+    "a": "Sim. As regras do condomínio podem estabelecer condições internas adicionais.\n\nIsso não significa que o condomínio possa substituir as exigências legais do município. O projeto precisa observar as exigências públicas e, quando aplicável, as regras internas do condomínio."
+   },
+   {
+    "n": 152,
+    "q": "O que acontece se o imóvel fizer parte de loteamento?",
+    "a": "Além da legislação municipal, podem existir regras específicas do loteamento, como restrições de uso, implantação, recuos ou padrões construtivos. É necessário verificar a documentação e os instrumentos que estabelecem essas condições."
+   },
+   {
+    "n": 153,
+    "q": "É possível construir em terreno de esquina? Existem regras específicas?",
+    "a": "Sim, mas terrenos de esquina podem possuir condições específicas de implantação. Podem existir regras diferenciadas relacionadas a recuos, frentes, acessos, visibilidade e demais parâmetros urbanísticos."
+   },
+   {
+    "n": 154,
+    "q": "O que muda quando o terreno possui duas ou mais frentes?",
+    "a": "A existência de mais de uma frente pode alterar a forma como o imóvel é analisado para fins urbanísticos. É necessário verificar como cada frente é considerada pela legislação aplicável e quais parâmetros devem ser respeitados."
+   },
+   {
+    "n": 155,
+    "q": "O que acontece se houver servidão registrada na matrícula?",
+    "a": "A servidão deve ser identificada e analisada porque pode estabelecer uma condição ou restrição sobre o imóvel. Dependendo do tipo de servidão, ela pode interferir na implantação, circulação, infraestrutura ou uso de determinada parte do terreno."
+   },
+   {
+    "n": 156,
+    "q": "O que é faixa de servidão?",
+    "a": "É a faixa de terreno sujeita a uma servidão, na qual existe determinado direito de passagem, acesso, infraestrutura ou outra condição registrada ou juridicamente estabelecida. As limitações e possibilidades de uso dependem da natureza da servidão."
+   },
+   {
+    "n": 157,
+    "q": "O que acontece se houver rede de água, esgoto, energia ou outra infraestrutura passando pelo terreno?",
+    "a": "A existência da infraestrutura deve ser identificada antes da definição da implantação. Dependendo de sua localização e das regras da concessionária ou órgão responsável, podem existir faixas de proteção, servidões, afastamentos ou restrições à construção."
+   },
+   {
+    "n": 158,
+    "q": "O que acontece quando o terreno precisa ser desmembrado ou unificado?",
+    "a": "O projeto deve considerar a situação cadastral e registral do imóvel.\n\nQuando o terreno precisar ser desmembrado, unificado ou submetido a outro procedimento de alteração imobiliária, essa etapa deve ser analisada e, quando necessário, realizada antes ou em conjunto com o desenvolvimento do projeto."
+   },
+   {
+    "n": 159,
+    "q": "Posso construir antes de concluir um desmembramento ou unificação?",
+    "a": "Depende da situação jurídica, cadastral e do procedimento aplicável. Antes de desenvolver ou aprovar o projeto sobre uma configuração futura do imóvel, é necessário verificar se o órgão aceita a tramitação naquela condição."
+   },
+   {
+    "n": 160,
+    "q": "O que acontece quando existem duas matrículas para uma mesma área física?",
+    "a": "A situação precisa ser analisada documental e tecnicamente. É necessário verificar os limites, áreas, registros e correspondência entre os imóveis descritos nas matrículas e a situação física encontrada.\n\nDependendo do caso, pode ser necessário realizar procedimento registral ou cadastral antes de prosseguir."
+   },
+   {
+    "n": 161,
+    "q": "O que acontece quando o terreno físico não corresponde ao imóvel descrito na matrícula?",
+    "a": "A divergência deve ser identificada e analisada antes da implantação definitiva. Pode ser necessário revisar o levantamento, consultar documentos, realizar procedimento de regularização ou verificar a necessidade de alteração cadastral ou registral."
+   }
+  ]
+ },
+ {
+  "n": 13,
+  "title": "Documentos e Processos Digitais",
+  "items": [
+   {
+    "n": 162,
+    "q": "Posso emitir documentos de forma online?",
+    "a": "Muitos documentos podem atualmente ser solicitados ou emitidos digitalmente, mas isso depende do órgão responsável e do tipo de documento.\n\nÉ necessário verificar:\n\n- canal oficial;\n- autenticidade;\n- validade;\n- eventual taxa;\n- requisitos de emissão;\n- aceitação pelo órgão responsável pelo processo.\n\nUm documento digital pode possuir validade oficial, desde que emitido pelo canal competente e aceito para aquela finalidade."
+   },
+   {
+    "n": 163,
+    "q": "Posso enviar uma foto do documento pelo celular?",
+    "a": "Depende da finalidade.\n\nPara análise, a equipe precisa receber um documento completo, legível e com todas as informações necessárias.\n\nQuando o processo exigir um arquivo oficial ou documento específico, uma fotografia incompleta ou ilegível pode não ser suficiente.\n\nSempre que possível, deve-se enviar o arquivo digital original ou uma cópia completa e legível."
+   },
+   {
+    "n": 164,
+    "q": "E se eu não tiver algum dos documentos solicitados?",
+    "a": "Se você não possuir algum documento, informe a equipe antes de tentar providenciá-lo por conta própria.\n\nDependendo do documento e da etapa do processo, pode ser possível:\n\n- orientar onde e como obtê-lo;\n- utilizar outro documento equivalente;\n- solicitar uma segunda via ou versão atualizada;\n- seguir com outras etapas enquanto o documento é providenciado;\n- ou identificar se o documento realmente é necessário para aquele caso.\n\nO mais importante é informar a situação. A equipe poderá avaliar a necessidade do documento e orientar qual é o próximo passo adequado."
+   },
+   {
+    "n": 165,
+    "q": "Como sei se um documento solicitado é realmente necessário para o meu processo?",
+    "a": "A documentação necessária pode variar conforme o tipo de imóvel, projeto, etapa do processo e órgão responsável.\n\nQuando um documento for solicitado, a equipe poderá orientar:\n\n- qual é a finalidade do documento;\n- quem deve fornecê-lo ou emiti-lo;\n- em qual etapa ele será utilizado;\n- se existe algum prazo ou validade;\n- e se há alguma alternativa aceita pelo órgão responsável.\n\n*Se você não souber qual é o documento ou não o possuir, não é necessário providenciá-lo por conta própria antes de entender sua finalidade. A equipe poderá orientar o caminho adequado para cada situação.*"
+   }
+  ]
+ },
+ {
+  "n": 14,
+  "title": "Conferência e Prevenção de Retrabalho",
+  "items": [
+   {
+    "n": 166,
+    "q": "Posso protocolar e corrigir depois?",
+    "a": "Nem sempre.\n\nDepois do protocolo, o processo passa a ser analisado com base nas informações apresentadas.\n\nDependendo da alteração, pode ser necessário:\n\n- corrigir documentos;\n- substituir projetos;\n- responder exigência;\n- realizar novo protocolo;\n- pagar nova taxa;\n- reiniciar determinada etapa.\n\nProtocolar rapidamente não significa necessariamente protocolar corretamente."
+   },
+   {
+    "n": 167,
+    "q": "Se o documento estiver antigo, posso utilizá-lo?",
+    "a": "Depende do documento e do processo. Devem ser verificadas:\n\n- data de emissão;\n- validade;\n- atualidade das informações;\n- alterações ocorridas no imóvel;\n- exigências do órgão;\n- necessidade de documento recente.\n\nDocumento antigo não deve ser automaticamente descartado, mas também não deve ser automaticamente aceito."
+   },
+   {
+    "n": 168,
+    "q": "O que devo fazer quando encontrar uma informação divergente?",
+    "a": "Não devemos assumir qual informação está correta.\n\nPrimeiro é necessário:\n\n1. identificar a divergência;\n2. registrar a informação;\n3. verificar os documentos envolvidos;\n4. identificar a origem;\n5. avaliar o impacto no projeto;\n6. definir o procedimento adequado;\n7. somente então prosseguir.\n\nExemplos de divergência:\n\n- área;\n- medidas;\n- proprietário;\n- endereço;\n- lote;\n- quadra;\n- confrontantes;\n- informações cadastrais."
+   }
+  ]
+ },
+ {
+  "n": 15,
+  "title": "Responsabilidades do Cliente e da Equipe",
+  "items": [
+   {
+    "n": 169,
+    "q": "O que preciso fazer como cliente?",
+    "a": "O cliente contribui para o andamento do processo principalmente por meio de:\n\n- fornecimento dos documentos;\n- informações corretas sobre o imóvel;\n- aprovação de decisões;\n- definição de informações necessárias;\n- contratação de serviços não incluídos no escopo;\n- pagamento das despesas sob sua responsabilidade;\n- atendimento às solicitações dentro dos prazos necessários.\n\n*A participação do cliente é parte importante para manter o processo em andamento.*"
+   },
+   {
+    "n": 170,
+    "q": "O que é responsabilidade da equipe?",
+    "a": "Conforme o serviço contratado, a equipe pode ser responsável por:\n\n- analisar a documentação recebida;\n- orientar sobre informações necessárias;\n- desenvolver os serviços contratados;\n- compatibilizar informações;\n- preparar documentação;\n- protocolar;\n- acompanhar a tramitação;\n- analisar exigências;\n- orientar sobre providências necessárias.\n\nAs responsabilidades exatas devem seguir o escopo definido na contratação."
+   },
+   {
+    "n": 171,
+    "q": "O que é responsabilidade da Prefeitura ou do órgão responsável?",
+    "a": "Cabe ao órgão, dentro de suas atribuições:\n\n- receber o processo;\n- realizar a análise;\n- solicitar complementações;\n- emitir pareceres;\n- aprovar ou indeferir;\n- emitir documentos, licenças ou autorizações quando aplicável.\n\nCada etapa possui um responsável. Entender essa divisão ajuda a acompanhar o processo com mais clareza."
+   },
+   {
+    "n": 172,
+    "q": "Quem devo procurar quando tiver uma dúvida?",
+    "a": "A dúvida deve ser direcionada à equipe (coordenação ou colaborador responsável de cada setor) pelo processo ou ao profissional que possui competência sobre o assunto específico.\n\n*Ter dúvida não é um problema. O importante é não avançar com uma informação que ainda não foi validada.*"
+   }
+  ]
+ },
+ {
+  "n": 16,
+  "title": "Como o Cliente Pode Contribuir para o Andamento",
+  "items": [
+   {
+    "n": 173,
+    "q": "O que posso fazer para meu processo andar mais rápido?",
+    "a": "A melhor forma de contribuir é evitar que o processo precise parar para corrigir informações que poderiam ter sido conferidas anteriormente.\n\nPara isso:\n\n- envie documentos completos e legíveis;\n- forneça informações verdadeiras e atualizadas;\n- comunique alterações no imóvel;\n- informe mudanças desejadas no projeto;\n- responda às solicitações dentro dos prazos;\n- não ignore divergências;\n- mantenha os dados do proprietário atualizados;\n- confirme decisões importantes antes do desenvolvimento;\n- providencie documentos e taxas sob sua responsabilidade.\n\n*Um processo bem preparado desde o início tende a ter menos interrupções, retrabalho e necessidade de correções durante sua tramitação.*"
+   }
+  ]
+ }
+]
