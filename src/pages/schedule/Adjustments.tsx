@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import type { AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectSchedule, SchedulePreview, ScheduleTask, StaffMember } from "@/types/domain";
 import { cx, formatDate, formatDateTime, plural, TASK_STATUS_LABEL } from "@/utils/format";
 import { ImpactPreview } from "./ImpactPreview";
+import { EMPTY_REASON, ReasonField, reasonIsValid, reasonText, useChangeReasons } from "./ReasonField";
 
 const ELIGIBLE = new Set(["completed", "in_progress", "waiting_client", "waiting_third_party", "waiting_dependency"]);
 export const canRequestAdjustment = (t: ScheduleTask) =>
@@ -242,6 +243,8 @@ function DecideAdjustmentModal({ request: r, schedule, staff, onClose, onDone }:
   const [assignee, setAssignee] = useState(task?.responsible_user_id ?? "");
   const [start, setStart] = useState("");
   const [note, setNote] = useState("");
+  const [rejectReason, setRejectReason] = useState(EMPTY_REASON);
+  const [rejectReasons] = useChangeReasons("adjustment_reject");
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
   const [busy, setBusy] = useState<"preview" | "save" | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -266,7 +269,7 @@ function DecideAdjustmentModal({ request: r, schedule, staff, onClose, onDone }:
         const res = await api.decideAdjustment({ id: r.id, approve: true, note, days: Number(days), assignee, start: completed ? start : null });
         onDone(res.impacted_count ? `Ajuste aprovado. ${plural(res.impacted_count, "etapa recalculada", "etapas recalculadas")} no contrato.` : "Ajuste aprovado.");
       } else {
-        await api.decideAdjustment({ id: r.id, approve: false, note });
+        await api.decideAdjustment({ id: r.id, approve: false, note: reasonText(rejectReason, rejectReasons) });
         onDone("Pedido recusado. Quem pediu foi avisado.");
       }
     } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
@@ -278,7 +281,7 @@ function DecideAdjustmentModal({ request: r, schedule, staff, onClose, onDone }:
         <Button variant="ghost" onClick={onClose}>Fechar</Button>
         {decision === "approve"
           ? <Button loading={busy === "save"} disabled={!assignee || !days || Number(days) < 1} onClick={submit}>Aprovar e ajustar cronograma</Button>
-          : <Button variant="danger" loading={busy === "save"} disabled={note.trim().length < 3} onClick={submit}>Recusar pedido</Button>}
+          : <Button variant="danger" loading={busy === "save"} disabled={!reasonIsValid(rejectReason, rejectReasons)} onClick={submit}>Recusar pedido</Button>}
       </>}>
       <div className="form">
         <div className="adj-sum">
@@ -334,10 +337,8 @@ function DecideAdjustmentModal({ request: r, schedule, staff, onClose, onDone }:
             </Field>
           </>
         ) : (
-          <Field label="Por que o ajuste não será feito" required>
-            {({ id }) => <textarea id={id} className="input textarea" rows={3} autoFocus value={note} onChange={(e) => setNote(e.target.value)}
-              placeholder="Ex.: a solução proposta já foi aprovada pelo cliente; resolver na compatibilização" />}
-          </Field>
+          <ReasonField value={rejectReason} onChange={setRejectReason} reasons={rejectReasons} label="Por que o ajuste não será feito"
+            showVisibility={false} hint="Quem pediu recebe esta resposta." />
         )}
       </div>
     </Modal>

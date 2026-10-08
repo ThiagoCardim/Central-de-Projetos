@@ -125,8 +125,31 @@ const scenes = [
     await p.getByLabel("Quem executa o ajuste").selectOption({ index: 1 });
     await p.getByRole("button", { name: "Ver impacto no cronograma" }).click(); await p.waitForTimeout(500); } },
   { name: "adj-home", url: "/?as=leader", vp: DESKTOP },
-  { name: "adj-times", url: "/servicos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Prazos de ajuste" }).click(); await p.waitForTimeout(300); } },
-  { name: "reasons-admin", url: "/servicos?as=global_admin", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Motivos de alteração" }).click(); await p.waitForTimeout(300); } },
+  { name: "adj-times", url: "/servicos?as=global_admin", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Listas padrão" }).click(); await p.getByLabel("Lista").selectOption("adjustment_times"); await p.waitForTimeout(300); } },
+  { name: "sale-services", url: "/entrada?as=global_admin", vp: { width: 1440, height: 1100 }, action: async (p) => {
+    await p.getByRole("button", { name: "Registrar venda manual" }).click(); await p.waitForTimeout(400);
+    await p.getByRole("combobox", { name: "Serviços contratados" }).click(); await p.waitForTimeout(200);
+    await p.getByRole("option", { name: /Projeto Arquitetônico/ }).click(); await p.getByRole("option", { name: /Projeto Estrutural/ }).click();
+    await p.getByRole("option", { name: /Projetos Complementares/ }).click(); await p.waitForTimeout(200); } },
+  { name: "sale-form", url: "/entrada?as=global_admin", vp: { width: 1440, height: 1500 }, action: async (p) => {
+    await p.getByRole("button", { name: "Registrar venda manual" }).click(); await p.waitForTimeout(400);
+    await p.getByRole("combobox", { name: "Serviços contratados" }).click();
+    await p.getByRole("option", { name: /Projeto Arquitetônico/ }).click(); await p.getByRole("option", { name: /Projeto Estrutural/ }).click();
+    await p.getByRole("button", { name: "Concluir" }).click();
+    await p.getByRole("combobox", { name: "Tipo do projeto" }).click(); await p.getByRole("option", { name: "Residencial" }).click();
+    await p.getByLabel("UF").selectOption("MG"); await p.waitForTimeout(300);
+    await p.getByRole("combobox", { name: "Cidade" }).click(); await p.waitForTimeout(300);
+    await p.getByLabel("Buscar cidade").fill("poços"); await p.waitForTimeout(200); } },
+  { name: "sale-client", url: "/entrada?as=global_admin", vp: { width: 1440, height: 1100 }, action: async (p) => {
+    await p.getByRole("button", { name: "Registrar venda manual" }).click(); await p.waitForTimeout(400);
+    await p.getByRole("combobox", { name: "Cliente já cadastrado" }).click(); await p.waitForTimeout(300); } },
+  { name: "lists-admin", url: "/servicos?as=global_admin", vp: DESKTOP, full: true, action: async (p) => {
+    await p.getByRole("tab", { name: "Listas padrão" }).click(); await p.getByLabel("Lista").selectOption("waiting_client"); await p.waitForTimeout(300); } },
+  { name: "status-reason", url: "/projetos/pr1/cronograma?as=leader", vp: { width: 1440, height: 1100 }, action: async (p) => {
+    await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("button", { name: /^Estudo Preliminar/ }).first().click(); await p.waitForTimeout(300);
+    await p.getByLabel("Ações", { exact: true }).getByRole("button", { name: "Aguardando cliente" }).click(); await p.waitForTimeout(300);
+    await p.getByLabel("Aguardando cliente: motivo").selectOption({ index: 2 }); await p.waitForTimeout(200); } },
+  { name: "reasons-admin", url: "/servicos?as=global_admin", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Listas padrão" }).click(); await p.waitForTimeout(300); } },
   { name: "m-home-client", url: "/?as=client", vp: MOBILE, full: true },
   { name: "sched-add", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: "Adicionar etapa" }).first().click(); } },
   { name: "sched-step-filter", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Lista" }).click(); await p.getByLabel("Etapa", { exact: true }).selectOption({ label: "Planejamento" }); await p.waitForTimeout(300); } },

@@ -1,3 +1,4 @@
+import { LocationFields } from "@/components/domain/LocationFields";
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/services/auth";
 import { api } from "@/services/api";
@@ -188,20 +189,7 @@ function UnitDrawer({ target, isGlobal, onClose, onSaved }: {
               )}
             </Field>
           )}
-          <div className="form__cols form__cols--city">
-            <Field label="Cidade">
-              {({ id }) => <Input id={id} value={city} onChange={(e) => setCity(e.target.value)} />}
-            </Field>
-            <Field label="UF" error={errors.state}>
-              {({ id, describedBy, invalid }) => (
-                <select id={id} className="select" value={state} onChange={(e) => setState(e.target.value)}
-                  aria-describedby={describedBy} aria-invalid={invalid}>
-                  <option value="">—</option>
-                  {UF.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
-                </select>
-              )}
-            </Field>
-          </div>
+          <LocationFields city={city} state={state} onChange={(v) => { setCity(v.city); setState(v.state); }} />
           {!isGlobal && (
             <Alert tone="info">Tipo, status e regras globais da unidade são definidos pela Franqueadora.</Alert>
           )}

@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -220,6 +220,14 @@ export const api = {
     rpc<void>("allocate_project", { p_project: projectId, p_delivery_tenant: tenantId, p_notes: notes || null }),
 
   // ---------- Clientes ----------
+  /** Clientes da unidade com os dados usados na venda (para preencher sem digitar). */
+  async clientsForSale(tenantId: string): Promise<{ id: string; name: string; client_type: ClientType; email: string | null; phone: string | null; document: string | null }[]> {
+    const { data, error } = await supabase.from("clients")
+      .select("id, name, client_type, email, phone, document")
+      .eq("tenant_id", tenantId).eq("status", "ativo").order("name");
+    if (error) throw toUserError(error);
+    return data as { id: string; name: string; client_type: ClientType; email: string | null; phone: string | null; document: string | null }[];
+  },
   async listClientsWithProjects(): Promise<ClientListItem[]> {
     const { data, error } = await supabase.from("clients")
       .select("id, tenant_id, name, client_type, email, phone, document, company_name, status, created_at, projects(count)")
@@ -398,15 +406,16 @@ export const api = {
   },
 
   // ---------- Motivos de alteração de prazo ----------
-  async listChangeReasons(includeInactive = false): Promise<ChangeReason[]> {
-    let q = supabase.from("schedule_change_reasons").select("id, label, description, client_visible, is_other, sort_order, active")
+  async listChangeReasons(includeInactive = false, kind?: ReasonKind): Promise<ChangeReason[]> {
+    let q = supabase.from("schedule_change_reasons").select("id, kind, label, description, client_visible, is_other, sort_order, active")
       .order("sort_order").order("label");
     if (!includeInactive) q = q.eq("active", true);
+    if (kind) q = q.eq("kind", kind);
     const { data, error } = await q;
     if (error) throw toUserError(error);
     return data as ChangeReason[];
   },
-  async saveChangeReason(input: { id?: string; label: string; client_visible: boolean; active?: boolean; sort_order?: number; created_by?: string | null }): Promise<void> {
+  async saveChangeReason(input: { id?: string; kind?: ReasonKind; label: string; client_visible: boolean; active?: boolean; sort_order?: number; created_by?: string | null }): Promise<void> {
     const row = {
       label: input.label.trim(), client_visible: input.client_visible,
       ...(input.active === undefined ? {} : { active: input.active }),
@@ -414,11 +423,47 @@ export const api = {
     };
     const { error } = input.id
       ? await supabase.from("schedule_change_reasons").update(row).eq("id", input.id)
-      : await supabase.from("schedule_change_reasons").insert({ ...row, created_by: input.created_by ?? null });
+      : await supabase.from("schedule_change_reasons").insert({ ...row, kind: input.kind ?? "schedule", created_by: input.created_by ?? null });
     if (error) {
       if (error.code === "23505") throw new UserFacingError("Já existe um motivo com este nome (talvez entre os desativados).");
       throw toUserError(error);
     }
+  },
+
+  // ---------- Tipos de projeto ----------
+  async listProjectTypes(includeInactive = false): Promise<ProjectType[]> {
+    let q = supabase.from("project_types").select("id, name, sort_order, active").order("sort_order").order("name");
+    if (!includeInactive) q = q.eq("active", true);
+    const { data, error } = await q;
+    if (error) throw toUserError(error);
+    return data as ProjectType[];
+  },
+  async saveProjectType(input: { id?: string; name: string; active?: boolean }): Promise<ProjectType> {
+    const row = { name: input.name.trim(), ...(input.active === undefined ? {} : { active: input.active }) };
+    const res = input.id
+      ? await supabase.from("project_types").update(row).eq("id", input.id).select("id, name, sort_order, active").single()
+      : await supabase.from("project_types").insert(row).select("id, name, sort_order, active").single();
+    if (res.error) {
+      if (res.error.code === "23505") throw new UserFacingError("Este tipo de projeto já existe (talvez entre os desativados).");
+      throw toUserError(res.error);
+    }
+    return res.data as ProjectType;
+  },
+
+  /** Serviços do catálogo (por família) e pacotes, para escolher na venda. */
+  async saleServiceOptions(): Promise<SaleServiceOption[]> {
+    const [svc, pkg] = await Promise.all([
+      supabase.from("services").select("name, aliases, sort_order, family:service_families(name, sort_order)").eq("active", true).order("sort_order"),
+      supabase.from("service_packages").select("name, aliases, description").eq("active", true).order("name"),
+    ]);
+    if (svc.error) throw toUserError(svc.error);
+    if (pkg.error) throw toUserError(pkg.error);
+    type Row = { name: string; aliases: string[] | null; sort_order: number; family: { name: string; sort_order: number } | null };
+    const services = (svc.data as unknown as Row[])
+      .sort((a, b) => (a.family?.sort_order ?? 999) - (b.family?.sort_order ?? 999) || a.sort_order - b.sort_order)
+      .map((r) => ({ name: r.name, group: r.family?.name ?? "Outros", aliases: r.aliases ?? [], kind: "service" as const }));
+    const packages = (pkg.data ?? []).map((r) => ({ name: r.name as string, group: "Pacotes", aliases: (r.aliases as string[]) ?? [], kind: "package" as const, description: r.description as string | null }));
+    return [...services, ...packages];
   },
 
   // ---------- Foto de perfil ----------

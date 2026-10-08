@@ -1,3 +1,4 @@
+import { EMPTY_REASON, ReasonField, reasonIsValid, reasonText, useChangeReasons } from "./ReasonField";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/services/api";
 import { useAsync } from "@/hooks";
@@ -28,7 +29,8 @@ export function AddTaskDrawer({ trackId, schedule, staff, onClose, onSaved }: {
   const [after, setAfter] = useState("");
   const [inSequence, setInSequence] = useState<"seq" | "par">("seq");
   const [responsible, setResponsible] = useState("");
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(EMPTY_REASON);
+  const [reasons] = useChangeReasons("schedule");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -58,7 +60,7 @@ export function AddTaskDrawer({ trackId, schedule, staff, onClose, onSaved }: {
     try {
       const r = await api.addProjectTask({
         track_id: trackId!, after_id: after || null, name, description, duration: kind === "ongoing" || !duration ? null : Number(duration),
-        duration_type: kind, responsible_id: responsible || null, in_sequence: inSequence === "seq", reason,
+        duration_type: kind, responsible_id: responsible || null, in_sequence: inSequence === "seq", reason: reasonText(reason, reasons),
         save_to_library: false,
       });
       toast(r.impacted_count ? `Etapa incluída. ${plural(r.impacted_count, "etapa recalculada", "etapas recalculadas")}.` : "Etapa incluída.");
@@ -69,7 +71,7 @@ export function AddTaskDrawer({ trackId, schedule, staff, onClose, onSaved }: {
   return (
     <Drawer open onClose={onClose} title="Adicionar etapa" subtitle={`${serviceName(track)} · ajuste só deste projeto`}
       footer={<><span className="spacer" /><Button variant="ghost" onClick={onClose}>Cancelar</Button>
-        <Button loading={busy} disabled={name.trim().length < 2 || reason.trim().length < 3} onClick={submit}>Incluir etapa</Button></>}>
+        <Button loading={busy} disabled={name.trim().length < 2 || !reasonIsValid(reason, reasons)} onClick={submit}>Incluir etapa</Button></>}>
       <div className="form">
         {err && <Alert tone="danger" title="Etapa não incluída">{err}</Alert>}
         <Field label="Etapa" required hint={permissions?.is_manager ? "Escolha da biblioteca. Se não estiver na lista, use “Adicionar nova etapa”." : "Escolha da biblioteca de etapas."}>
@@ -121,10 +123,8 @@ export function AddTaskDrawer({ trackId, schedule, staff, onClose, onSaved }: {
             </Select>
           )}
         </Field>
-        <Field label="Motivo" required hint="Fica no histórico do cronograma.">
-          {({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} value={reason} onChange={(e) => setReason(e.target.value)}
-            placeholder="Ex.: cliente contratou o executivo" />}
-        </Field>
+        <ReasonField value={reason} onChange={setReason} reasons={reasons} label="Motivo" showVisibility={false}
+          hint="Fica no histórico do cronograma." />
       </div>
     </Drawer>
   );

@@ -8,9 +8,14 @@ import type { ProjectSchedule, ScheduleTask, SchedulePreview, StaffMember, TaskC
 import { cx, EMPLOYMENT_LABEL, formatDate, formatDateTime, plural, TASK_STATUS_LABEL } from "@/utils/format";
 import { ImpactPreview } from "./ImpactPreview";
 import { canRequestAdjustment } from "./Adjustments";
-import { EMPTY_REASON, ReasonField, reasonIsValid, useChangeReasons } from "./ReasonField";
+import { EMPTY_REASON, ReasonField, reasonIsValid, reasonText, useChangeReasons } from "./ReasonField";
+import type { ReasonKind } from "@/types/domain";
+
+const STATUS_REASON_KIND: Partial<Record<TaskStatus, ReasonKind>> = {
+  waiting_client: "waiting_client", waiting_third_party: "waiting_third_party", waiting_dependency: "waiting_dependency", cancelled: "task_cancel",
+};
 import {
-  CHANGE_LABEL, displayStatus, durationText, isClosed, isStarted, predecessorsOf, REASON_PLACEHOLDER, serviceName,
+  CHANGE_LABEL, displayStatus, durationText, isClosed, isStarted, predecessorsOf, serviceName,
   statusActions, successorsOf, type StatusAction,
 } from "./model";
 
@@ -132,7 +137,8 @@ function ResponsibleSelect({ task, staff, onChanged }: { task: ScheduleTask; sta
 function StatusActions({ task, manager, onChanged, toast }: { task: ScheduleTask; manager: boolean; onChanged: () => void; toast: Toast }) {
   const actions = statusActions(task, manager);
   const [pending, setPending] = useState<StatusAction | null>(null);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(EMPTY_REASON);
+  const [reasons] = useChangeReasons((pending && STATUS_REASON_KIND[pending.status]) || "waiting_dependency");
   const [busy, setBusy] = useState<TaskStatus | null>(null);
   const [err, setErr] = useState<string | null>(null);
   if (actions.length === 0) return null;
@@ -144,7 +150,7 @@ function StatusActions({ task, manager, onChanged, toast }: { task: ScheduleTask
       toast(a.status === "completed"
         ? (res.impacted_count ? `Etapa concluída. ${plural(res.impacted_count, "etapa seguinte foi recalculada", "etapas seguintes foram recalculadas")}.` : "Etapa concluída.")
         : `Status atualizado: ${TASK_STATUS_LABEL[a.status]}.`);
-      setPending(null); setReason("");
+      setPending(null); setReason(EMPTY_REASON);
       onChanged();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   }
@@ -155,16 +161,12 @@ function StatusActions({ task, manager, onChanged, toast }: { task: ScheduleTask
       {err && <Alert tone="danger">{err}</Alert>}
       {pending ? (
         <div className="stack">
-          <Field label={pending.label} required hint="Fica no histórico interno. O cliente não vê este texto.">
-            {({ id, describedBy }) => (
-              <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={3} autoFocus
-                placeholder={REASON_PLACEHOLDER[pending.status]} value={reason} onChange={(e) => setReason(e.target.value)} />
-            )}
-          </Field>
+          <ReasonField value={reason} onChange={setReason} reasons={reasons} autoFocus showVisibility={false}
+            label={`${pending.label}: motivo`} hint="Fica no histórico interno. O cliente não vê este texto." />
           <div className="row">
             <Button variant={pending.status === "cancelled" ? "danger" : "primary"} size="sm" loading={busy === pending.status}
-              disabled={reason.trim().length < 3} onClick={() => run(pending, reason)}>Confirmar</Button>
-            <Button variant="ghost" size="sm" onClick={() => { setPending(null); setReason(""); }}>Voltar</Button>
+              disabled={!reasonIsValid(reason, reasons)} onClick={() => run(pending, reasonText(reason, reasons))}>Confirmar</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setPending(null); setReason(EMPTY_REASON); }}>Voltar</Button>
           </div>
         </div>
       ) : (
@@ -336,7 +338,8 @@ function Dependencies({ task, schedule, manage, onChanged, onOpenTask, toast }: 
   const [adding, setAdding] = useState(false);
   const [target, setTarget] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(EMPTY_REASON);
+  const [depReasons] = useChangeReasons("schedule");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -346,10 +349,10 @@ function Dependencies({ task, schedule, manage, onChanged, onOpenTask, toast }: 
     setBusy(true); setErr(null);
     try {
       const r = removing
-        ? await api.removeTaskDependency(task.id, removing, reason)
-        : await api.addTaskDependency(task.id, target, reason);
+        ? await api.removeTaskDependency(task.id, removing, reasonText(reason, depReasons))
+        : await api.addTaskDependency(task.id, target, reasonText(reason, depReasons));
       toast(`${removing ? "Dependência removida" : "Dependência criada"}. ${plural(r.impacted_count, "etapa recalculada", "etapas recalculadas")}.`);
-      setAdding(false); setRemoving(null); setTarget(""); setReason("");
+      setAdding(false); setRemoving(null); setTarget(""); setReason(EMPTY_REASON);
       onChanged();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
@@ -365,7 +368,7 @@ function Dependencies({ task, schedule, manage, onChanged, onOpenTask, toast }: 
           <span className="muted num">{t.status === "completed" ? "Concluída" : formatDate(t.planned_end_date)}</span>
         </button>
         {removable && manage && (
-          <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => { setRemoving(t.id); setAdding(false); setReason(""); }}>
+          <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => { setRemoving(t.id); setAdding(false); setReason(EMPTY_REASON); }}>
             Remover dependência
           </Button>
         )}
@@ -401,11 +404,9 @@ function Dependencies({ task, schedule, manage, onChanged, onOpenTask, toast }: 
             </Field>
           )}
           {removing && <p>Remover dependência de <strong>{byId.get(removing)?.name}</strong>? As datas serão recalculadas.</p>}
-          <Field label="Motivo" required>
-            {({ id }) => <Input id={id} value={reason} onChange={(e) => setReason(e.target.value)} />}
-          </Field>
+          <ReasonField value={reason} onChange={setReason} reasons={depReasons} label="Motivo" showVisibility={false} />
           <div className="row">
-            <Button size="sm" loading={busy} disabled={reason.trim().length < 3 || (adding && !target)} onClick={save}>
+            <Button size="sm" loading={busy} disabled={!reasonIsValid(reason, depReasons) || (adding && !target)} onClick={save}>
               {removing ? "Remover e recalcular" : "Adicionar e recalcular"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setRemoving(null); setErr(null); }}>Cancelar</Button>

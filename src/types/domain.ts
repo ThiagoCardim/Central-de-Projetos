@@ -407,8 +407,17 @@ export interface AdjustmentRequest {
 }
 
 /** Motivo padronizado de alteração de prazo. */
+export type ReasonKind = "schedule" | "waiting_client" | "waiting_third_party" | "waiting_dependency" | "task_cancel" | "adjustment_reject" | "intake_ignore";
+
+/** Tipo de projeto (lista pré-definida). */
+export interface ProjectType { id: string; name: string; sort_order: number; active: boolean }
+
+/** Opção de serviço para a venda (serviço do catálogo ou pacote). */
+export interface SaleServiceOption { name: string; group: string; aliases: string[]; kind: "service" | "package"; description?: string | null }
+
 export interface ChangeReason {
   id: string;
+  kind: ReasonKind;
   label: string;
   description: string | null;
   client_visible: boolean;

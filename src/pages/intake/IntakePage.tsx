@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "@/services/auth";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
@@ -9,6 +9,9 @@ import {
 } from "@/components/ui/primitives";
 import { ConfirmDialog, Drawer, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
+import { OptionPicker, type PickOption } from "@/components/ui/OptionPicker";
+import { LocationFields } from "@/components/domain/LocationFields";
+import { EMPTY_REASON, ReasonField, reasonIsValid, reasonText, useChangeReasons } from "@/pages/schedule/ReasonField";
 import type { ClientType, Intake, IntakeKind } from "@/types/domain";
 import {
   CLIENT_TYPE_LABEL, formatDate, formatDateTime, formatMoney, INTAKE_STATUS_LABEL, INTAKE_STATUS_TONE,
@@ -189,10 +192,54 @@ function IntakeDrawer({ target, onClose, onChanged }: {
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [ignoreOpen, setIgnoreOpen] = useState(false);
-  const [ignoreReason, setIgnoreReason] = useState("");
-  const catalog = useAsync(() => (target ? api.listServicesCatalog() : Promise.resolve([])), [target]);
+  const [ignoreReason, setIgnoreReason] = useState(EMPTY_REASON);
+  const [ignoreReasons] = useChangeReasons("intake_ignore");
+  const [clientId, setClientId] = useState("");
+  const saleOptions = useAsync(() => (target ? api.saleServiceOptions() : Promise.resolve([])), [target]);
+  const types = useAsync(() => (target ? api.listProjectTypes() : Promise.resolve([])), [target]);
+  const commercialTenant = intake?.tenant_id ?? permissions?.tenant_id ?? null;
+  const clients = useAsync(() => (target && commercialTenant ? api.clientsForSale(commercialTenant) : Promise.resolve([])), [target, commercialTenant]);
+  const projects = useAsync(() => (target && form.intake_kind === "additional_service" ? api.listProjects() : Promise.resolve([])),
+    [target, form.intake_kind]);
 
-  useEffect(() => { setForm(toForm(intake)); setServerError(null); setIgnoreReason(""); }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setForm(toForm(intake)); setServerError(null); setIgnoreReason(EMPTY_REASON); setClientId(""); }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- listas pré-definidas ----------
+  const serviceList = splitServices(form.services);
+  const serviceOptions: PickOption[] = useMemo(() => {
+    const opts: PickOption[] = (saleOptions.data ?? []).map((o) => ({
+      value: o.name, label: o.name, group: o.group, keywords: o.aliases.join(" "),
+      hint: o.kind === "package" ? "pacote" : undefined,
+    }));
+    const known = new Set(opts.map((o) => o.value.toLowerCase()));
+    // Nomes vindos do CRM que não estão no catálogo: aparecem para serem trocados.
+    serviceList.filter((s) => !known.has(s.toLowerCase())).forEach((s) => opts.unshift({ value: s, label: s, group: "Não reconhecidos (troque por um do catálogo)" }));
+    return opts;
+  }, [saleOptions.data, form.services]); // eslint-disable-line react-hooks/exhaustive-deps
+  const projectOptions: PickOption[] = useMemo(() => {
+    const opts = (projects.data ?? []).filter((p) => p.status !== "cancelled").map((p) => ({
+      value: p.code ?? p.id, label: `${p.code ?? "Sem código"} · ${p.name}`, keywords: `${p.client?.name ?? ""} ${p.city ?? ""}`,
+      hint: p.client?.name,
+    }));
+    if (form.target_external_id && !opts.some((o) => o.value === form.target_external_id)) {
+      opts.unshift({ value: form.target_external_id, label: `${form.target_external_id} (informado)`, keywords: "", hint: "não encontrado" });
+    }
+    return opts;
+  }, [projects.data, form.target_external_id]);
+  const typeOptions: PickOption[] = useMemo(() => {
+    const opts = (types.data ?? []).map((t) => ({ value: t.name, label: t.name }));
+    if (form.project_type && !opts.some((o) => o.value.toLowerCase() === form.project_type.toLowerCase())) opts.push({ value: form.project_type, label: form.project_type });
+    return opts;
+  }, [types.data, form.project_type]);
+  const clientOptions: PickOption[] = useMemo(() => (clients.data ?? []).map((c) => ({
+    value: c.id, label: c.name, keywords: `${c.email ?? ""} ${c.document ?? ""}`, hint: c.email ?? CLIENT_TYPE_LABEL[c.client_type],
+  })), [clients.data]);
+  function pickClient(id: string) {
+    setClientId(id);
+    const c = clients.data?.find((x) => x.id === id);
+    if (c) setForm((f) => ({ ...f, client_name: c.name, client_type: c.client_type, client_email: c.email ?? "", client_phone: c.phone ?? "", client_document: c.document ?? "" }));
+  }
+  const lockedClient = !!clientId;
 
   const set = <K extends keyof IntakeForm>(k: K, v: IntakeForm[K]) => setForm((f) => ({ ...f, [k]: v }));
   const errors = intake?.validation_details?.errors ?? (intake?.validation_error ? [intake.validation_error] : []);
@@ -238,7 +285,7 @@ function IntakeDrawer({ target, onClose, onChanged }: {
     if (!intake) return;
     setSaving(true);
     try {
-      await api.ignoreIntake(intake.id, ignoreReason);
+      await api.ignoreIntake(intake.id, reasonText(ignoreReason, ignoreReasons));
       toast("Entrada ignorada.");
       setIgnoreOpen(false);
       onChanged();
@@ -295,8 +342,12 @@ function IntakeDrawer({ target, onClose, onChanged }: {
             <Segmented<IntakeKind> label="Tipo de venda" value={form.intake_kind} onChange={(v) => set("intake_kind", v)}
               options={[{ value: "new_project", label: "Novo projeto" }, { value: "additional_service", label: "Serviço adicional" }]} />
             {form.intake_kind === "additional_service" && (
-              <Field label="Projeto de referência" required hint="Código do projeto (ex.: YC-2026-0001) ou o card do Pipefy da venda original.">
-                {({ id }) => <Input id={id} value={form.target_external_id} onChange={(e) => set("target_external_id", e.target.value)} />}
+              <Field label="Projeto de referência" required hint="O projeto que recebe o serviço adicional. Busque pelo código, nome ou cliente.">
+                {({ id }) => (
+                  <OptionPicker id={id} label="Projeto de referência" value={form.target_external_id} loading={projects.loading}
+                    options={projectOptions} placeholder="Selecione o projeto" searchPlaceholder="Buscar projeto ou cliente"
+                    onChange={(v) => set("target_external_id", v)} />
+                )}
               </Field>
             )}
           </fieldset>
@@ -304,47 +355,62 @@ function IntakeDrawer({ target, onClose, onChanged }: {
           {form.intake_kind === "new_project" && (
             <fieldset className="form__group" disabled={!editable}>
               <legend className="label">Cliente</legend>
+              {isNew && (
+                <Field label="Cliente já cadastrado?" hint={lockedClient ? "Dados preenchidos do cadastro. Para outro cliente, limpe a seleção." : "Escolha para preencher os dados sem digitar. Em branco: cliente novo."}>
+                  {({ id }) => (
+                    <OptionPicker id={id} label="Cliente já cadastrado" value={clientId} loading={clients.loading} clearable
+                      options={clientOptions} placeholder="Cliente novo" searchPlaceholder="Buscar por nome, e-mail ou CPF/CNPJ"
+                      onChange={(v) => { if (v) pickClient(v); else { setClientId(""); setForm((f) => ({ ...f, client_name: "", client_email: "", client_phone: "", client_document: "", client_type: null })); } }} />
+                  )}
+                </Field>
+              )}
               <Field label="Nome do cliente" required>
-                {({ id }) => <Input id={id} value={form.client_name} onChange={(e) => set("client_name", e.target.value)} data-autofocus />}
+                {({ id }) => <Input id={id} value={form.client_name} disabled={lockedClient} onChange={(e) => set("client_name", e.target.value)} data-autofocus />}
               </Field>
               <Field label="Tipo de cliente" required>
                 {({ id }) => (
-                  <Segmented<ClientType> id={id} label="Tipo de cliente" value={form.client_type} onChange={(v) => set("client_type", v)}
+                  <Segmented<ClientType> id={id} label="Tipo de cliente" value={form.client_type} onChange={(v) => { if (!lockedClient) set("client_type", v); }}
                     options={[{ value: "b2c", label: "B2C · Pessoa física" }, { value: "b2b", label: "B2B · Empresa" }]} />
                 )}
               </Field>
               <div className="form__cols">
-                <Field label="E-mail">{({ id }) => <Input id={id} type="email" value={form.client_email} onChange={(e) => set("client_email", e.target.value)} />}</Field>
-                <Field label="Telefone">{({ id }) => <Input id={id} type="tel" value={form.client_phone} onChange={(e) => set("client_phone", e.target.value)} />}</Field>
+                <Field label="E-mail" hint="É o acesso do cliente à plataforma.">{({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} type="email" disabled={lockedClient} value={form.client_email} onChange={(e) => set("client_email", e.target.value)} />}</Field>
+                <Field label="Telefone">{({ id }) => <Input id={id} type="tel" disabled={lockedClient} value={form.client_phone} onChange={(e) => set("client_phone", e.target.value)} />}</Field>
               </div>
               <Field label="CPF / CNPJ" hint="Usado para reconhecer clientes que já existem.">
-                {({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} inputMode="numeric" value={form.client_document} onChange={(e) => set("client_document", e.target.value)} />}
+                {({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} inputMode="numeric" disabled={lockedClient} value={form.client_document} onChange={(e) => set("client_document", e.target.value)} />}
               </Field>
             </fieldset>
           )}
 
           <fieldset className="form__group" disabled={!editable}>
             <legend className="label">{form.intake_kind === "new_project" ? "Projeto e contrato" : "Serviços contratados"}</legend>
-            <Field label="Serviços" required hint="Separe por vírgula. Aceita nomes do catálogo, apelidos e pacotes (ex.: Complementares).">
-              {({ id, describedBy }) => (
-                <Input id={id} aria-describedby={describedBy} list="yc-services" value={form.services} onChange={(e) => set("services", e.target.value)} />
+            <Field label="Serviços" required hint="Selecione um ou mais serviços do catálogo. Pacotes (ex.: Complementares) incluem vários serviços.">
+              {({ id }) => (
+                <OptionPicker id={id} multiple label="Serviços contratados" value={serviceList} loading={saleOptions.loading}
+                  options={serviceOptions} placeholder="Selecione os serviços" searchPlaceholder="Buscar serviço ou pacote"
+                  onChange={(v) => set("services", v.join(", "))} />
               )}
             </Field>
-            <datalist id="yc-services">
-              {(catalog.data ?? []).map((s) => <option key={s} value={s} />)}
-            </datalist>
             {form.intake_kind === "new_project" && (
               <>
                 <div className="form__cols">
                   <Field label="Nome do projeto" hint="Se vazio, usa o nome do cliente.">
                     {({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} value={form.project_name} onChange={(e) => set("project_name", e.target.value)} />}
                   </Field>
-                  <Field label="Tipo do projeto">{({ id }) => <Input id={id} placeholder="Ex.: Residencial" value={form.project_type} onChange={(e) => set("project_type", e.target.value)} />}</Field>
+                  <Field label="Tipo do projeto">
+                    {({ id }) => (
+                      <OptionPicker id={id} label="Tipo do projeto" value={form.project_type} loading={types.loading} clearable
+                        options={typeOptions} placeholder="Selecione o tipo" onChange={(v) => set("project_type", v)}
+                        searchable={permissions?.role === "global_admin" ? true : undefined}
+                        footer={permissions?.role === "global_admin" ? (q, close) => (
+                          <NewTypeButton q={q} onCreated={(name) => { void types.reload(); set("project_type", name); close(); }} />
+                        ) : undefined} />
+                    )}
+                  </Field>
                 </div>
-                <div className="form__cols form__cols--city">
-                  <Field label="Cidade">{({ id }) => <Input id={id} value={form.city} onChange={(e) => set("city", e.target.value)} />}</Field>
-                  <Field label="UF">{({ id }) => <Input id={id} maxLength={2} value={form.state} onChange={(e) => set("state", e.target.value.toUpperCase())} />}</Field>
-                </div>
+                <LocationFields city={form.city} state={form.state}
+                  onChange={(v) => setForm((f) => ({ ...f, city: v.city, state: v.state }))} />
                 <Field label="Endereço">{({ id }) => <Input id={id} value={form.address} onChange={(e) => set("address", e.target.value)} />}</Field>
                 <Field label="Área (m²)" hint="Deixe em branco se não souber — nunca assumimos um valor.">
                   {({ id, describedBy }) => <Input id={id} aria-describedby={describedBy} inputMode="decimal" value={form.area_m2} onChange={(e) => set("area_m2", e.target.value)} />}
@@ -377,15 +443,37 @@ function IntakeDrawer({ target, onClose, onChanged }: {
         loading={saving}
         title="Ignorar esta entrada?"
         message={
-          <span className="stack" style={{ gap: 8 }}>
-            <span>Nenhum projeto será criado. A entrada continua registrada para consulta.</span>
-            <Input aria-label="Motivo" placeholder="Motivo (ex.: card de teste)" value={ignoreReason} onChange={(e) => setIgnoreReason(e.target.value)} />
-          </span>
+          <div className="stack" style={{ gap: 8 }}>
+            <p style={{ margin: 0 }}>Nenhum projeto será criado. A entrada continua registrada para consulta.</p>
+            <ReasonField value={ignoreReason} onChange={setIgnoreReason} reasons={ignoreReasons} label="Motivo" showVisibility={false}
+              hint="Fica registrado na entrada." />
+          </div>
         }
         confirmLabel="Ignorar entrada"
+        confirmDisabled={!reasonIsValid(ignoreReason, ignoreReasons)}
         onConfirm={ignore}
         onCancel={() => setIgnoreOpen(false)}
       />
     </>
+  );
+}
+
+const splitServices = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
+
+/** Rodapé do seletor de tipo: cadastra um tipo novo (ADM Global). */
+function NewTypeButton({ q, onCreated }: { q: string; onCreated: (name: string) => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const name = q.trim();
+  return (
+    <button type="button" className="opick-pop__add" disabled={busy || name.length < 2}
+      title={name.length < 2 ? "Digite o nome do novo tipo na busca" : undefined}
+      onClick={async () => {
+        setBusy(true);
+        try { const t = await api.saveProjectType({ name }); toast(`Tipo “${t.name}” adicionado à lista.`); onCreated(t.name); }
+        catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
+      }}>
+      <Icon name="plus" size={16} /> {name.length >= 2 ? <>Adicionar “{name}” à lista</> : "Para adicionar um tipo, digite o nome na busca"}
+    </button>
   );
 }

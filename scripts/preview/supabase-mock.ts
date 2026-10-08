@@ -469,8 +469,19 @@ const REASONS: any[] = ([
   ["Inclusão de novo serviço (aditivo)", true], ["Prazo de órgão público ou concessionária", true],
   ["Dependência de fornecedor ou terceiro", true], ["Revisão técnica ou compatibilização entre projetos", true],
   ["Reorganização interna da equipe", false], ["Antecipação de prazo", true], ["Outro motivo", true],
-] as [string, boolean][]).map(([label, vis], i, all) => ({ id: `rs-${i}`, label, description: null, client_visible: vis,
+] as [string, boolean][]).map(([label, vis], i, all) => ({ id: `rs-${i}`, kind: "schedule", label, description: null, client_visible: vis,
   is_other: i === all.length - 1, sort_order: i === all.length - 1 ? 1000 : (i + 1) * 10, active: true }));
+([
+  ["waiting_client", ["Aguardando aprovação do cliente", "Aguardando medidas ou levantamento do local", "Aguardando documentos do imóvel", "Aguardando definições do cliente (layout, acabamentos)", "Aguardando pagamento"]],
+  ["waiting_third_party", ["Aguardando prefeitura ou órgão público", "Aguardando concessionária (energia, água, gás)", "Aguardando topografia ou sondagem", "Aguardando fornecedor ou consultor externo"]],
+  ["waiting_dependency", ["Aguardando outro setor da YouCon", "Informação técnica pendente", "Conflito entre disciplinas a resolver", "Responsável indisponível no momento"]],
+  ["task_cancel", ["Etapa não se aplica a este projeto", "Escopo alterado pelo cliente", "Cliente desistiu do serviço", "Etapa feita fora da plataforma"]],
+  ["adjustment_reject", ["Solução já aprovada pelo cliente", "Resolver na compatibilização", "Fora do escopo contratado", "Pedido sem informação suficiente: reenviar com detalhes"]],
+  ["intake_ignore", ["Card de teste", "Venda duplicada", "Venda cancelada antes do início", "Lançada por engano"]],
+] as [string, string[]][]).forEach(([kind, labels]) => labels.forEach((label, i) => REASONS.push({
+  id: `rs-${kind}-${i}`, kind, label, description: null, client_visible: false, is_other: false, sort_order: (i + 1) * 10, active: true })));
+const PROJECT_TYPES: any[] = ["Residencial", "Comercial", "Corporativo", "Industrial", "Institucional", "Hotelaria"]
+  .map((name, i) => ({ id: `pt-${i}`, name, sort_order: (i + 1) * 10, active: true }));
 
 /** Imagem de exemplo (planta esquemática) para os anexos da prévia. */
 function mockImage(i: number) {
@@ -631,8 +642,9 @@ function visibleRows(table: string): any[] {
   if (table === "template_task_dependencies") return TEMPLATE_DEPS;
   if (table === "template_tasks") return TEMPLATES.filter((t) => t.active).flatMap((t) => t.tasks.map((x: any) => ({ ...x,
     template: { active: true, service: CATALOG.find((c) => c.id === t.service_id) } })));
-  if (table === "services") return CATALOG;
-  if (table === "service_packages") return [{ name: "Projetos Complementares" }];
+  if (table === "services") return CATALOG.map((s: any) => ({ ...s, family: FAMILIES.find((f: any) => f.id === s.family_id) ?? null }));
+  if (table === "service_packages") return [{ name: "Projetos Complementares", aliases: ["Complementares"], description: "Elétrico, Hidrossanitário e SPDA", active: true }];
+  if (table === "project_types") return PROJECT_TYPES;
   if (table === "project_team") {
     return PROJECTS.flatMap((x) => x.team.filter((t: any) => t.active).map((t: any) => ({ active: true, user_id: t.user.id, project_role: t.project_role, project: { id: x.id, name: x.name, status: x.status, delivery_tenant_id: x.delivery_tenant_id } })));
   }

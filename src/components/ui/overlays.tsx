@@ -94,18 +94,18 @@ export function Modal({ open, onClose, title, children, footer, wide }: {
 }
 
 /** Confirmação explícita para ações sensíveis (desativar, alterar status). */
-export function ConfirmDialog({ open, title, message, confirmLabel, danger, loading, onConfirm, onCancel }: {
+export function ConfirmDialog({ open, title, message, confirmLabel, danger, loading, confirmDisabled, onConfirm, onCancel }: {
   open: boolean; title: string; message: ReactNode; confirmLabel: string; danger?: boolean; loading?: boolean;
-  onConfirm: () => void; onCancel: () => void;
+  confirmDisabled?: boolean; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
     <Modal open={open} onClose={onCancel} title={title} footer={
       <>
         <Button variant="ghost" onClick={onCancel} disabled={loading}>Cancelar</Button>
-        <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} loading={loading} data-autofocus>{confirmLabel}</Button>
+        <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} loading={loading} disabled={confirmDisabled} data-autofocus>{confirmLabel}</Button>
       </>
     }>
-      <p>{message}</p>
+      {typeof message === "string" ? <p>{message}</p> : <div className="confirm__msg">{message}</div>}
     </Modal>
   );
 }

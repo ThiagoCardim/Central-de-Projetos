@@ -1,3 +1,4 @@
+import { OptionPicker } from "@/components/ui/OptionPicker";
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "@/services/auth";
 import { api } from "@/services/api";
@@ -480,15 +481,14 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
               {isNew && (
                 <Field label="Vincular ao cliente" required error={errors.client_id}
                   hint="O usuário verá somente os projetos deste cliente.">
-                  {({ id, describedBy, invalid }) => (
-                    <Select id={id} value={form.client_id} onChange={(e) => set("client_id", e.target.value)}
-                      aria-describedby={describedBy} aria-invalid={invalid} disabled={clients.loading}>
-                      <option value="">{clients.loading ? "Carregando clientes…" : "Selecione"}</option>
-                      {(clients.data ?? []).map((c) => (
-                        <option key={c.id} value={c.id}>{c.name} ({CLIENT_TYPE_LABEL[c.client_type]})</option>
-                      ))}
-                      <option value="new">+ Cadastrar novo cliente</option>
-                    </Select>
+                  {({ id, invalid }) => (
+                    <OptionPicker id={id} label="Vincular ao cliente" value={form.client_id} loading={clients.loading} invalid={invalid}
+                      placeholder="Selecione o cliente" searchPlaceholder="Buscar cliente por nome ou e-mail" searchable
+                      options={[
+                        ...(clients.data ?? []).map((c) => ({ value: c.id, label: c.name, hint: CLIENT_TYPE_LABEL[c.client_type], keywords: c.email ?? "" })),
+                        { value: "new", label: "+ Cadastrar novo cliente", group: "Novo" },
+                      ]}
+                      onChange={(v) => set("client_id", v)} />
                   )}
                 </Field>
               )}
