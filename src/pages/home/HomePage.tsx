@@ -12,6 +12,7 @@ import { AwaitingTeamCard, StepTimeline, TaskList } from "@/components/domain/ca
 import { computeNextStep, type NextStep } from "./nextStep";
 import { PendingAdjustmentsCard } from "@/pages/schedule/Adjustments";
 import { MyDayCard, TeamTasksCard, useWorkSummary } from "./WorkCards";
+import { HighlightsCard, MyPerformanceCard } from "./PerfCards";
 import { myDayStats, teamStats } from "@/pages/work/workStats";
 import { todayISO } from "@/pages/schedule/model";
 import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
@@ -131,6 +132,7 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
             onOpen={(r) => navigate(`/projetos/${r.project_id}/cronograma?aba=ajustes`)} />
           {!ops && work.mine && <MyDayCard items={work.mine} today={today} onChange={work.setMine} />}
           {isManager && work.team && <TeamTasksCard items={work.team} today={today} />}
+          {isManager && <HighlightsCard isManager />}
           {ops && (
             <Card title="Novos projetos aguardando equipe" count={ops.awaiting_team.length || undefined}>
               {ops.awaiting_team.length ? (
@@ -157,6 +159,8 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
         </div>
 
         <aside className="home__side">
+          {!isManager && perms?.can_view_performance && <MyPerformanceCard />}
+          {!isManager && perms?.can_view_performance && <HighlightsCard isManager={false} />}
           {ops && work.mine && <MyDayCard items={work.mine} today={today} onChange={work.setMine} />}
           {ops && <TeamLoadCard team={ops.team_load} />}
           {ops && <MyTasksCard mine={mine} />}

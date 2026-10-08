@@ -42,6 +42,8 @@ export interface Profile {
   invited_at: string | null;
   last_seen_at: string | null;
   created_at: string;
+  /** Setor (família de serviço) usado na performance do time. */
+  sector_family_id?: string | null;
 }
 
 export interface ClientRecord {
@@ -553,3 +555,34 @@ export interface AppNotification {
   id: string; kind: string; title: string; body: string | null; entity_type: string | null; entity_id: string | null;
   data: Record<string, unknown>; read_at: string | null; created_at: string;
 }
+
+/* ---------- Performance do time ---------- */
+export type PerfBand = "low" | "ok" | "great";
+export interface PerfActivity { key: string; label: string; is_task: boolean; planned: number; delivered: number; on_time: number }
+export interface PerfRow {
+  id: string; name: string; avatar_url: string | null; role: UserRole; employment_type: EmploymentType | null; tenant_id: string;
+  sector: { id: string; name: string } | null;
+  planned: number; delivered: number; on_time: number; late_open: number; late_days_avg: number | null;
+  delivery_pct: number | null; on_time_pct: number | null; no_backlog_pct: number | null;
+  score: number | null; band: PerfBand | null; activities: PerfActivity[];
+}
+export interface PerfSettings {
+  tenant_id: string; weight_delivery: number; weight_on_time: number; weight_no_backlog: number;
+  band_ok: number; band_great: number; min_volume: number; include_assigned_tasks: boolean; highlight_includes_pj: boolean;
+}
+export interface PerfTrendPoint { month: string; score: number | null; band: PerfBand | null }
+export interface PerfOverview {
+  month: string; month_end: string; cut: string; tenant_id: string | null; settings: PerfSettings;
+  scope: "team" | "self"; can_configure: boolean; can_set_sector: boolean;
+  sectors: { id: string; name: string }[]; people: PerfRow[]; trend: Record<string, PerfTrendPoint[]>;
+}
+export interface PerfItem {
+  kind: "step" | "task"; id: string; title: string; project_id: string | null; project: string | null;
+  due: string; done?: string | null; status?: string; days?: number; late_days?: number;
+}
+export interface PerfPersonDetail { month: string; month_end: string; cut: string; person: PerfRow; trend: PerfTrendPoint[] | null; late: PerfItem[]; delivered: PerfItem[] }
+export interface PerfHighlight {
+  sector: { id: string; name: string }; person: { id: string; name: string; avatar_url: string | null };
+  score: number; band: PerfBand; planned: number; delivered: number; on_time_pct: number | null;
+}
+export interface PerfHighlights { month: string; settings: PerfSettings; items: PerfHighlight[] }

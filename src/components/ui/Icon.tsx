@@ -45,6 +45,9 @@ const PATHS = {
   grip: <><circle cx="9" cy="6" r="1" /><circle cx="15" cy="6" r="1" /><circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="9" cy="18" r="1" /><circle cx="15" cy="18" r="1" /></>,
   parallel: <><path d="M7 4v16M17 4v16" /><path d="M4 8h6M14 8h6" /></>,
   sequence: <><path d="M12 4v13" /><path d="m7 12 5 5 5-5" /></>,
+  trophy: <><path d="M8 4.5h8v5a4 4 0 0 1-8 0z" /><path d="M8 6.5H5.5a2.5 2.5 0 0 0 2.6 3.4M16 6.5h2.5a2.5 2.5 0 0 1-2.6 3.4" /><path d="M12 13.5v3M8.5 19.5h7M10 16.5h4v3h-4z" /></>,
+  trend: <><path d="m4 16 5-5 3.5 3.5L20 7" /><path d="M15 7h5v5" /></>,
+  sliders: <><path d="M5 6h9M18 6h1M5 12h3M12 12h7M5 18h11M20 18h-1" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></>,
 } as const;
 
 export type IconName = keyof typeof PATHS;

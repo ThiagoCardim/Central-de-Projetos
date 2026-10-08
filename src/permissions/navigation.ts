@@ -23,6 +23,7 @@ export const NAVIGATION: NavSection[] = [
       { key: "clients", label: "Clientes", to: "/clientes", icon: "briefcase", requires: "manager" },
       { key: "schedule", label: "Cronograma", to: "/cronograma", icon: "calendar", requires: "staff", mobile: true },
       { key: "team", label: "Equipe", to: "/equipe", icon: "users", requires: "manager" },
+      { key: "performance", label: "Performance", to: "/performance", icon: "trend", requires: "performance" },
     ],
   },
   {

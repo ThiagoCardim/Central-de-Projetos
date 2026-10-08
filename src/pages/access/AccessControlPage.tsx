@@ -222,10 +222,11 @@ interface FormState {
   client_type: ClientType | null;
   client_id: string;          // "" | "new" | uuid
   new_client_name: string;
+  sector: string;             // família de serviço (performance)
 }
 
 function emptyForm(tenantId: string): FormState {
-  return { name: "", email: "", phone: "", tenant_id: tenantId, role: "", employment_type: null, client_type: null, client_id: "", new_client_name: "" };
+  return { name: "", email: "", phone: "", tenant_id: tenantId, role: "", employment_type: null, client_type: null, client_id: "", new_client_name: "", sector: "" };
 }
 
 function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
@@ -255,7 +256,7 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
     else if (target) setForm({
       name: target.name, email: target.email, phone: target.phone ?? "", tenant_id: target.tenant_id,
       role: target.role, employment_type: target.employment_type, client_type: target.client_type,
-      client_id: "", new_client_name: "",
+      client_id: "", new_client_name: "", sector: target.sector_family_id ?? "",
     });
   }, [target, permissions?.tenant_id]);
 
@@ -263,6 +264,7 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
   const roles = grantableRoles(permissions, tenant?.type === "franqueadora");
   const isGlobal = permissions?.role === "global_admin";
 
+  const sectors = useAsync(() => api.listSectors(), []);
   const clients = useAsync(
     () => (isNew && form.role === "client" && form.tenant_id ? api.listClients(form.tenant_id) : Promise.resolve([] as ClientRecord[])),
     [isNew, form.role, form.tenant_id],
@@ -300,12 +302,13 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
             ? await api.createClient({ tenant_id: form.tenant_id, name: form.new_client_name.trim(), client_type: form.client_type!, email: form.email.trim() })
             : form.client_id;
         }
-        await api.inviteUser({
+        const invited = await api.inviteUser({
           tenant_id: form.tenant_id, name: form.name.trim(), email: form.email.trim(), role,
           employment_type: role === "client" ? null : form.employment_type,
           client_type: role === "client" ? form.client_type : null,
           client_id: clientId, phone: form.phone.trim() || null,
         });
+        if (role !== "client" && form.sector && invited?.profile_id) await api.setProfileSector(invited.profile_id, form.sector).catch(() => undefined);
         toast(`Convite enviado para ${form.email.trim().toLowerCase()}.`);
       } else if (editing) {
         await api.updateUser({
@@ -315,6 +318,7 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
           phone: form.phone.trim() || null,
           tenant_id: isGlobal && form.tenant_id !== editing.tenant_id ? form.tenant_id : null,
         });
+        if (role !== "client" && form.sector !== (editing.sector_family_id ?? "")) await api.setProfileSector(editing.id, form.sector || null);
         toast("Usuário atualizado.");
       }
       onSaved();
@@ -458,11 +462,17 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
               <legend className="label">Vínculo</legend>
               <Field label={form.role === "collaborator" ? "Tipo de contratação" : "Tipo de contratação (opcional)"}
                 required={form.role === "collaborator"} error={errors.employment_type}
-                hint="PJ não tem acesso a performance, metas CLT ou informações de RH.">
+                hint="PJ não vê a própria performance (a gestão acompanha), nem metas CLT ou informações de RH.">
                 {({ id }) => (
                   <Segmented<EmploymentType> id={id} label="Tipo de contratação" value={form.employment_type}
                     onChange={(v) => set("employment_type", v)}
                     options={[{ value: "clt", label: "CLT" }, { value: "pj", label: "PJ" }]} />
+                )}
+              </Field>
+              <Field label="Setor" hint="Usado na performance do time e no destaque do mês.">
+                {() => (
+                  <OptionPicker label="Setor" value={form.sector} clearable placeholder="Sem setor" loading={sectors.loading}
+                    options={(sectors.data ?? []).map((x) => ({ value: x.id, label: x.name }))} onChange={(v) => set("sector", v)} />
                 )}
               </Field>
             </fieldset>

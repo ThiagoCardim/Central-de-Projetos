@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -36,7 +36,7 @@ async function adminUsers<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 const PROFILE_COLUMNS =
-  "id, auth_user_id, tenant_id, name, email, role, employment_type, client_type, status, phone, avatar_url, invited_at, last_seen_at, created_at";
+  "id, auth_user_id, tenant_id, name, email, role, employment_type, client_type, status, phone, avatar_url, invited_at, last_seen_at, created_at, sector_family_id";
 
 export const api = {
   // ---------- Sessão ----------
@@ -272,6 +272,13 @@ export const api = {
   },
   // ---------- Minhas tarefas ----------
   mySteps: () => rpc<MyStep[]>("my_steps", { p_done_since: null }),
+  // Performance do time
+  performanceOverview: (month: string | null, tenantId?: string | null) =>
+    rpc<PerfOverview>("performance_overview", { p_month: month, p_tenant: tenantId ?? null }),
+  performancePerson: (profileId: string, month: string | null) => rpc<PerfPersonDetail>("performance_person", { p_profile: profileId, p_month: month }),
+  performanceHighlights: (month: string | null) => rpc<PerfHighlights | null>("performance_highlights", { p_month: month }),
+  setProfileSector: (profileId: string, familyId: string | null) => rpc<void>("set_profile_sector", { p_profile: profileId, p_family: familyId }),
+  savePerformanceSettings: (tenantId: string, s: Omit<PerfSettings, "tenant_id">) => rpc<PerfSettings>("save_performance_settings", { p_tenant: tenantId, p: s }),
   /** Minhas tarefas do dia (pessoais e atribuídas pela liderança). */
   listWorkItems: () => rpc<WorkItem[]>("my_work_items"),
   /** Tarefas atribuídas que eu acompanho como liderança. */
@@ -512,6 +519,11 @@ export const api = {
     return url;
   },
   reorderTaskLibrary: (ids: string[]) => rpc<void>("reorder_task_library", { p_ids: ids }),
+  async listSectors(): Promise<{ id: string; name: string }[]> {
+    const { data, error } = await supabase.from("service_families").select("id, name").eq("active", true).order("sort_order");
+    if (error) throw toUserError(error);
+    return data as { id: string; name: string }[];
+  },
   removeAvatar: (profileId: string) => rpc<void>("set_profile_avatar", { p_profile: profileId, p_url: null }),
 
   // ---------- Serviços e templates ----------

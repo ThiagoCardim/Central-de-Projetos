@@ -139,7 +139,7 @@ reset role;
 -- -----------------------------------------------------------------------------
 select tst.login('lider@a'); set role authenticated;
 select tst.ok(private.can_view_performance((select id from public.profiles where email = 'clt@a')), 'Líder analisa CLT');
-select tst.ok(not private.can_view_performance((select id from public.profiles where email = 'pj@a')), 'Líder não vê performance de PJ');
+select tst.ok(private.can_view_performance((select id from public.profiles where email = 'pj@a')), 'Líder mede a performance de PJ (o PJ não vê a própria)');
 select tst.ok(private.can_edit_schedule('00000000-0000-4000-8000-0000000000a2'), 'Líder A edita cronograma de projeto executado por A');
 update public.project_tasks set planned_end_date = '2026-11-03' where id = '00000000-0000-4000-8000-000000000071';
 select tst.ok((select planned_end_date from public.project_tasks where id = '00000000-0000-4000-8000-000000000071') = '2026-11-03', 'Líder reprograma etapa');

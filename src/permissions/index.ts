@@ -11,7 +11,8 @@ export type Capability =
   | "viewIntake"
   | "distribute"
   | "manager"
-  | "staff";
+  | "staff"
+  | "performance";
 
 export function can(perms: Permissions | null, cap: Capability): boolean {
   if (!perms) return false;
@@ -25,6 +26,8 @@ export function can(perms: Permissions | null, cap: Capability): boolean {
     case "distribute": return perms.can_distribute;
     case "manager": return perms.is_manager;
     case "staff": return perms.is_staff;
+    // PJ é medido, mas não vê a própria performance; a gestão vê a equipe.
+    case "performance": return perms.is_manager || perms.can_view_performance;
   }
 }
 

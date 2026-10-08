@@ -29,10 +29,17 @@ let profiles: any[] = [
   ["p-cl", HQ, "Fernanda Souza", "fernanda.souza@gmail.com", "client", null, "b2c", "ativo", true],
   ["p-cl2", HQ, "Construtora Horizonte", "obras@horizonte.com.br", "client", null, "b2b", "ativo", true],
   ["p-in", HQ, "Paulo Mendes", "paulo@youcon.com.br", "collaborator", "clt", null, "inativo", true],
+  ["p-a2", HQ, "Isadora Lima", "isadora@youcon.com.br", "collaborator", "clt", null, "ativo", true],
+  ["p-a3", HQ, "Leandro Matos", "leandro@youcon.com.br", "collaborator", "clt", null, "ativo", true],
+  ["p-e2", HQ, "Gabriel Souto", "gabriel@youcon.com.br", "collaborator", "clt", null, "ativo", true],
+  ["p-i1", HQ, "Carolina Dias", "carolina@youcon.com.br", "collaborator", "clt", null, "ativo", true],
+  ["p-i2", HQ, "Larissa Gomes", "larissa.int@gmail.com", "collaborator", "pj", null, "ativo", true],
   ["p-fa", POCOS, "Juliana Prates", "juliana@youconsuldeminas.com.br", "unit_admin", null, null, "ativo", true],
   ["p-fl", POCOS, "André Vilela", "andre@youconsuldeminas.com.br", "leader", "pj", null, "ativo", true],
 ].map(([id, tenant_id, name, email, role, employment_type, client_type, status, linked], i) => ({
   id, auth_user_id: linked ? `auth-${id}` : null, tenant_id, name, email, role, employment_type, client_type, status,
+  sector_family_id: ({ "p-ld": "f-arquitetura", "p-c1": "f-arquitetura", "p-a2": "f-arquitetura", "p-a3": "f-arquitetura", "p-c2": "f-engenharia",
+    "p-pj": "f-engenharia", "p-e2": "f-engenharia", "p-i1": "f-interiores", "p-i2": "f-interiores" } as Record<string, string>)[id as string] ?? null,
   phone: null, avatar_url: null, invited_at: `2026-0${(i % 8) + 1}-1${i % 9}T12:00:00Z`, last_seen_at: null, created_at: "2026-01-10T12:00:00Z",
 }));
 
@@ -60,7 +67,7 @@ function permissions() {
     profile_id: p.id, tenant_id: p.tenant_id, role: r, employment_type: p.employment_type, client_type: p.client_type,
     can_manage_users: global || r === "unit_admin", can_manage_tenant: global || r === "unit_admin",
     can_manage_tenants: global, can_manage_templates: global, can_distribute: global,
-    can_view_intake: global || r === "unit_admin", can_view_performance: p.employment_type === "clt",
+    can_view_intake: global || r === "unit_admin", can_view_performance: p.employment_type === "clt" || p.role === "global_admin",
     is_manager: ["leader", "unit_admin", "global_admin"].includes(r), is_staff: r !== "client",
   };
 }
@@ -231,6 +238,11 @@ function rpc(name: string, _args?: any) {
           project_task_id: _args.p_task, project_id: t?.project_id ?? _args.p_project, created_at: new Date().toISOString(), assigned_by: o === me()?.id ? null : me()?.id, assigned_at: o === me()?.id ? null : new Date().toISOString() }); });
       return delay({ data: (_args.p_owners as string[]).length, error: null }, 250);
     }
+    case "performance_overview": return delay({ data: perfOverview(_args?.p_month), error: perfOverview(_args?.p_month) ? null : { message: "A performance não está disponível para o seu perfil", code: "42501" } }, 250);
+    case "performance_person": return delay({ data: perfPerson(_args.p_profile, _args?.p_month), error: null }, 200);
+    case "performance_highlights": return delay({ data: perfHighlights(_args?.p_month), error: null }, 150);
+    case "set_profile_sector": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) t.sector_family_id = _args.p_family; return delay({ data: null, error: null }, 150); }
+    case "save_performance_settings": PERF_SET = { ...PERF_SET, ..._args.p }; return delay({ data: PERF_SET, error: null }, 200);
     case "my_steps": return delay({ data: mySteps(), error: null }, 200);
     case "my_notifications": return delay({ data: NOTIFS, error: null }, 100);
     case "automation_save": {
@@ -682,6 +694,81 @@ function teamWork() {
   seedWorkItems(); const p = me();
   return WORK_ITEMS.filter((w) => w.assigned_by && (w.assigned_by === p?.id || canLead(p, profiles.find((x) => x.id === w.owner_id))))
     .map(workJson).sort((a, b) => a.due_date.localeCompare(b.due_date));
+}
+
+// ---------- Performance (dados sintéticos e estáveis por pessoa/mês) ----------
+let PERF_SET: any = { tenant_id: HQ, weight_delivery: 60, weight_on_time: 30, weight_no_backlog: 10, band_ok: 70, band_great: 90, min_volume: 3,
+  include_assigned_tasks: true, highlight_includes_pj: false };
+const PERF_ACTS: Record<string, string[]> = {
+  "f-arquitetura": ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo"],
+  "f-engenharia": ["Projeto Estrutural", "Projeto Elétrico", "Projeto Hidrossanitário", "Compatibilização Estrutural", "Correção de projeto"],
+  "f-interiores": ["Planejamento", "Briefing", "Projeto de Interiores", "Renderização", "Detalhamento"],
+};
+const PERF_PROFILE: Record<string, [number, number]> = { // [entrega base, pontualidade base]
+  "p-ld": [0.8, 0.9], "p-c1": [0.75, 0.66], "p-a2": [0.95, 0.95], "p-a3": [0.6, 0.55], "p-c2": [0.85, 0.8], "p-pj": [1, 1], "p-e2": [0.9, 0.85],
+  "p-i1": [0.92, 0.9], "p-i2": [0.7, 0.75], "p-ua": [0, 0],
+};
+const monthStart = (iso?: string | null) => (iso ? iso.slice(0, 8) + "01" : new Date().toISOString().slice(0, 8) + "01");
+const shiftM = (iso: string, n: number) => { const [y, m] = iso.split("-").map(Number); const dt = new Date(y, m - 1 + n, 1); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-01`; };
+function rnd(seed: string) { let h = 2166136261; for (const c of seed) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; }
+function perfRow(p: any, month: string): any {
+  const base = PERF_PROFILE[p.id] ?? [0.8, 0.8];
+  const sector = FAMILIES.find((f) => f.id === p.sector_family_id);
+  const acts = (PERF_ACTS[p.sector_family_id] ?? ["Etapas de projeto"]).map((label, i) => {
+    const planned = base[0] === 0 ? 0 : 1 + Math.floor(rnd(p.id + month + i) * 4);
+    const delivered = Math.min(planned + (rnd(month + p.id + i) > 0.85 ? 1 : 0), Math.round(planned * Math.min(1.1, base[0] + (rnd(i + p.id + month) - 0.5) * 0.3)));
+    const on_time = Math.round(delivered * Math.min(1, base[1] + (rnd(month + i + p.id + "t") - 0.5) * 0.2));
+    return { key: label.toLowerCase(), label, is_task: false, planned, delivered, on_time };
+  });
+  if (base[0] > 0) { const tp = 1 + Math.floor(rnd(p.id + month + "task") * 3); const td = Math.round(tp * base[0]); acts.push({ key: "tarefas da lideranca", label: "Tarefas da liderança", is_task: true, planned: tp, delivered: td, on_time: Math.round(td * base[1]) }); }
+  const sum = (k: string) => acts.reduce((a: number, x: any) => a + x[k], 0);
+  const planned = sum("planned"), delivered = sum("delivered"), on_time = sum("on_time");
+  const late_open = Math.max(0, Math.round((planned - Math.min(delivered, planned)) * 0.7));
+  const c = planned ? Math.min(1, delivered / planned) : null, t = delivered ? on_time / delivered : null, bk = planned || late_open ? Math.max(0, 1 - late_open / Math.max(planned, 1)) : null;
+  const S = PERF_SET; const parts: [number | null, number][] = [[c, S.weight_delivery], [t, S.weight_on_time], [bk, S.weight_no_backlog]];
+  const den = parts.reduce((a, [v, w]) => a + (v == null ? 0 : w), 0);
+  const score = den ? Math.round(100 * parts.reduce((a, [v, w]) => a + (v ?? 0) * w, 0) / den) : null;
+  return { id: p.id, name: p.name, avatar_url: null, role: p.role, employment_type: p.employment_type, tenant_id: p.tenant_id,
+    sector: sector ? { id: sector.id, name: sector.name } : null, planned, delivered, on_time, late_open, late_days_avg: delivered > on_time ? 2.5 : null,
+    delivery_pct: c == null ? null : Math.round(c * 100), on_time_pct: t == null ? null : Math.round(t * 100), no_backlog_pct: bk == null ? null : Math.round(bk * 100),
+    score, band: score == null ? null : score >= S.band_great ? "great" : score >= S.band_ok ? "ok" : "low", activities: acts.filter((a: any) => a.planned || a.delivered) };
+}
+const perfStaff = () => profiles.filter((x) => x.tenant_id === HQ && x.status === "ativo" && ["collaborator", "leader", "unit_admin"].includes(x.role));
+function perfTrend(people: any[], month: string) {
+  const out: Record<string, any[]> = {};
+  people.forEach((p) => { out[p.id] = Array.from({ length: 6 }, (_, i) => { const m = shiftM(month, i - 5); const r = perfRow(p, m); return { month: m, score: r.score, band: r.band }; }); });
+  return out;
+}
+function perfOverview(m?: string | null) {
+  const me0 = me(); if (!me0) return null;
+  const manager = ["leader", "unit_admin", "global_admin"].includes(me0.role);
+  if (!manager && me0.employment_type !== "clt") return null;
+  const month = monthStart(m);
+  const people = manager ? perfStaff().filter((x) => x.id !== me0.id || me0.employment_type === "clt") : [me0];
+  const end = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toISOString().slice(0, 10);
+  return { month, month_end: end, cut: end, tenant_id: HQ, settings: PERF_SET, scope: manager ? "team" : "self",
+    can_configure: ["unit_admin", "global_admin"].includes(me0.role), can_set_sector: manager,
+    sectors: FAMILIES.map((f) => ({ id: f.id, name: f.name })), people: people.map((p) => perfRow(p, month)), trend: perfTrend(people, month) };
+}
+function perfPerson(id: string, m?: string | null) {
+  const p = profiles.find((x) => x.id === id); const month = monthStart(m); const row = perfRow(p, month);
+  const late = Array.from({ length: row.late_open }, (_, i) => ({ kind: i % 2 ? "task" : "step", id: `l${i}`, title: i % 2 ? "Organizar acervo de pranchas" : (row.activities[i]?.label ?? "Etapa"),
+    project_id: "pr1", project: "YC-2026-0014", due: d(-(i + 2)), status: "in_progress", days: i + 2 }));
+  const delivered = Array.from({ length: Math.min(row.delivered, 8) }, (_, i) => ({ kind: "step", id: `d${i}`, title: row.activities[i % row.activities.length]?.label ?? "Etapa",
+    project_id: "pr1", project: i % 2 ? "YC-2026-0019" : "YC-2026-0014", due: d(-(i * 2 + 1)), done: d(-(i * 2 + (i % 3 === 0 ? 0 : 1))), late_days: i % 3 === 0 ? 1 : 0 }));
+  return { month, month_end: month, cut: month, person: row, trend: perfTrend([p], month)[p.id], late, delivered };
+}
+function perfHighlights(m?: string | null) {
+  const me0 = me(); if (!me0) return null;
+  const manager = ["leader", "unit_admin", "global_admin"].includes(me0.role);
+  if (!manager && me0.employment_type !== "clt") return null;
+  const month = monthStart(m);
+  const rows = perfStaff().filter((x) => x.sector_family_id && (x.employment_type === "clt" || PERF_SET.highlight_includes_pj)).map((p) => perfRow(p, month))
+    .filter((r) => r.score != null && r.planned >= PERF_SET.min_volume);
+  const best = new Map<string, any>();
+  rows.forEach((r) => { const b = best.get(r.sector.id); if (!b || r.score > b.score || (r.score === b.score && r.delivered > b.delivered)) best.set(r.sector.id, r); });
+  return { month, settings: PERF_SET, items: [...best.values()].sort((a, b) => a.sector.name.localeCompare(b.sector.name))
+    .map((r) => ({ sector: r.sector, person: { id: r.id, name: r.name, avatar_url: null }, score: r.score, band: r.band, planned: r.planned, delivered: r.delivered, on_time_pct: r.on_time_pct })) };
 }
 
 function visibleRows(table: string): any[] {
