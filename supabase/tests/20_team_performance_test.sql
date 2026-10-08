@@ -26,11 +26,13 @@ create function tst.at(p_day date) returns timestamptz language sql as $$ select
 grant execute on all functions in schema tst to authenticated, service_role;
 
 insert into auth.users (id, email) select gen_random_uuid(), e from unnest(array['lid@hq','arq@hq','pj@hq','eng@hq','adm@hq']) e;
-insert into public.profiles (tenant_id, name, email, role, employment_type, sector_family_id)
+create function tst.sec(p_name text) returns uuid language sql as $$ select id from public.sectors where tenant_id = '00000000-0000-4000-8000-000000000001' and name = p_name $$;
+grant execute on function tst.sec(text) to authenticated;
+insert into public.profiles (tenant_id, name, email, role, employment_type, sector_id)
 values ('00000000-0000-4000-8000-000000000001', 'Líder', 'lid@hq', 'leader', 'clt', null),
-       ('00000000-0000-4000-8000-000000000001', 'Ana Arquiteta', 'arq@hq', 'collaborator', 'clt', (select id from public.service_families where code = 'arquitetura')),
-       ('00000000-0000-4000-8000-000000000001', 'Paulo PJ', 'pj@hq', 'collaborator', 'pj', (select id from public.service_families where code = 'arquitetura')),
-       ('00000000-0000-4000-8000-000000000001', 'Eduarda Eng', 'eng@hq', 'collaborator', 'clt', (select id from public.service_families where code = 'engenharia')),
+       ('00000000-0000-4000-8000-000000000001', 'Ana Arquiteta', 'arq@hq', 'collaborator', 'clt', tst.sec('Arquitetura')),
+       ('00000000-0000-4000-8000-000000000001', 'Paulo PJ', 'pj@hq', 'collaborator', 'pj', tst.sec('Arquitetura')),
+       ('00000000-0000-4000-8000-000000000001', 'Eduarda Eng', 'eng@hq', 'collaborator', 'clt', tst.sec('Engenharia')),
        ('00000000-0000-4000-8000-000000000001', 'Admin', 'adm@hq', 'unit_admin', 'clt', null);
 update public.profiles p set auth_user_id = u.id from auth.users u where u.email = p.email and p.auth_user_id is null;
 
@@ -81,10 +83,10 @@ select tst.ok((select tst.row(j, 'arq@hq') ->> 'band' from ov) = 'ok', 'Ana: fai
 select tst.ok((select tst.row(j, 'pj@hq') ->> 'score' from ov) = '100', 'Líder vê a performance do PJ');
 select tst.ok((select jsonb_array_length(public.performance_person(tst.uid('pj@hq'), tst.pm()) -> 'delivered')) = 3, 'Líder abre o detalhe do PJ');
 select tst.throws(format('select public.save_performance_settings(%L, %L::jsonb)', '00000000-0000-4000-8000-000000000001', '{}'), 'Líder não altera as regras');
-select public.set_profile_sector(tst.uid('eng@hq'), (select id from public.service_families where code = 'interiores'));
+select public.set_profile_sector(tst.uid('eng@hq'), tst.sec('Interiores'));
 reset role;
-select tst.ok((select f.code from public.profiles p join public.service_families f on f.id = p.sector_family_id where email = 'eng@hq') = 'interiores', 'Gestão define o setor');
-update public.profiles set sector_family_id = (select id from public.service_families where code = 'engenharia') where email = 'eng@hq';
+select tst.ok((select s.name from public.profiles p join public.sectors s on s.id = p.sector_id where email = 'eng@hq') = 'Interiores', 'Gestão define o setor');
+update public.profiles set sector_id = tst.sec('Engenharia') where email = 'eng@hq';
 
 -- CLT: vê só a própria performance e os destaques
 select tst.login('arq@hq'); set role authenticated;
@@ -123,3 +125,21 @@ select public.save_performance_settings('00000000-0000-4000-8000-000000000001', 
   "weight_no_backlog": 0, "band_ok": 70, "band_great": 90, "min_volume": 3, "include_assigned_tasks": true, "highlight_includes_pj": false}');
 select tst.ok((tst.row(public.performance_overview(tst.pm()), 'arq@hq') ->> 'score') = '75', 'Pesos novos: só cumprimento = 75');
 reset role;
+
+-- Cadastro de setores: só a administração
+select tst.login('lid@hq'); set role authenticated;
+select tst.throws($$select public.sector_save('00000000-0000-4000-8000-000000000001', null, 'Orçamentos')$$, 'Líder não cria setor');
+select tst.throws(format('select public.sector_delete(%L)', tst.sec('Interiores')), 'Líder não exclui setor');
+reset role;
+select tst.login('adm@hq'); set role authenticated;
+select public.sector_save('00000000-0000-4000-8000-000000000001', null, 'Orçamentos');
+select tst.ok(jsonb_array_length(public.sector_list('00000000-0000-4000-8000-000000000001')) = 5, 'ADM cria setor');
+select tst.throws($$select public.sector_save('00000000-0000-4000-8000-000000000001', null, 'orçamentos')$$, 'Nome repetido é recusado');
+select public.sector_save(null, tst.sec('Aprovação'), 'Aprovações');
+select tst.ok(tst.sec('Aprovações') is not null, 'ADM renomeia setor');
+select public.sector_reorder('00000000-0000-4000-8000-000000000001', array[tst.sec('Orçamentos'), tst.sec('Arquitetura')]);
+select tst.ok((public.sector_list('00000000-0000-4000-8000-000000000001') -> 0 ->> 'name') = 'Orçamentos', 'ADM reordena');
+select tst.ok(public.sector_delete(tst.sec('Arquitetura')) = 2, 'Excluir informa quantas pessoas ficam sem setor');
+reset role;
+select tst.ok((select sector_id from public.profiles where email = 'arq@hq') is null, 'Pessoas do setor excluído ficam sem setor');
+select tst.throws(format('select private.set_person_sector(%L, %L)', tst.uid('arq@hq'), gen_random_uuid()), 'Setor de outra unidade é recusado');
