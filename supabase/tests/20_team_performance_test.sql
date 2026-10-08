@@ -140,6 +140,8 @@ select tst.ok(tst.sec('Aprovações') is not null, 'ADM renomeia setor');
 select public.sector_reorder('00000000-0000-4000-8000-000000000001', array[tst.sec('Orçamentos'), tst.sec('Arquitetura')]);
 select tst.ok((public.sector_list('00000000-0000-4000-8000-000000000001') -> 0 ->> 'name') = 'Orçamentos', 'ADM reordena');
 select tst.ok(public.sector_delete(tst.sec('Arquitetura')) = 2, 'Excluir informa quantas pessoas ficam sem setor');
+select tst.ok(jsonb_array_length(public.sector_list('00000000-0000-4000-8000-000000000001')) = 4, 'Setor excluído some da lista');
+select tst.ok(public.sector_save('00000000-0000-4000-8000-000000000001', null, 'Arquitetura') = tst.sec('Arquitetura'), 'Incluir o mesmo nome reativa o setor');
 reset role;
 select tst.ok((select sector_id from public.profiles where email = 'arq@hq') is null, 'Pessoas do setor excluído ficam sem setor');
 select tst.throws(format('select private.set_person_sector(%L, %L)', tst.uid('arq@hq'), gen_random_uuid()), 'Setor de outra unidade é recusado');

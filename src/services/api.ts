@@ -534,7 +534,7 @@ export const api = {
   reorderTaskLibrary: (ids: string[]) => rpc<void>("reorder_task_library", { p_ids: ids }),
   /** Setores visíveis (da minha unidade; ADM global vê todas). Filtre por tenant_id da pessoa. */
   async listSectors(): Promise<Sector[]> {
-    const { data, error } = await supabase.from("sectors").select("id, tenant_id, name, sort_order").order("sort_order").order("name");
+    const { data, error } = await supabase.from("sectors").select("id, tenant_id, name, sort_order").is("archived_at", null).order("sort_order").order("name");
     if (error) throw toUserError(error);
     return data as Sector[];
   },

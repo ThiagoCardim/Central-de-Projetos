@@ -46,7 +46,9 @@ begin
 
   -- Setores
   for c in select * from jsonb_array_elements(cfg) loop
-    update public.profiles set sector_family_id = (select id from public.service_families where code = c ->> 's') where id = (c ->> 'p')::uuid;
+    update public.profiles p set sector_id = (select x.id from public.sectors x where x.tenant_id = p.tenant_id and x.archived_at is null
+        and x.name = case c ->> 's' when 'arquitetura' then 'Arquitetura' when 'engenharia' then 'Engenharia' when 'interiores' then 'Interiores' else 'Aprovação' end)
+     where p.id = (c ->> 'p')::uuid;
   end loop;
 
   -- Cliente e projetos de demonstração por unidade

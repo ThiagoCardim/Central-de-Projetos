@@ -14,6 +14,7 @@ create table public.sectors (
   tenant_id  uuid not null references public.tenants (id) on delete cascade,
   name       text not null check (length(trim(name)) between 2 and 60),
   sort_order int not null default 0,
+  archived_at timestamptz,               -- "excluído": some das telas, pessoas ficam sem setor
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -33,10 +34,6 @@ cross join (values ('Arquitetura', 10), ('Engenharia', 20), ('Interiores', 30), 
 on conflict do nothing;
 
 -- Migra quem já tinha setor (pela família de serviço)
-insert into public.sectors (tenant_id, name, sort_order)
-select distinct p.tenant_id, f.name, 90 from public.profiles p join public.service_families f on f.id = p.sector_family_id
-where f.code not in ('arquitetura', 'engenharia', 'interiores', 'aprovacoes')
-on conflict do nothing;
 update public.profiles p set sector_id = s.id
   from public.service_families f, public.sectors s
  where f.id = p.sector_family_id and s.tenant_id = p.tenant_id
@@ -56,12 +53,23 @@ begin
     raise exception 'Só a administração altera os setores' using errcode = '42501';
   end if;
   if nullif(trim(p_name), '') is null or length(trim(p_name)) < 2 then raise exception 'Informe o nome do setor' using errcode = '23514'; end if;
-  if exists (select 1 from public.sectors where tenant_id = v_tenant and lower(trim(name)) = lower(trim(p_name)) and id is distinct from p_id) then
+  if exists (select 1 from public.sectors where tenant_id = v_tenant and lower(trim(name)) = lower(trim(p_name)) and id is distinct from p_id
+             and archived_at is null) then
     raise exception 'Já existe um setor com esse nome' using errcode = '23505';
+  end if;
+  -- Nome de um setor excluído antes: reativa o mesmo setor.
+  select id into v_id from public.sectors where tenant_id = v_tenant and lower(trim(name)) = lower(trim(p_name)) and archived_at is not null;
+  if v_id is not null then
+    if p_id is not null then raise exception 'Já existe um setor excluído com esse nome; inclua-o novamente pelo nome' using errcode = '23505'; end if;
+    update public.sectors set archived_at = null, name = trim(p_name),
+      sort_order = coalesce((select max(sort_order) from public.sectors where tenant_id = v_tenant and archived_at is null), 0) + 10
+     where id = v_id;
+    perform private.log_audit('sector_restored', 'sectors', v_id, v_tenant, jsonb_build_object('name', trim(p_name)));
+    return v_id;
   end if;
   if p_id is null then
     insert into public.sectors (tenant_id, name, sort_order)
-    values (v_tenant, trim(p_name), coalesce((select max(sort_order) from public.sectors where tenant_id = v_tenant), 0) + 10)
+    values (v_tenant, trim(p_name), coalesce((select max(sort_order) from public.sectors where tenant_id = v_tenant and archived_at is null), 0) + 10)
     returning id into v_id;
   else
     update public.sectors set name = trim(p_name) where id = p_id returning id into v_id;
@@ -77,11 +85,13 @@ language plpgsql security definer set search_path = ''
 as $$
 declare s public.sectors; v_n int;
 begin
-  select * into s from public.sectors where id = p_id;
+  select * into s from public.sectors where id = p_id and archived_at is null;
   if s.id is null then raise exception 'Setor não encontrado' using errcode = 'P0002'; end if;
   if not private.can_manage_tenant(s.tenant_id) then raise exception 'Só a administração altera os setores' using errcode = '42501'; end if;
-  select count(*) into v_n from public.profiles where sector_id = p_id;
-  delete from public.sectors where id = p_id;   -- as pessoas ficam sem setor
+  -- Exclusão lógica: o setor sai das telas e as pessoas ficam sem setor.
+  update public.profiles set sector_id = null where sector_id = p_id;
+  get diagnostics v_n = row_count;
+  update public.sectors set archived_at = now() where id = p_id;
   perform private.log_audit('sector_deleted', 'sectors', p_id, s.tenant_id, jsonb_build_object('name', s.name, 'people', v_n));
   return v_n;
 end;
@@ -108,7 +118,7 @@ begin
   if not (private.can_lead_person(p_profile) or private.can_manage_users(v_tenant)) then
     raise exception 'Sem permissão para definir o setor desta pessoa' using errcode = '42501';
   end if;
-  if p_sector is not null and not exists (select 1 from public.sectors where id = p_sector and tenant_id = v_tenant) then
+  if p_sector is not null and not exists (select 1 from public.sectors where id = p_sector and tenant_id = v_tenant and archived_at is null) then
     raise exception 'Setor inválido para a unidade desta pessoa' using errcode = '23514';
   end if;
   update public.profiles set sector_id = p_sector where id = p_profile;
@@ -125,7 +135,7 @@ as $$
   select coalesce(jsonb_agg(jsonb_build_object('id', s.id, 'name', s.name, 'sort_order', s.sort_order,
     'people', (select count(*) from public.profiles p where p.sector_id = s.id and p.status = 'ativo')) order by s.sort_order, s.name), '[]'::jsonb)
   from public.sectors s
-  where s.tenant_id = p_tenant and private.can_access_tenant(p_tenant)
+  where s.tenant_id = p_tenant and s.archived_at is null and private.can_access_tenant(p_tenant)
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -242,7 +252,7 @@ begin
     'can_configure', private.can_manage_tenant(coalesce(v_tenant, me.tenant_id)),
     'can_set_sector', v_manager,
     'sectors', (select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'name', x.name) order by x.sort_order, x.name), '[]'::jsonb)
-                from public.sectors x where x.tenant_id = coalesce(v_tenant, me.tenant_id)),
+                from public.sectors x where x.tenant_id = coalesce(v_tenant, me.tenant_id) and x.archived_at is null),
     'people', private.perf_rows(v_month, v_end, v_people),
     'trend', private.perf_trend(v_people, v_month, 6));
 end;

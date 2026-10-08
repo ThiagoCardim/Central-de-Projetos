@@ -847,6 +847,7 @@ function from(table: string) {
     order: () => q,
     eq: (col: string, val: any) => { if (!col.includes(".")) filters.push([col, val]); return q; },
     in: () => q,
+    is: () => q,
     not: (col: string, _op: string, val: string) => { const vals = val.replace(/[()]/g, "").split(","); filters.push([col, { notIn: vals }]); return q; },
     limit: () => q,
     single: () => { single = true; return q; },
