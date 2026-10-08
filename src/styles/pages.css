@@ -1096,7 +1096,7 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .mw-cal { border: 1px solid var(--border); border-radius: var(--r-card); background: var(--card); overflow: hidden; }
 .mw-cal__head { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--border); background: var(--surface); }
 .mw-cal__head span { padding: 8px; font-size: var(--fs-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); text-align: center; }
-.mw-week { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: 30px repeat(var(--lanes, 0), 22px) minmax(14px, 1fr); row-gap: 3px; min-height: 104px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.mw-week { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 3px; min-height: 104px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 .mw-week:last-child { border-bottom: 0; }
 .mw-day { grid-row: 1 / -1; position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 6px 8px; border: 0; border-left: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; cursor: pointer; text-align: left; transition: background var(--dur) var(--ease); }
 .mw-day:first-child { border-left: 0; }
@@ -1146,7 +1146,7 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
   .mw-item__side { opacity: 1; width: 100%; justify-content: flex-end; }
   .mw-item.is-done .mw-item__side { width: auto; }
   .mw-cards { grid-template-columns: 1fr; }
-  .mw-week { grid-template-rows: 26px repeat(var(--lanes, 0), 18px) minmax(10px, 1fr); min-height: 76px; }
+  .mw-week { min-height: 76px; }
   .mw-day { padding: 4px; flex-direction: column; align-items: center; }
   .mw-bar { height: 18px; line-height: 18px; font-size: 10px; padding: 0 4px; margin: 0 1px; }
   .mw-bar__proj { display: none; }
@@ -1243,3 +1243,34 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
   .tsum__bar { display: none; }
 }
 .home .metrics { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+
+/* Agenda: tarefas no calendário (minhas, da liderança e da equipe) */
+.mw-cal-bar__right { gap: var(--s2); flex-wrap: wrap; }
+.mw-legend i.is-lead { border-radius: 50%; background: var(--brand); }
+.mw-legend i.is-team { border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--text-3); }
+.mw-week { --head-h: 30px; --lane-h: 22px; --tail-h: 14px; }
+.mw-chips { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 2px 4px 0; pointer-events: none; }
+.mw-chip { pointer-events: auto; display: flex; align-items: center; gap: 5px; min-width: 0; height: 20px; padding: 0 6px; border: 0; border-radius: 5px;
+  background: var(--surface); color: var(--text); font: inherit; font-size: 11px; font-weight: 500; text-align: left; cursor: pointer; }
+.mw-chip:hover { background: var(--surface-hover); }
+.mw-chip:focus-visible { outline: none; box-shadow: var(--focus); }
+.mw-chip__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--brand); }
+.mw-chip.is-lead .mw-chip__dot { background: var(--brand); }
+.mw-chip.is-team .mw-chip__dot { box-shadow: inset 0 0 0 1.5px var(--text-3); }
+.mw-chip.is-late { background: var(--danger-pastel); color: var(--danger-text); }
+.mw-chip.is-late .mw-chip__dot { box-shadow: inset 0 0 0 1.5px var(--danger); }
+.mw-chip.is-late.is-lead .mw-chip__dot { background: var(--danger); }
+.mw-chip.is-done { color: var(--text-3); text-decoration: line-through; }
+.mw-chip.is-done .icon { flex: none; color: var(--success-text); }
+.mw-chip.is-more { color: var(--text-2); background: transparent; font-weight: 600; }
+.mw-chip__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mw-day__todo { display: none; }
+.mw-assign { margin-bottom: var(--s3); }
+.mw-item.is-team { background: var(--surface); }
+.mw-item.is-team.is-late { background: var(--danger-pastel); }
+.mw-item.is-team .avatar { flex: none; }
+@media (max-width: 767px) {
+  .mw-chips { display: none; }
+  .mw-day__todo { display: grid; }
+  .mw-week { --head-h: 26px; --lane-h: 18px; --tail-h: 10px; }
+}

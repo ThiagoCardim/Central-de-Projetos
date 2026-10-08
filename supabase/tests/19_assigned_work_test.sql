@@ -102,3 +102,12 @@ select tst.login('adm@hq'); set role authenticated;
 select tst.ok(jsonb_array_length(public.team_work_items()) = 2, 'Admin da unidade acompanha as tarefas da equipe');
 select tst.ok(jsonb_array_length(public.assignable_people()) = 3, 'Admin pode atribuir para líder e colaboradores');
 reset role;
+
+-- Líder se inclui na tarefa: a dele é pessoal, sem aviso
+select tst.login('lid@hq'); set role authenticated;
+select tst.ok(public.assign_work_items(array[tst.uid('lid@hq'), tst.uid('arq@hq')], 'Visita técnica', current_date + 1) = 2, 'Cria para si e para a equipe');
+select tst.ok((select assigned_by is null from public.work_items where title = 'Visita técnica' and owner_id = tst.uid('lid@hq')), 'A do líder é pessoal');
+select tst.ok((select assigned_by = tst.uid('lid@hq') from public.work_items where title = 'Visita técnica' and owner_id = tst.uid('arq@hq')), 'A da equipe registra quem atribuiu');
+select tst.ok((select count(*) from jsonb_array_elements(public.my_work_items()) x where x ->> 'title' = 'Visita técnica') = 1, 'Aparece nas tarefas do líder');
+reset role;
+select tst.ok((select count(*) from public.notifications where kind = 'work_assigned' and recipient_profile_id = tst.uid('lid@hq')) = 0, 'Líder não avisa a si mesmo');

@@ -17,7 +17,7 @@ import { addDays, diffDays, doneDay, teamStats } from "@/pages/work/workStats";
    Tarefas da equipe — a liderança agenda tarefas e acompanha a execução
    ========================================================================== */
 type Tone = "danger" | "warning" | "neutral" | "success";
-function workState(w: WorkItem, today: string): { text: string; tone: Tone; key: "late" | "today" | "upcoming" | "done" | "done_late" } {
+export function workState(w: WorkItem, today: string): { text: string; tone: Tone; key: "late" | "today" | "upcoming" | "done" | "done_late" } {
   const dd = doneDay(w);
   if (dd) {
     const late = diffDays(w.due_date, dd);
@@ -34,7 +34,9 @@ function workState(w: WorkItem, today: string): { text: string; tone: Tone; key:
 
 type StatusFilter = "open" | "late" | "done" | "all";
 
-export function TeamWorkView({ today, onOpen }: { today: string; onOpen: (s: { id: string; project_id: string }) => void }) {
+export function TeamWorkView({ today, onOpen, newDate, onNewDone, onChanged }: {
+  today: string; onOpen: (s: { id: string; project_id: string }) => void; newDate?: string | null; onNewDone?: () => void; onChanged?: () => void;
+}) {
   const toast = useToast();
   const { profile } = useAuth();
   const q = useAsync(() => api.teamWorkItems(), []);
@@ -46,6 +48,8 @@ export function TeamWorkView({ today, onOpen }: { today: string; onOpen: (s: { i
   const [mine, setMine] = useState<"all" | "mine">("all");
   const [editing, setEditing] = useState<WorkItem | "new" | null>(useSearchParam("nova") ? "new" : null);
   const [removing, setRemoving] = useState<WorkItem | null>(null);
+  useEffect(() => { if (newDate) setEditing("new"); }, [newDate]);
+  const closeModal = () => { setEditing(null); onNewDone?.(); };
   const [busy, setBusy] = useState(false);
 
   const scoped = items.filter((w) => mine === "all" || w.assigned_by?.id === profile?.id);
@@ -69,7 +73,7 @@ export function TeamWorkView({ today, onOpen }: { today: string; onOpen: (s: { i
 
   async function remove(w: WorkItem) {
     setBusy(true);
-    try { await api.deleteWorkItem(w.id); setItems((xs) => xs.filter((x) => x.id !== w.id)); toast("Tarefa excluída."); setRemoving(null); }
+    try { await api.deleteWorkItem(w.id); setItems((xs) => xs.filter((x) => x.id !== w.id)); toast("Tarefa excluída."); setRemoving(null); onChanged?.(); }
     catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
   }
 
@@ -162,8 +166,9 @@ export function TeamWorkView({ today, onOpen }: { today: string; onOpen: (s: { i
       </Card>
 
       <AssignWorkModal open={!!editing} item={editing === "new" ? null : editing} people={peopleQ.data ?? []} today={today}
-        onClose={() => setEditing(null)}
-        onSaved={(msg) => { setEditing(null); toast(msg); void q.reload(); }} />
+        defaultDate={newDate ?? null}
+        onClose={closeModal}
+        onSaved={(msg) => { closeModal(); toast(msg); void q.reload(); onChanged?.(); }} />
       <ConfirmDialog open={!!removing} danger title={`Excluir “${removing?.title ?? ""}”?`}
         message={`A tarefa sai da lista de ${removing?.owner?.name ?? "quem é responsável"}.`} confirmLabel="Excluir tarefa" loading={busy}
         onCancel={() => setRemoving(null)} onConfirm={() => removing && remove(removing)} />
@@ -174,10 +179,11 @@ export function TeamWorkView({ today, onOpen }: { today: string; onOpen: (s: { i
 /* ==========================================================================
    Nova tarefa / editar
    ========================================================================== */
-function AssignWorkModal({ open, item, people, today, onClose, onSaved }: {
-  open: boolean; item: WorkItem | null; people: TeamPerson[]; today: string; onClose: () => void; onSaved: (msg: string) => void;
+function AssignWorkModal({ open, item, people, today, defaultDate, onClose, onSaved }: {
+  open: boolean; item: WorkItem | null; people: TeamPerson[]; today: string; defaultDate?: string | null; onClose: () => void; onSaved: (msg: string) => void;
 }) {
   const toast = useToast();
+  const { profile } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [owners, setOwners] = useState<string[]>([]);
@@ -191,9 +197,9 @@ function AssignWorkModal({ open, item, people, today, onClose, onSaved }: {
   useEffect(() => {
     if (!open) return;
     setTitle(item?.title ?? ""); setDescription(item?.description ?? "");
-    setOwners([]); setOwner(item?.owner?.id ?? ""); setDue(item?.due_date ?? today);
+    setOwners([]); setOwner(item?.owner?.id ?? ""); setDue(item?.due_date ?? defaultDate ?? today);
     setProject(item?.project_id ?? ""); setTask(item?.project_task_id ?? ""); setTried(false);
-  }, [open, item, today]);
+  }, [open, item, today, defaultDate]);
 
   const projectsQ = useAsync(() => (open ? api.listProjects() : Promise.resolve(null)), [open]);
   const scheduleQ = useAsync(() => (open && project ? api.getProjectSchedule(project) : Promise.resolve(null)), [open, project]);
@@ -209,6 +215,7 @@ function AssignWorkModal({ open, item, people, today, onClose, onSaved }: {
   }, [scheduleQ.data, task]);
   const peopleOptions = people.map((p) => ({ value: p.id, label: p.name, hint: p.role === "leader" ? "Líder" : p.role === "unit_admin" ? "Admin da unidade" : p.employment_type === "pj" ? "PJ" : "CLT" }));
   if (item?.owner && !people.some((p) => p.id === item.owner!.id)) peopleOptions.unshift({ value: item.owner.id, label: item.owner.name, hint: "" });
+  if (!item && profile) peopleOptions.unshift({ value: profile.id, label: `${profile.name} (eu)`, hint: "Fica nas suas tarefas" });
 
   const who = item ? (owner ? [owner] : []) : owners;
   const errors = { title: !title.trim() ? "Descreva a tarefa." : null, who: who.length === 0 ? "Escolha quem vai fazer." : null, due: !due ? "Informe a data." : null };
@@ -247,7 +254,7 @@ function AssignWorkModal({ open, item, people, today, onClose, onSaved }: {
           {({ id }) => <textarea id={id} className="input textarea" rows={3} maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />}
         </Field>
         <Field label={item ? "Responsável" : "Responsáveis"} required error={tried ? errors.who : null}
-          hint={item ? undefined : "Escolha uma ou mais pessoas: cada uma recebe a sua tarefa."}>
+          hint={item ? undefined : "Escolha uma ou mais pessoas, incluindo você: cada uma recebe a sua tarefa."}>
           {() => item
             ? <OptionPicker label="Responsável" value={owner} options={peopleOptions} onChange={setOwner} invalid={tried && !!errors.who} placeholder="Escolha a pessoa" />
             : <OptionPicker label="Responsáveis" multiple value={owners} options={peopleOptions} onChange={setOwners} invalid={tried && !!errors.who}

@@ -228,7 +228,7 @@ function rpc(name: string, _args?: any) {
       seedWorkItems();
       (_args.p_owners as string[]).forEach((o) => { const t = TASKS.find((x) => x.id === _args.p_task);
         WORK_ITEMS.push({ id: `wi${Date.now()}${o}`, owner_id: o, title: _args.p_title, description: _args.p_description, due_date: _args.p_due, done_at: null,
-          project_task_id: _args.p_task, project_id: t?.project_id ?? _args.p_project, created_at: new Date().toISOString(), assigned_by: me()?.id, assigned_at: new Date().toISOString() }); });
+          project_task_id: _args.p_task, project_id: t?.project_id ?? _args.p_project, created_at: new Date().toISOString(), assigned_by: o === me()?.id ? null : me()?.id, assigned_at: o === me()?.id ? null : new Date().toISOString() }); });
       return delay({ data: (_args.p_owners as string[]).length, error: null }, 250);
     }
     case "my_steps": return delay({ data: mySteps(), error: null }, 200);
@@ -663,6 +663,9 @@ function seedWorkItems() {
   add("Revisar pranchas elétricas", d(-2), null, at(-2, 2), "p-pj", "p-ld");
   add("Compatibilizar quadro de cargas", d(2), null, null, "p-pj", "p-ua");
   add("Organizar arquivos do Revit", d(-6), null, at(-5), "p-c1", "p-ld");
+  add("Revisar propostas comerciais", d(0), null, null, "p-ld");
+  add("Visita técnica na obra", d(2), null, null, "p-ld");
+  add("Reunião de feedback com a equipe", d(-1), null, at(-1), "p-ld");
 }
 function workJson(w: any) {
   const prof = (id: string | null) => profiles.find((x) => x.id === id);

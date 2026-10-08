@@ -4,7 +4,7 @@ import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
 import { useNavigate, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
 import {
-  Badge, Button, Card, EmptyState, Input, LoadError, MetricCard, ProgressBar, Segmented, Skeleton, StatusBadge, Tabs,
+  Avatar, Badge, Button, Card, EmptyState, Input, LoadError, MetricCard, ProgressBar, Segmented, Skeleton, StatusBadge, Tabs,
 } from "@/components/ui/primitives";
 import { ConfirmDialog, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
@@ -14,7 +14,7 @@ import { cx, formatDate, formatToday, plural } from "@/utils/format";
 import { todayISO } from "@/pages/schedule/model";
 import { useAuth } from "@/services/auth";
 import { can } from "@/permissions";
-import { TeamWorkView } from "@/pages/work/TeamWork";
+import { TeamWorkView, workState } from "@/pages/work/TeamWork";
 
 /* ==========================================================================
    Datas e leitura das etapas
@@ -89,6 +89,9 @@ export function MyWorkPage() {
   const itemsQ = useAsync(() => api.listWorkItems(), []);
   const [items, setItems] = useState<WorkItem[]>([]);
   useEffect(() => { if (itemsQ.data) setItems(itemsQ.data); }, [itemsQ.data]);
+  const teamQ = useAsync(() => (isLead ? api.teamWorkItems() : Promise.resolve(null)), [isLead]);
+  const [assignDate, setAssignDate] = useState<string | null>(null);
+  useEffect(() => { if (tab === "agenda" && isLead) void teamQ.reload(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirming, setConfirming] = useState<MyStep | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const today = todayISO();
@@ -175,8 +178,10 @@ export function MyWorkPage() {
           <>
             {tab === "hoje" && <TodayView steps={all} items={items} today={today} actions={items$} stepActions={stepActions} onOpen={openStep} />}
             {tab === "etapas" && <StepsView steps={all} today={today} stepActions={stepActions} onOpen={openStep} />}
-            {tab === "agenda" && <AgendaView steps={all} items={items} today={today} actions={items$} onOpen={openStep} />}
-            {tab === "equipe" && isLead && <TeamWorkView today={today} onOpen={openStep} />}
+            {tab === "agenda" && <AgendaView steps={all} items={items} team={isLead ? teamQ.data ?? [] : null} today={today} actions={items$} onOpen={openStep}
+              onAssign={isLead ? (d) => { setAssignDate(d); setTab("equipe"); } : undefined} />}
+            {tab === "equipe" && isLead && <TeamWorkView today={today} onOpen={openStep} newDate={assignDate} onNewDone={() => setAssignDate(null)}
+              onChanged={() => { void itemsQ.reload(); void teamQ.reload(); }} />}
           </>
         )}
       <ConfirmDialog open={!!confirming} title={`Concluir “${confirming?.name ?? ""}”?`}
@@ -474,14 +479,20 @@ function StepCard({ step: s, today, actions, onOpen }: { step: MyStep; today: st
 /* ==========================================================================
    Agenda (mês e lista)
    ========================================================================== */
-function AgendaView({ steps, items, today, actions, onOpen }: {
-  steps: MyStep[]; items: WorkItem[]; today: string; actions: ItemActions; onOpen: (s: { id: string; project_id: string }) => void;
+type AgendaScope = "all" | "mine" | "team";
+type OpenFn = (s: { id: string; project_id: string }) => void;
+
+function AgendaView({ steps, items, team, today, actions, onOpen, onAssign }: {
+  steps: MyStep[]; items: WorkItem[]; team: WorkItem[] | null; today: string; actions: ItemActions; onOpen: OpenFn; onAssign?: (day: string) => void;
 }) {
   const mobile = useIsMobile();
   const [mode, setMode] = useState<"month" | "list">(mobile ? "list" : "month");
   const [month, setMonth] = useState(() => today.slice(0, 8) + "01");
   const [day, setDay] = useState(today);
-  const dated = steps.filter((s) => stepStart(s) && stepEnd(s));
+  const [scope, setScope] = useState<AgendaScope>("all");
+  const dated = scope === "team" ? [] : steps.filter((s) => stepStart(s) && stepEnd(s));
+  const mine = scope === "team" ? [] : items;
+  const teamItems = team && scope !== "mine" ? team : [];
 
   return (
     <div className="stack">
@@ -494,30 +505,63 @@ function AgendaView({ steps, items, today, actions, onOpen }: {
             <Button size="sm" variant="secondary" onClick={() => { setMonth(today.slice(0, 8) + "01"); setDay(today); }}>Hoje</Button>
           </div>
         )}
-        <Segmented<"month" | "list"> label="Visualização da agenda" value={mode} onChange={setMode}
-          options={[{ value: "month", label: "Mês" }, { value: "list", label: "Lista" }]} />
+        <div className="row mw-cal-bar__right">
+          {team && (
+            <Segmented<AgendaScope> label="O que mostrar" value={scope} onChange={setScope}
+              options={[{ value: "all", label: "Tudo" }, { value: "mine", label: "Minhas" }, { value: "team", label: "Da equipe" }]} />
+          )}
+          <Segmented<"month" | "list"> label="Visualização da agenda" value={mode} onChange={setMode}
+            options={[{ value: "month", label: "Mês" }, { value: "list", label: "Lista" }]} />
+        </div>
       </div>
       <div className="mw-legend" aria-hidden="true">
-        <span><i className="is-in_progress" /> Em andamento</span><span><i className="is-upcoming" /> Próxima</span>
-        <span><i className="is-waiting" /> Aguardando</span><span><i className="is-overdue" /> Atrasada</span><span><i className="is-done" /> Concluída</span>
-        <span><i className="is-todo" /> Tarefa do dia</span>
+        {scope !== "team" && <>
+          <span><i className="is-in_progress" /> Etapa em andamento</span><span><i className="is-upcoming" /> Próxima</span>
+          <span><i className="is-waiting" /> Aguardando</span><span><i className="is-overdue" /> Atrasada</span><span><i className="is-done" /> Concluída</span>
+          <span><i className="is-todo" /> Minha tarefa</span><span><i className="is-lead" /> Da liderança</span>
+        </>}
+        {team && scope !== "mine" && <span><i className="is-team" /> Agendada para a equipe</span>}
       </div>
       {mode === "month" ? (
         <div className="mw-cal-wrap">
-          <MonthGrid month={month} steps={dated} items={items} today={today} selected={day} onSelect={setDay} onOpen={onOpen} />
-          <DayPanel day={day} steps={dated} allSteps={steps} items={items} today={today} actions={actions} onOpen={onOpen} />
+          <MonthGrid month={month} steps={dated} items={mine} team={teamItems} today={today} selected={day} onSelect={setDay} onOpen={onOpen} />
+          <DayPanel day={day} steps={dated} allSteps={steps} items={mine} team={team ? teamItems : null} today={today} actions={actions} onOpen={onOpen}
+            onAssign={onAssign} showMine={scope !== "team"} />
         </div>
       ) : (
-        <AgendaList steps={dated} items={items} today={today} actions={actions} onOpen={onOpen} />
+        <AgendaList steps={dated} items={mine} team={teamItems} today={today} actions={actions} onOpen={onOpen} />
       )}
     </div>
   );
 }
 
+/** Tarefa agendada para alguém da equipe (visão da liderança). */
+function TeamItemRow({ item, today, onOpen }: { item: WorkItem; today: string; onOpen: OpenFn }) {
+  const st = workState(item, today);
+  return (
+    <li className={cx("mw-item is-team", item.done_at && "is-done", st.key === "late" && "is-late")}>
+      {item.owner ? <Avatar name={item.owner.name} src={item.owner.avatar_url} size="sm" /> : <span className="mw-dot" />}
+      <span className="mw-item__main">
+        <span className="mw-item__title">{item.title}</span>
+        <span className="mw-item__meta">
+          <span>{item.owner?.name ?? "Equipe"}</span>
+          <span className={cx("mw-dl", `is-${st.tone}`)}>{st.text}</span>
+          {item.project_id && (item.project_code || item.project_name) && (
+            <button type="button" className="mw-link" onClick={() => onOpen({ id: item.project_task_id ?? "", project_id: item.project_id! })}>
+              {[item.project_code ?? item.project_name, item.step_name].filter(Boolean).join(" · ")}
+            </button>
+          )}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+const firstNameOf = (n: string) => n.split(" ")[0];
 const shiftMonth = (m: string, n: number) => { const d = parse(m); d.setMonth(d.getMonth() + n); return iso(d).slice(0, 8) + "01"; };
 
-function MonthGrid({ month, steps, items, today, selected, onSelect, onOpen }: {
-  month: string; steps: MyStep[]; items: WorkItem[]; today: string; selected: string;
+function MonthGrid({ month, steps, items, team, today, selected, onSelect, onOpen }: {
+  month: string; steps: MyStep[]; items: WorkItem[]; team: WorkItem[]; today: string; selected: string;
   onSelect: (d: string) => void; onOpen: (s: { id: string; project_id: string }) => void;
 }) {
   const first = parse(month);
@@ -546,10 +590,11 @@ function MonthGrid({ month, steps, items, today, selected, onSelect, onOpen }: {
         });
         const hidden = Array.from({ length: 7 }, (_, c) => placed.filter((g) => g.lane >= MAX_LANES && g.c0 <= c && g.c1 >= c).length);
         return (
-          <div key={w} className="mw-week" role="row" style={{ ["--lanes" as string]: Math.min(lanes.length, MAX_LANES) }}>
+          <div key={w} className="mw-week" role="row"
+            style={{ gridTemplateRows: ["var(--head-h)", ...Array(Math.min(lanes.length, MAX_LANES)).fill("var(--lane-h)"), "minmax(var(--tail-h), auto)"].join(" ") }}>
             {Array.from({ length: 7 }, (_, c) => {
               const d = addDays(ws, c);
-              const todos = items.filter((i) => i.due_date === d);
+              const todos = [...items, ...team].filter((i) => i.due_date === d);
               const open = todos.filter((i) => !i.done_at).length;
               return (
                 <button key={d} type="button" role="gridcell" aria-selected={d === selected}
@@ -560,6 +605,28 @@ function MonthGrid({ month, steps, items, today, selected, onSelect, onOpen }: {
                   {todos.length > 0 && <span className={cx("mw-day__todo", open === 0 && "is-done")}>{open > 0 ? open : <Icon name="check" size={10} />}</span>}
                   {hidden[c] > 0 && <span className="mw-day__more">+{hidden[c]}</span>}
                 </button>
+              );
+            })}
+            {Array.from({ length: 7 }, (_, c) => {
+              const d = addDays(ws, c);
+              const mineDay = items.filter((i) => i.due_date === d);
+              const teamDay = team.filter((i) => i.due_date === d);
+              const chips = [...mineDay.map((i) => ({ i, team: false })), ...teamDay.map((i) => ({ i, team: true }))]
+                .sort((a, b) => Number(!!a.i.done_at) - Number(!!b.i.done_at));
+              if (chips.length === 0) return null;
+              const MAX = 3;
+              return (
+                <div key={`c${d}`} className="mw-chips" style={{ gridColumn: c + 1, gridRow: Math.min(lanes.length, MAX_LANES) + 2 }}>
+                  {chips.slice(0, MAX).map(({ i, team: t }) => (
+                    <button key={i.id} type="button" onClick={() => onSelect(d)}
+                      className={cx("mw-chip", t ? "is-team" : i.assigned_by ? "is-lead" : "is-mine", i.done_at && "is-done", !i.done_at && i.due_date < today && "is-late")}
+                      title={`${i.title}${t && i.owner ? ` · ${i.owner.name}` : i.assigned_by ? ` · da liderança (${i.assigned_by.name})` : ""}`}>
+                      {i.done_at ? <Icon name="check" size={10} /> : <span className="mw-chip__dot" aria-hidden="true" />}
+                      <span className="mw-chip__text">{t && i.owner ? `${firstNameOf(i.owner.name)}: ` : ""}{i.title}</span>
+                    </button>
+                  ))}
+                  {chips.length > MAX && <button type="button" className="mw-chip is-more" onClick={() => onSelect(d)}>+{chips.length - MAX} tarefas</button>}
+                </div>
               );
             })}
             {placed.filter((g) => g.lane < MAX_LANES).map((g) => (
@@ -577,22 +644,33 @@ function MonthGrid({ month, steps, items, today, selected, onSelect, onOpen }: {
   );
 }
 
-function DayPanel({ day, steps, allSteps, items, today, actions, onOpen }: {
-  day: string; steps: MyStep[]; allSteps: MyStep[]; items: WorkItem[]; today: string; actions: ItemActions; onOpen: (s: { id: string; project_id: string }) => void;
+function DayPanel({ day, steps, allSteps, items, team, today, actions, onOpen, onAssign, showMine }: {
+  day: string; steps: MyStep[]; allSteps: MyStep[]; items: WorkItem[]; team: WorkItem[] | null; today: string; actions: ItemActions;
+  onOpen: OpenFn; onAssign?: (day: string) => void; showMine: boolean;
 }) {
+  const teamDay = (team ?? []).filter((i) => i.due_date === day);
   const active = steps.filter((s) => stepStart(s)! <= day && stepEnd(s)! >= day);
   const ending = active.filter((s) => s.planned_end_date === day && !isDone(s));
   const todos = items.filter((i) => i.due_date === day);
   const byId = new Map(allSteps.map((s) => [s.id, s]));
   return (
     <Card className="mw-daypanel" title={cap(DAY_FMT.format(parse(day)))}>
-      {day >= today && <QuickAdd steps={allSteps.filter((s) => !isDone(s))} today={today} onAdd={actions.add} date={day} />}
-      <ItemGroup title="Tarefas" count={todos.length}>
-        {todos.length === 0 ? <p className="subtext mw-empty">Nenhuma tarefa neste dia.</p> :
+      {showMine && day >= today && <QuickAdd steps={allSteps.filter((s) => !isDone(s))} today={today} onAdd={actions.add} date={day} />}
+      {onAssign && day >= today && (
+        <Button variant="outline" size="sm" icon="users" className="mw-assign" onClick={() => onAssign(day)}>Agendar tarefa para a equipe</Button>
+      )}
+      {showMine && <ItemGroup title="Minhas tarefas" count={todos.length}>
+        {todos.length === 0 ? <p className="subtext mw-empty">Nenhuma tarefa sua neste dia.</p> :
           todos.map((i) => <ItemRow key={i.id} item={i} step={byId.get(i.project_task_id ?? "")} today={today} actions={actions} onOpen={onOpen}
             late={!i.done_at && i.due_date < today} />)}
-      </ItemGroup>
-      <ItemGroup title="Etapas neste dia" count={active.length}>
+      </ItemGroup>}
+      {team && (
+        <ItemGroup title="Agendadas para a equipe" count={teamDay.length}>
+          {teamDay.length === 0 ? <p className="subtext mw-empty">Nenhuma tarefa da equipe neste dia.</p> :
+            teamDay.map((i) => <TeamItemRow key={i.id} item={i} today={today} onOpen={onOpen} />)}
+        </ItemGroup>
+      )}
+      {showMine && <ItemGroup title="Etapas neste dia" count={active.length}>
         {active.length === 0 ? <p className="subtext mw-empty">Nenhuma etapa sua neste dia.</p> : active.map((s) => (
           <li key={s.id} className="mw-item">
             <span className={cx("mw-dot", `is-${bucketOf(s, today)}`)} aria-hidden="true" />
@@ -603,14 +681,15 @@ function DayPanel({ day, steps, allSteps, items, today, actions, onOpen }: {
             </button>
           </li>
         ))}
-      </ItemGroup>
+      </ItemGroup>}
     </Card>
   );
 }
 
-function AgendaList({ steps, items, today, actions, onOpen }: {
-  steps: MyStep[]; items: WorkItem[]; today: string; actions: ItemActions; onOpen: (s: { id: string; project_id: string }) => void;
+function AgendaList({ steps, items, team, today, actions, onOpen }: {
+  steps: MyStep[]; items: WorkItem[]; team: WorkItem[]; today: string; actions: ItemActions; onOpen: OpenFn;
 }) {
+  const lateTeam = team.filter((i) => !i.done_at && i.due_date < today);
   const byId = new Map(steps.map((s) => [s.id, s]));
   const until = addDays(today, 45);
   const lateSteps = steps.filter((s) => isOverdue(s, today));
@@ -619,12 +698,13 @@ function AgendaList({ steps, items, today, actions, onOpen }: {
   for (let d = today; d <= until; d = addDays(d, 1)) days.push(d);
   return (
     <div className="mw-agenda">
-      {(lateSteps.length > 0 || lateItems.length > 0) && (
+      {(lateSteps.length > 0 || lateItems.length > 0 || lateTeam.length > 0) && (
         <section className="mw-aday is-late">
           <h3 className="mw-aday__title">Em atraso</h3>
           <ul className="mw-items">
             {lateSteps.map((s) => <AgendaStep key={s.id} s={s} today={today} label={`entrega era ${formatDate(s.planned_end_date)}`} onOpen={onOpen} />)}
             {lateItems.map((i) => <ItemRow key={i.id} item={i} step={byId.get(i.project_task_id ?? "")} today={today} actions={actions} onOpen={onOpen} late />)}
+            {lateTeam.map((i) => <TeamItemRow key={i.id} item={i} today={today} onOpen={onOpen} />)}
           </ul>
         </section>
       )}
@@ -632,7 +712,8 @@ function AgendaList({ steps, items, today, actions, onOpen }: {
         const ends = steps.filter((s) => !isDone(s) && s.planned_end_date === d);
         const starts = steps.filter((s) => !isDone(s) && !s.actual_start_date && s.planned_start_date === d);
         const todos = items.filter((i) => i.due_date === d);
-        if (ends.length + starts.length + todos.length === 0) return null;
+        const teamDay = team.filter((i) => i.due_date === d);
+        if (ends.length + starts.length + todos.length + teamDay.length === 0) return null;
         return (
           <section key={d} className={cx("mw-aday", d === today && "is-today")}>
             <h3 className="mw-aday__title">{d === today ? `Hoje · ${DAY_FMT.format(parse(d))}` : cap(DAY_FMT.format(parse(d)))}</h3>
@@ -640,6 +721,7 @@ function AgendaList({ steps, items, today, actions, onOpen }: {
               {ends.map((s) => <AgendaStep key={`e${s.id}`} s={s} today={today} label="entrega" onOpen={onOpen} />)}
               {starts.map((s) => <AgendaStep key={`s${s.id}`} s={s} today={today} label="começa" onOpen={onOpen} />)}
               {todos.map((i) => <ItemRow key={i.id} item={i} step={byId.get(i.project_task_id ?? "")} today={today} actions={actions} onOpen={onOpen} />)}
+              {teamDay.map((i) => <TeamItemRow key={i.id} item={i} today={today} onOpen={onOpen} />)}
             </ul>
           </section>
         );
