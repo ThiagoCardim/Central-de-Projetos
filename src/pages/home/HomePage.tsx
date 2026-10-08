@@ -149,7 +149,7 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
 /** Minhas etapas: coluna principal para colaboradores, lateral para gestores. */
 function MyTasksCard({ mine }: { mine: NonNullable<HomeDashboard["my_work"]> }) {
   return (
-    <Card title="Minhas etapas" count={mine.counts.open || undefined} flush>
+    <Card title="Minhas etapas" count={mine.counts.open || undefined} flush action={<Link to="/minhas-tarefas" className="link card__link">Minhas tarefas</Link>}>
       {mine.tasks.length ? (
         <TaskList tasks={mine.tasks} />
       ) : (

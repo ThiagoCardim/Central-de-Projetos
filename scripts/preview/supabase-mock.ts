@@ -221,6 +221,7 @@ function rpc(name: string, _args?: any) {
     case "reopen_task": return delay({ data: { impacted_count: 4 }, error: null }, 300);
     case "reschedule_task_with_reason": return delay({ data: { impacted_count: 3 }, error: null }, 300);
     case "client_schedule_changes": return delay({ data: [...CLIENT_CHANGES].sort((a, b) => b.changed_at.localeCompare(a.changed_at)), error: null }, 150);
+    case "my_steps": return delay({ data: mySteps(), error: null }, 200);
     case "my_notifications": return delay({ data: NOTIFS, error: null }, 100);
     case "automation_save": {
       const pl = _args.p_payload;
@@ -616,6 +617,35 @@ function alertsView() {
   });
 }
 
+function mySteps() {
+  const p = me(); if (!p) return [];
+  return TASKS.filter((t) => t.responsible_user_id === p.id && t.status !== "cancelled").map((t) => {
+    const pr = PROJECTS.find((x) => x.id === t.project_id);
+    const tr = TRACKS.find((x) => x.id === t.schedule_track_id);
+    return { id: t.id, name: t.name, status: t.status, project_id: t.project_id, project_name: pr?.name, project_code: pr?.code ?? null,
+      client_name: pr?.client?.name ?? null, service_name: tr?.project_service.service.name,
+      planned_start_date: t.planned_start_date, planned_end_date: t.planned_end_date, planned_duration_days: t.planned_duration_days, duration_type: t.duration_type,
+      actual_start_date: t.actual_start_date, actual_end_date: t.actual_end_date, start_not_before: t.start_not_before, waiting_reason: t.waiting_reason,
+      reopen_count: t.reopen_count ?? 0, status_changed_at: t.status_changed_at };
+  }).sort((a, b) => (a.planned_end_date ?? "9999").localeCompare(b.planned_end_date ?? "9999"));
+}
+const WORK_ITEMS: any[] = [];
+function seedWorkItems() {
+  if (WORK_ITEMS.length) return;
+  const mine = TASKS.filter((t) => t.responsible_user_id === "p-c1" && t.status !== "completed");
+  const at = (n: number, h = 0) => new Date(Date.now() + n * 86400000 + h * 3600000).toISOString();
+  const add = (title: string, due: string, task: any = null, done_at: string | null = null) =>
+    WORK_ITEMS.push({ id: `wi${WORK_ITEMS.length + 1}`, owner_id: "p-c1", title, due_date: due, done_at, project_task_id: task?.id ?? null, project_id: task?.project_id ?? null, created_at: at(-3) });
+  add("Enviar planta revisada para o cliente", d(-2), mine[0]);
+  add("Ligar para a construtora sobre o levantamento", d(-1));
+  add("Revisar cortes e fachadas do estudo", d(0), mine[0]);
+  add("Ajustar layout da cozinha conforme reunião", d(0), mine[1]);
+  add("Separar referências para a renderização", d(0), null);
+  add("Conferir medidas do levantamento", d(0), mine[0], at(0, -2));
+  add("Reunião de alinhamento com a engenharia", d(1));
+  add("Preparar prancha de apresentação", d(3), mine[1]);
+}
+
 function visibleRows(table: string): any[] {
   const p = me();
   if (!p) return [];
@@ -632,6 +662,7 @@ function visibleRows(table: string): any[] {
   if (table === "task_dependencies") return DEPS;
   if (table === "task_changes") return CHANGES;
   if (table === "task_notes") return NOTES;
+  if (table === "work_items") { seedWorkItems(); return WORK_ITEMS.filter((w) => w.owner_id === p.id).sort((a, b) => a.due_date.localeCompare(b.due_date)); }
   if (table === "task_alerts") return alertsView().filter((a) => {
     if (p.role === "collaborator") return a.responsible_user_id === p.id;
     return true;
@@ -668,7 +699,7 @@ function visibleRows(table: string): any[] {
 
 function from(table: string) {
   const filters: [string, any][] = [];
-  let mode: "select" | "insert" | "update" = "select";
+  let mode: "select" | "insert" | "update" | "delete" = "select";
   let single = false;
   let payload: any = null;
   const q: any = {
@@ -681,13 +712,24 @@ function from(table: string) {
     single: () => { single = true; return q; },
     maybeSingle: () => { single = true; return q; },
     insert: (row: any) => { mode = "insert"; payload = row; return q; },
-    update: () => { mode = "update"; return q; },
+    update: (patch: any) => { mode = "update"; payload = patch; return q; },
+    delete: () => { mode = "delete"; return q; },
     then: (resolve: any, reject: any) => {
       let rows = visibleRows(table).filter((r) => filters.every(([c, v]) => (v && typeof v === "object" && v.notIn) ? !v.notIn.includes(r[c]) : r[c] === v));
       if (mode === "insert" && table === "task_library" && single) {
         const item = { id: `lib-new-${Date.now()}`, description: null, family_id: null, active: true, created_at: new Date().toISOString(), sort_order: 9999, ...payload };
         LIBRARY.push(item);
         return delay({ data: item, error: null }).then(resolve, reject);
+      }
+      if (table === "work_items" && mode !== "select") {
+        if (mode === "insert") {
+          const task = TASKS.find((t) => t.id === payload.project_task_id);
+          const item = { id: `wi${Date.now()}`, owner_id: me()?.id, done_at: null, created_at: new Date().toISOString(), ...payload, project_id: task?.project_id ?? null };
+          WORK_ITEMS.push(item);
+          return delay({ data: item, error: null }, 150).then(resolve, reject);
+        }
+        rows.forEach((r) => { if (mode === "update") Object.assign(r, payload); else WORK_ITEMS.splice(WORK_ITEMS.indexOf(r), 1); });
+        return delay({ data: null, error: null }, 150).then(resolve, reject);
       }
       const result = mode !== "select" ? { data: null, error: null } : { data: single ? rows[0] ?? null : rows, error: null };
       return delay(result).then(resolve, reject);

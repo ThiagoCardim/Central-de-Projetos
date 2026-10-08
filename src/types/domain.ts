@@ -352,6 +352,22 @@ export interface ProjectSchedule {
   dependencies: TaskDependency[];
 }
 
+/** Etapa sob minha responsabilidade (Minhas tarefas). */
+export interface MyStep {
+  id: string; name: string; status: TaskStatus;
+  project_id: string; project_name: string; project_code: string | null; client_name: string | null;
+  service_name: string;
+  planned_start_date: string | null; planned_end_date: string | null; planned_duration_days: number | null; duration_type: DurationType;
+  actual_start_date: string | null; actual_end_date: string | null; start_not_before: string | null;
+  waiting_reason: string | null; reopen_count: number; status_changed_at: string;
+}
+
+/** Tarefa do dia (checklist pessoal). */
+export interface WorkItem {
+  id: string; title: string; due_date: string; done_at: string | null;
+  project_task_id: string | null; project_id: string | null; created_at: string;
+}
+
 /** Observação de uma etapa (registro com autor e data). */
 export interface TaskNote { id: string; body: string; created_at: string; author: { name: string } | null }
 

@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -269,6 +269,30 @@ export const api = {
       tasks: tasks.data as unknown as ScheduleTask[],
       dependencies: (deps.data ?? []).map(({ task: _t, ...d }) => d) as unknown as TaskDependency[],
     };
+  },
+  // ---------- Minhas tarefas ----------
+  mySteps: () => rpc<MyStep[]>("my_steps", { p_done_since: null }),
+  async listWorkItems(): Promise<WorkItem[]> {
+    const { data, error } = await supabase.from("work_items")
+      .select("id, title, due_date, done_at, project_task_id, project_id, created_at")
+      .order("due_date").order("created_at").limit(1000);
+    if (error) throw toUserError(error);
+    return data as WorkItem[];
+  },
+  async addWorkItem(input: { title: string; due_date: string; project_task_id?: string | null }): Promise<WorkItem> {
+    const { data, error } = await supabase.from("work_items")
+      .insert({ title: input.title.trim(), due_date: input.due_date, project_task_id: input.project_task_id || null })
+      .select("id, title, due_date, done_at, project_task_id, project_id, created_at").single();
+    if (error) throw toUserError(error);
+    return data as WorkItem;
+  },
+  async updateWorkItem(id: string, patch: Partial<Pick<WorkItem, "title" | "due_date" | "done_at">>): Promise<void> {
+    const { error } = await supabase.from("work_items").update(patch).eq("id", id);
+    if (error) throw toUserError(error);
+  },
+  async deleteWorkItem(id: string): Promise<void> {
+    const { error } = await supabase.from("work_items").delete().eq("id", id);
+    if (error) throw toUserError(error);
   },
   async taskNotes(taskId: string): Promise<TaskNote[]> {
     const { data, error } = await supabase.from("task_notes")

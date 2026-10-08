@@ -80,13 +80,15 @@ function SessionActions() {
   );
 }
 
+const MOBILE_LABEL: Record<string, string> = { "Controle de Acessos": "Acessos", "Minhas tarefas": "Tarefas" };
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const { profile, permissions } = useAuth();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsedState] = useState(() => { try { return localStorage.getItem("yc-sidebar") === "collapsed"; } catch { return false; } });
   const setCollapsed = (v: boolean) => { setCollapsedState(v); try { localStorage.setItem("yc-sidebar", v ? "collapsed" : "open"); } catch { /* sem armazenamento */ } };
-  const mobileItems = NAVIGATION.flatMap((s) => s.items).filter((it) => it.mobile && !it.stage && can(permissions, it.requires));
+  const mobileItems = NAVIGATION.flatMap((s) => s.items).filter((it) => it.mobile && !it.stage && can(permissions, it.requires)).slice(0, 5);
 
   return (
     <div className={collapsed ? "app is-collapsed" : "app"}>
@@ -125,7 +127,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {mobileItems.map((it) => (
           <NavLink key={it.key} to={it.to} end={it.to === "/"}>
             <Icon name={it.icon} />
-            <span>{it.label === "Controle de Acessos" ? "Acessos" : it.label}</span>
+            <span>{MOBILE_LABEL[it.label] ?? it.label}</span>
           </NavLink>
         ))}
         <button type="button" onClick={() => setMenuOpen(true)} aria-expanded={menuOpen}

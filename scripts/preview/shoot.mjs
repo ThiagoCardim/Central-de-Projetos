@@ -233,6 +233,13 @@ const scenes = [
   { name: "m-access-invite", url: "/acessos?as=unit_admin", vp: MOBILE, action: async (p) => { await p.getByRole("button", { name: "Convidar usuário" }).first().click(); await p.locator(".role", { hasText: "Acompanha somente" }).click(); } },
   { name: "m-menu", url: "/?as=global_admin", vp: MOBILE, action: async (p) => { await p.getByRole("button", { name: "Menu", exact: true }).click(); } },
   { name: "m-login", url: "/entrar", vp: MOBILE },
+  { name: "work-today", url: "/minhas-tarefas?as=clt", vp: DESKTOP, full: true },
+  { name: "work-steps", url: "/minhas-tarefas?as=clt&aba=etapas", vp: DESKTOP, full: true },
+  { name: "work-agenda", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, full: true },
+  { name: "work-agenda-list", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("radio", { name: "Lista" }).click(); } },
+  { name: "work-light", url: "/minhas-tarefas?as=clt&aba=agenda", vp: DESKTOP, light: true },
+  { name: "m-work-today", url: "/minhas-tarefas?as=clt", vp: MOBILE, full: true },
+  { name: "m-work-agenda", url: "/minhas-tarefas?as=clt&aba=agenda", vp: MOBILE, full: true, action: async (p) => { await p.getByRole("radio", { name: "Mês" }).click(); } },
 ];
 
 const browser = await chromium.launch();
