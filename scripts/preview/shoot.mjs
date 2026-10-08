@@ -149,6 +149,11 @@ const scenes = [
     await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("button", { name: /^Estudo Preliminar/ }).first().click(); await p.waitForTimeout(300);
     await p.getByLabel("Ações", { exact: true }).getByRole("button", { name: "Aguardando cliente" }).click(); await p.waitForTimeout(300);
     await p.getByLabel("Aguardando cliente: motivo").selectOption({ index: 2 }); await p.waitForTimeout(200); } },
+  { name: "task-notes", url: "/projetos/pr1/cronograma?as=leader", vp: { width: 1440, height: 1800 }, action: async (p) => {
+    await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("button", { name: /^Estudo Preliminar/ }).first().click(); await p.waitForTimeout(400);
+    await p.getByLabel("Nova observação").fill("Fachada aprovada pelo cliente por WhatsApp");
+    await p.getByRole("button", { name: "Adicionar observação" }).click(); await p.waitForTimeout(500);
+    await p.locator("section[aria-label='Observações']").scrollIntoViewIfNeeded(); } },
   { name: "reasons-admin", url: "/servicos?as=global_admin", vp: DESKTOP, full: true, action: async (p) => { await p.getByRole("tab", { name: "Listas padrão" }).click(); await p.waitForTimeout(300); } },
   { name: "m-home-client", url: "/?as=client", vp: MOBILE, full: true },
   { name: "sched-add", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.getByRole("tab", { name: "Trilhas" }).click(); await p.getByRole("radio", { name: "Modo gestão" }).click(); await p.getByRole("button", { name: "Adicionar etapa" }).first().click(); } },

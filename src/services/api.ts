@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -270,6 +270,14 @@ export const api = {
       dependencies: (deps.data ?? []).map(({ task: _t, ...d }) => d) as unknown as TaskDependency[],
     };
   },
+  async taskNotes(taskId: string): Promise<TaskNote[]> {
+    const { data, error } = await supabase.from("task_notes")
+      .select("id, body, created_at, author:profiles!task_notes_author_id_fkey(name)")
+      .eq("task_id", taskId).order("created_at", { ascending: false }).limit(100);
+    if (error) throw toUserError(error);
+    return data as unknown as TaskNote[];
+  },
+  addTaskNote: (taskId: string, body: string) => rpc<string>("add_task_note", { p_task: taskId, p_body: body }),
   async taskHistory(taskId: string): Promise<TaskChange[]> {
     const { data, error } = await supabase.from("task_changes")
       .select("id, task_id, change_type, before, after, reason, impacted_task_ids, created_at, author:profiles!task_changes_changed_by_fkey(name)")

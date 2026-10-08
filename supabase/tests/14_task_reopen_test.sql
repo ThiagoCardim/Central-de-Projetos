@@ -155,3 +155,18 @@ select public.set_task_status((tst.task('projeto_arquitetonico', 'alteracoes')).
 reset role;
 select tst.ok((tst.task('projeto_arquitetonico', 'alteracoes')).actual_start_date <= (tst.task('projeto_arquitetonico', 'alteracoes')).actual_end_date,
   'Conclusão corrige início real que estava no futuro');
+
+-- Observações da etapa (registro com autor)
+select tst.login('arq@hq'); set role authenticated;
+select public.add_task_note((tst.task('projeto_arquitetonico', 'alteracoes')).id, 'Cliente pediu para ver duas opções de fachada');
+reset role;
+select tst.login('lid@hq'); set role authenticated;
+select public.add_task_note((tst.task('projeto_arquitetonico', 'alteracoes')).id, 'Ok, priorizar a opção 2');
+select tst.ok((select count(*) from public.task_notes where task_id = (tst.task('projeto_arquitetonico', 'alteracoes')).id) = 2,
+  'Observações se acumulam (não sobrescrevem)');
+select tst.throws(format('select public.add_task_note(%L, %L)', (tst.task('projeto_arquitetonico', 'alteracoes')).id, '   '), 'Observação vazia é recusada');
+reset role;
+select tst.login('cli@x'); set role authenticated;
+select tst.ok((select count(*) from public.task_notes) = 0, 'Cliente não vê observações internas');
+select tst.throws(format('select public.add_task_note(%L, %L)', (tst.task('projeto_arquitetonico', 'alteracoes')).id, 'oi'), 'Cliente não adiciona observação');
+reset role;

@@ -981,3 +981,10 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .lists-head .subtext { margin: 0 0 10px; }
 .lists-add .input { max-width: 360px; }
 @media (max-width: 760px) { .lists-head { grid-template-columns: 1fr; } }
+
+/* ---------- Observações da etapa ---------- */
+.notes { list-style: none; margin: 0 0 var(--s3); padding: 0; display: grid; gap: var(--s2); }
+.note { display: grid; gap: 4px; padding: var(--s3); border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); }
+.note__head { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-sub); }
+.note__when { margin-left: auto; color: var(--text-3); font-size: 12px; }
+.note__body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }

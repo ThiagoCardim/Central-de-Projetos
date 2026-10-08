@@ -207,6 +207,7 @@ function rpc(name: string, _args?: any) {
     case "my_pending_adjustments": return delay({ data: ADJUSTMENTS.filter((a) => a.can_decide), error: null }, 150);
     case "adjustment_create": return delay({ data: "adj-new", error: null }, 250);
     case "adjustment_decide": return delay({ data: { status: _args?.p_approve ? "approved" : "rejected", impacted_count: 6 }, error: null }, 300);
+    case "add_task_note": NOTES.unshift({ id: `n${Date.now()}`, task_id: _args.p_task, body: _args.p_body, created_at: new Date().toISOString(), author: { name: me()?.name ?? "Você" } }); return delay({ data: "ok", error: null }, 200);
     case "adjustment_cancel": return delay({ data: null, error: null }, 200);
     case "preview_task_reopen": return delay({ data: {
       task: { id: _args?.p_task, name: "Envio do Briefing", service: "Projeto Arquitetônico", before_start: d(-44), before_end: d(-33), after_start: d(0), after_end: d(6),
@@ -494,6 +495,11 @@ function mockImage(i: number) {
   return `data:image/svg+xml;utf8,${svg.replace(/#/g, "%23")}`;
 }
 
+const NOTES: any[] = [
+  { id: "n1", task_id: "tr-arq-estudo_preliminar", body: "Cliente pediu para ver duas opções de fachada antes de fechar o estudo.", created_at: d(-2) + "T15:10:00Z", author: { name: "Beatriz Nogueira" } },
+  { id: "n2", task_id: "tr-arq-estudo_preliminar", body: "Ok, priorizar a opção com varanda gourmet.", created_at: d(-1) + "T09:30:00Z", author: { name: "Rafael Andrade" } },
+];
+
 const COMPLEXITIES: any[] = [
   { code: "simple", label: "Alteração simples", default_days: 3, description: "Ajuste pontual, sem impacto em outras partes do projeto.", sort_order: 1 },
   { code: "medium", label: "Alteração média", default_days: 7, description: "Ajuste que envolve mais de um ambiente ou prancha.", sort_order: 2 },
@@ -625,6 +631,7 @@ function visibleRows(table: string): any[] {
   if (table === "project_tasks") return TASKS;
   if (table === "task_dependencies") return DEPS;
   if (table === "task_changes") return CHANGES;
+  if (table === "task_notes") return NOTES;
   if (table === "task_alerts") return alertsView().filter((a) => {
     if (p.role === "collaborator") return a.responsible_user_id === p.id;
     return true;

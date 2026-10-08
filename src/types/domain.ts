@@ -352,10 +352,13 @@ export interface ProjectSchedule {
   dependencies: TaskDependency[];
 }
 
+/** Observação de uma etapa (registro com autor e data). */
+export interface TaskNote { id: string; body: string; created_at: string; author: { name: string } | null }
+
 export interface TaskChange {
   id: string;
   task_id: string | null;
-  change_type: "reschedule" | "duration" | "responsible" | "status" | "dependency" | "created" | "recalculated";
+  change_type: "reschedule" | "duration" | "responsible" | "status" | "dependency" | "created" | "recalculated" | "note";
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   reason: string | null;

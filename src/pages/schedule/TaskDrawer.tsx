@@ -1,3 +1,4 @@
+import { useAuth } from "@/services/auth";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/services/api";
 import { useAsync } from "@/hooks";
@@ -46,6 +47,9 @@ export function TaskDrawer({ task, schedule, staff, me, canManage, managementMod
 
 function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChanged, onOpenTask, onRequestAdjustment }: Omit<Props, "onClose" | "task"> & { task: ScheduleTask }) {
   const toast = useToast();
+  const [notesVersion, setNotesVersion] = useState(0);
+  const { permissions } = useAuth();
+  const isStaff = !!permissions && permissions.role !== "client";
   const isResponsible = !!me && task.responsible_user_id === me;
   const canAct = canManage || isResponsible;
   const manage = canManage && managementMode;
@@ -106,9 +110,9 @@ function TaskBody({ task, schedule, staff, me, canManage, managementMode, onChan
 
       <Dependencies task={task} schedule={schedule} manage={manage} onChanged={onChanged} onOpenTask={onOpenTask} toast={toast} />
 
-      {canAct && <Notes task={task} onChanged={onChanged} toast={toast} />}
+      {isStaff && <Notes task={task} version={notesVersion} onAdded={() => setNotesVersion((v) => v + 1)} toast={toast} />}
 
-      <History task={task} schedule={schedule} staff={staff} />
+      <History task={task} schedule={schedule} staff={staff} version={notesVersion} />
     </div>
   );
 }
@@ -417,32 +421,63 @@ function Dependencies({ task, schedule, manage, onChanged, onOpenTask, toast }: 
   );
 }
 
-function Notes({ task, onChanged, toast }: { task: ScheduleTask; onChanged: () => void; toast: Toast }) {
-  const [value, setValue] = useState(task.notes ?? "");
+function Notes({ task, version, onAdded, toast }: { task: ScheduleTask; version: number; onAdded: () => void; toast: Toast }) {
+  const notes = useAsync(() => api.taskNotes(task.id), [task.id, version]);
+  const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
-  const dirty = (task.notes ?? "") !== value;
+  const [all, setAll] = useState(false);
+  const list = notes.data ?? [];
+  const shown = all ? list : list.slice(0, 3);
+  async function add() {
+    setSaving(true);
+    try { await api.addTaskNote(task.id, value); setValue(""); toast("Observação adicionada."); onAdded(); }
+    catch (e) { toast((e as Error).message, "error"); } finally { setSaving(false); }
+  }
   return (
     <section className="tdrawer__section" aria-label="Observações">
-      <Field label="Observações" hint="Visível para a equipe do projeto.">
-        {({ id, describedBy }) => <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={3}
-          value={value} onChange={(e) => setValue(e.target.value)} />}
+      <h3 className="label">Observações{list.length ? <span className="muted"> · {list.length}</span> : null}</h3>
+      {notes.error ? <p className="subtext">{notes.error}</p> : notes.loading && !notes.data ? <Skeleton height={40} /> : list.length > 0 && (
+        <ul className="notes">
+          {shown.map((n) => (
+            <li key={n.id} className="note">
+              <span className="note__head">
+                <Avatar name={n.author?.name ?? "Equipe"} size="sm" />
+                <strong>{n.author?.name ?? "Equipe"}</strong>
+                <span className="note__when num">{formatDateTime(n.created_at)}</span>
+              </span>
+              <p className="note__body">{n.body}</p>
+            </li>
+          ))}
+          {list.length > 3 && (
+            <li><Button size="sm" variant="ghost" onClick={() => setAll((a) => !a)}>{all ? "Mostrar menos" : `Ver todas as ${list.length} observações`}</Button></li>
+          )}
+        </ul>
+      )}
+      <Field label="Nova observação" hint="Visível para a equipe do projeto. O cliente não vê.">
+        {({ id, describedBy }) => <textarea id={id} aria-describedby={describedBy} className="input textarea" rows={3} maxLength={4000}
+          value={value} onChange={(e) => setValue(e.target.value)} placeholder="Ex.: cliente pediu duas opções de fachada" />}
       </Field>
-      {dirty && (
+      {value.trim() && (
         <div className="row">
-          <Button size="sm" variant="secondary" loading={saving} onClick={async () => {
-            setSaving(true);
-            try { await api.saveTaskNotes(task.id, value); toast("Observação salva."); onChanged(); }
-            catch (e) { toast((e as Error).message, "error"); } finally { setSaving(false); }
-          }}>Salvar observação</Button>
-          <Button size="sm" variant="ghost" onClick={() => setValue(task.notes ?? "")}>Descartar</Button>
+          <Button size="sm" loading={saving} onClick={add}>Adicionar observação</Button>
+          <Button size="sm" variant="ghost" onClick={() => setValue("")}>Descartar</Button>
         </div>
       )}
     </section>
   );
 }
 
-function History({ task, schedule, staff }: { task: ScheduleTask; schedule: ProjectSchedule; staff: StaffMember[] }) {
-  const { data, loading, error } = useAsync(() => api.taskHistory(task.id), [task.id, task.status, task.planned_end_date, task.responsible_user_id]);
+function History({ task, schedule, staff, version }: { task: ScheduleTask; schedule: ProjectSchedule; staff: StaffMember[]; version: number }) {
+  const changes = useAsync(() => api.taskHistory(task.id), [task.id, task.status, task.planned_end_date, task.responsible_user_id]);
+  const notes = useAsync(() => api.taskNotes(task.id), [task.id, version]);
+  const loading = changes.loading || notes.loading;
+  const error = changes.error ?? notes.error;
+  // Observações entram no histórico como itens próprios, em ordem de data.
+  const data: TaskChange[] | null = changes.data ? [
+    ...changes.data,
+    ...(notes.data ?? []).map((n) => ({ id: `note-${n.id}`, task_id: task.id, change_type: "note" as TaskChange["change_type"], before: null,
+      after: { body: n.body }, reason: null, impacted_task_ids: [], created_at: n.created_at, author: n.author ?? { name: "Equipe" } })),
+  ].sort((a, b) => b.created_at.localeCompare(a.created_at)) : null;
   const nameOf = (id: unknown) => staff.find((s) => s.id === id)?.name ?? (id ? "Pessoa da equipe" : "Ninguém");
   const taskName = (id: unknown) => schedule.tasks.find((t) => t.id === id)?.name ?? "etapa";
 
@@ -456,6 +491,7 @@ function History({ task, schedule, staff }: { task: ScheduleTask; schedule: Proj
       case "reschedule": case "duration":
         return `${formatDate(b.planned_start_date as string)}–${formatDate(b.planned_end_date as string)} → ${formatDate(a.planned_start_date as string)}–${formatDate(a.planned_end_date as string)}`
           + (b.planned_duration_days !== a.planned_duration_days ? ` (${b.planned_duration_days ?? "?"} → ${a.planned_duration_days ?? "?"} dias úteis)` : "");
+      case "note": return String(a.body ?? "");
       case "dependency": return a.added ? `Passa a depender de ${taskName(a.added)}` : b.removed ? `Deixa de depender de ${taskName(b.removed)}` : null;
       default: return null;
     }
@@ -469,7 +505,7 @@ function History({ task, schedule, staff }: { task: ScheduleTask; schedule: Proj
           <ul className="history">
             {data!.map((c) => (
               <li key={c.id}>
-                <span className="history__what">{c.change_type === "status" && c.after?.reopened ? "Etapa reaberta" : CHANGE_LABEL[c.change_type] ?? c.change_type}</span>
+                <span className="history__what">{c.change_type === "status" && c.after?.reopened ? "Etapa reaberta" : c.change_type === "note" ? "Observação" : CHANGE_LABEL[c.change_type] ?? c.change_type}</span>
                 <span className="history__when num">{formatDateTime(c.created_at)}</span>
                 {describe(c) && <span className="history__note">{describe(c)}</span>}
                 {c.reason && <span className="history__note">Motivo: {c.reason}</span>}
