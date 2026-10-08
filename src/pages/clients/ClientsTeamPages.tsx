@@ -210,11 +210,11 @@ export function TeamPage() {
     }
   }
 
+  const sectorName = (id: string | null) => (id ? sectors.data?.find((x) => x.id === id)?.name ?? null : null);
   const team = (staff.data ?? []).filter((p) => p.status === "ativo" && p.role !== "client" && p.role !== "global_admin"
     && (emp === "all" || p.employment_type === emp));
   const people = team.filter((p) => sector === "all" || (sector === "none" ? !sectorId(p) : sectorName(sectorId(p)) === sector));
   const withoutSector = team.filter((p) => !sectorId(p)).length;
-  const sectorName = (id: string | null) => (id ? sectors.data?.find((x) => x.id === id)?.name ?? null : null);
   const optionsFor = (tenantId: string) => (sectors.data ?? []).filter((x) => x.tenant_id === tenantId).map((x) => ({ value: x.id, label: x.name }));
   const filterNames = [...new Set((sectors.data ?? []).filter((x) => team.some((p) => sectorId(p) === x.id)).map((x) => x.name))];
   const byUser = new Map<string, { id: string; name: string; role: string }[]>();
