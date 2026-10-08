@@ -8,20 +8,20 @@ import { Button, Card, EmptyState, Field, Input, LoadError, Skeleton, Tabs } fro
 import { ConfirmDialog, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import { OptionPicker } from "@/components/ui/OptionPicker";
-import type { PerfSettings, SectorRow } from "@/types/domain";
+import type { JobFunctionRow, PerfSettings, SectorRow } from "@/types/domain";
 import { plural } from "@/utils/format";
 
 /* ==========================================================================
    Configurações (administração): setores da empresa e regras de performance
    ========================================================================== */
-type Tab = "setores" | "performance";
+type Tab = "setores" | "funcoes" | "performance";
 
 export function SettingsPage() {
   useDocumentTitle("Configurações");
   const { permissions } = useAuth();
   const isGlobal = permissions?.role === "global_admin";
   const initial = useSearchParam("aba") as Tab | null;
-  const [tab, setTab] = useState<Tab>(initial === "performance" ? "performance" : "setores");
+  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" ? initial : "setores");
   const [tenant, setTenant] = useState(permissions?.tenant_id ?? "");
   const tenants = useAsync(() => (isGlobal ? api.listTenants() : Promise.resolve([])), [isGlobal]);
 
@@ -30,7 +30,7 @@ export function SettingsPage() {
       <PageHead title="Configurações" subtitle="Definições da administração para a unidade" />
       <div className="settings__bar">
         <Tabs<Tab> label="Configurações" value={tab} onChange={setTab} tabs={[
-          { value: "setores", label: "Setores" }, { value: "performance", label: "Regras de performance" },
+          { value: "setores", label: "Setores" }, { value: "funcoes", label: "Funções" }, { value: "performance", label: "Regras de performance" },
         ]} />
         {isGlobal && (
           <div className="settings__unit">
@@ -39,7 +39,9 @@ export function SettingsPage() {
           </div>
         )}
       </div>
-      {tenant && (tab === "setores" ? <SectorsSettings key={tenant} tenantId={tenant} /> : <PerformanceRules key={tenant} tenantId={tenant} />)}
+      {tenant && (tab === "setores" ? <SectorsSettings key={tenant} tenantId={tenant} />
+        : tab === "funcoes" ? <FunctionsSettings key={tenant} tenantId={tenant} />
+        : <PerformanceRules key={tenant} tenantId={tenant} />)}
     </div>
   );
 }
@@ -133,6 +135,107 @@ function SectorsSettings({ tenantId }: { tenantId: string }) {
       <ConfirmDialog open={!!removing} danger title={`Excluir o setor “${removing?.name ?? ""}”?`}
         message={removing?.people ? `${plural(removing.people, "pessoa ficará", "pessoas ficarão")} sem setor até serem realocadas na Equipe.` : "Nenhuma pessoa está neste setor."}
         confirmLabel="Excluir setor" loading={busy} onCancel={() => setRemoving(null)} onConfirm={() => removing && remove(removing)} />
+    </div>
+  );
+}
+
+/* ---------- Funções ---------- */
+const fnLabel = (f: { profession: string; specialty: string | null }) => (f.specialty ? `${f.profession} › ${f.specialty}` : f.profession);
+
+function FunctionsSettings({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const q = useAsync(() => api.jobFunctionList(tenantId), [tenantId]);
+  const [rows, setRows] = useState<JobFunctionRow[]>([]);
+  useEffect(() => { if (q.data) setRows(q.data); }, [q.data]);
+  const [prof, setProf] = useState("");
+  const [spec, setSpec] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; profession: string; specialty: string } | null>(null);
+  const [removing, setRemoving] = useState<JobFunctionRow | null>(null);
+  const professions = [...new Set(rows.map((r) => r.profession))];
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    if (prof.trim().length < 2) return;
+    setBusy(true);
+    try { await api.jobFunctionSave(tenantId, null, prof.trim(), spec.trim() || null); setSpec(""); toast("Função incluída."); await q.reload(); }
+    catch (err) { toast((err as Error).message, "error"); } finally { setBusy(false); }
+  }
+  async function rename() {
+    if (!editing || editing.profession.trim().length < 2) return;
+    setBusy(true);
+    try { await api.jobFunctionSave(null, editing.id, editing.profession.trim(), editing.specialty.trim() || null); setEditing(null); toast("Função atualizada."); await q.reload(); }
+    catch (err) { toast((err as Error).message, "error"); } finally { setBusy(false); }
+  }
+  async function move(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    const next = [...rows]; [next[i], next[j]] = [next[j], next[i]];
+    setRows(next);
+    try { await api.jobFunctionReorder(tenantId, next.map((r) => r.id)); }
+    catch (err) { setRows(rows); toast((err as Error).message, "error"); }
+  }
+  async function remove(r: JobFunctionRow) {
+    setBusy(true);
+    try {
+      const n = await api.jobFunctionDelete(r.id);
+      toast(n ? `Função excluída e retirada de ${plural(n, "pessoa", "pessoas")}.` : "Função excluída.");
+      setRemoving(null); await q.reload();
+    } catch (err) { toast((err as Error).message, "error"); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="settings__grid">
+      <Card title="Funções da equipe" count={rows.length || undefined} flush>
+        {q.error ? <div className="settings__pad"><LoadError message={q.error} onRetry={() => void q.reload()} /></div> :
+          q.loading && !q.data ? <div className="settings__pad"><Skeleton height={160} radius={12} /></div> :
+          rows.length === 0 ? <EmptyState compact icon="user" title="Nenhuma função cadastrada." text="Inclua abaixo as funções da equipe." /> : (
+            <ul className="sectors">
+              {rows.map((r, i) => (
+                <li key={r.id} className="sector">
+                  <span className="sector__order">
+                    <Button size="sm" variant="ghost" iconOnly icon="chevronDown" className="flip" disabled={i === 0} onClick={() => move(i, -1)}>Subir {fnLabel(r)}</Button>
+                    <Button size="sm" variant="ghost" iconOnly icon="chevronDown" disabled={i === rows.length - 1} onClick={() => move(i, 1)}>Descer {fnLabel(r)}</Button>
+                  </span>
+                  {editing?.id === r.id ? (
+                    <form className="sector__edit" onSubmit={(e) => { e.preventDefault(); void rename(); }}>
+                      <Input aria-label="Profissão" autoFocus value={editing.profession} maxLength={40} list="fn-professions"
+                        onChange={(e) => setEditing({ ...editing, profession: e.target.value })} />
+                      <Input aria-label="Especialidade" placeholder="Especialidade (opcional)" value={editing.specialty} maxLength={60}
+                        onChange={(e) => setEditing({ ...editing, specialty: e.target.value })} onKeyDown={(e) => e.key === "Escape" && setEditing(null)} />
+                      <Button size="sm" type="submit" icon="check" loading={busy}>Salvar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
+                    </form>
+                  ) : (
+                    <>
+                      <span className="sector__name">{r.profession}{r.specialty && <span className="fn__spec"> › {r.specialty}</span>}</span>
+                      <span className="sector__people">{r.people ? plural(r.people, "pessoa", "pessoas") : "Ninguém ainda"}</span>
+                      <span className="sector__actions">
+                        <Button size="sm" variant="ghost" iconOnly icon="edit" onClick={() => setEditing({ id: r.id, profession: r.profession, specialty: r.specialty ?? "" })}>Editar {fnLabel(r)}</Button>
+                        <Button size="sm" variant="ghost" iconOnly icon="x" onClick={() => setRemoving(r)}>Excluir {fnLabel(r)}</Button>
+                      </span>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        <form className="sector__add" onSubmit={add}>
+          <Input aria-label="Profissão" placeholder="Profissão (ex.: Engenheiro)" value={prof} maxLength={40} list="fn-professions" onChange={(e) => setProf(e.target.value)} />
+          <Input aria-label="Especialidade" placeholder="Especialidade (ex.: Estrutural)" value={spec} maxLength={60} onChange={(e) => setSpec(e.target.value)} />
+          <Button type="submit" icon="plus" loading={busy && !editing} disabled={prof.trim().length < 2}>Incluir função</Button>
+        </form>
+        <datalist id="fn-professions">{professions.map((p) => <option key={p} value={p} />)}</datalist>
+      </Card>
+      <aside className="settings__help">
+        <h3><Icon name="alertCircle" size={16} /> Para que servem</h3>
+        <p>A função diz o que a pessoa faz: <b>Profissão › Especialidade</b>, como Engenheiro › Estrutural ou Arquiteto › Interiores. A especialidade é opcional.</p>
+        <p>Uma pessoa pode ter várias funções (ex.: o mesmo engenheiro faz o Elétrico e o Hidráulico). Elas são marcadas na aba <b>Equipe</b>.</p>
+        <p>As funções aparecem para o cliente em <b>Equipe do seu projeto</b>, junto com a descrição da pessoa.</p>
+      </aside>
+      <ConfirmDialog open={!!removing} danger title={`Excluir a função “${removing ? fnLabel(removing) : ""}”?`}
+        message={removing?.people ? `Ela será retirada de ${plural(removing.people, "pessoa", "pessoas")}.` : "Nenhuma pessoa tem esta função."}
+        confirmLabel="Excluir função" loading={busy} onCancel={() => setRemoving(null)} onConfirm={() => removing && remove(removing)} />
     </div>
   );
 }

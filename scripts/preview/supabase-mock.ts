@@ -40,6 +40,11 @@ let profiles: any[] = [
   id, auth_user_id: linked ? `auth-${id}` : null, tenant_id, name, email, role, employment_type, client_type, status,
   sector_id: ({ "p-ld": "s-arq", "p-c1": "s-arq", "p-a2": "s-arq", "p-a3": "s-arq", "p-c2": "s-eng",
     "p-pj": "s-eng", "p-e2": "s-eng", "p-i1": "s-int", "p-i2": "s-int" } as Record<string, string>)[id as string] ?? null,
+  function_ids: ({ "p-ld": ["jf-arq"], "p-c1": ["jf-arq"], "p-pj": ["jf-est", "jf-ele"], "p-c2": ["jf-int"], "p-pj2": ["jf-est"] } as Record<string, string[]>)[id as string] ?? [],
+  bio: ({ "p-ld": "Arquiteto e urbanista, coordena os projetos residenciais da YouCon há 8 anos.",
+          "p-c1": "Arquiteta responsável pelo desenvolvimento do seu projeto, do estudo preliminar ao executivo.",
+          "p-pj": "Engenheira civil especialista em estruturas e instalações elétricas residenciais.",
+          "p-c2": "Designer de interiores focado em ambientes funcionais e acolhedores." } as Record<string, string>)[id as string] ?? null,
   phone: null, avatar_url: null, invited_at: `2026-0${(i % 8) + 1}-1${i % 9}T12:00:00Z`, last_seen_at: null, created_at: "2026-01-10T12:00:00Z",
 }));
 
@@ -242,6 +247,17 @@ function rpc(name: string, _args?: any) {
     case "performance_person": return delay({ data: perfPerson(_args.p_profile, _args?.p_month), error: null }, 200);
     case "performance_highlights": return delay({ data: perfHighlights(_args?.p_month), error: null }, 150);
     case "set_person_sector": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) t.sector_id = _args.p_sector; return delay({ data: null, error: null }, 150); }
+    case "job_function_list": return delay({ data: JOB_FNS.filter((f) => f.tenant_id === _args.p_tenant).sort((a, b) => a.sort_order - b.sort_order)
+      .map((f) => ({ ...f, people: profiles.filter((p) => (p.function_ids ?? []).includes(f.id)).length })), error: null }, 120);
+    case "job_function_save": {
+      if (_args.p_id) { const x = JOB_FNS.find((y) => y.id === _args.p_id); if (x) { x.profession = _args.p_profession; x.specialty = _args.p_specialty; } return delay({ data: _args.p_id, error: null }, 150); }
+      const id = `jf-${Date.now()}`; JOB_FNS.push({ id, tenant_id: _args.p_tenant, profession: _args.p_profession, specialty: _args.p_specialty, sort_order: 999 }); return delay({ data: id, error: null }, 150);
+    }
+    case "job_function_delete": { const n = profiles.filter((p) => (p.function_ids ?? []).includes(_args.p_id)).length;
+      profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
+    case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
+    case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "client_project_team": return delay({ data: clientTeam(_args.p_project), error: null }, 200);
     case "sector_list": return delay({ data: sectorList(_args.p_tenant), error: null }, 120);
     case "sector_save": {
       if (_args.p_id) { const x = SECTORS.find((y) => y.id === _args.p_id); if (x) x.name = _args.p_name; return delay({ data: _args.p_id, error: null }, 150); }
@@ -704,6 +720,27 @@ function teamWork() {
     .map(workJson).sort((a, b) => a.due_date.localeCompare(b.due_date));
 }
 
+// ---------- Funções da equipe ----------
+let JOB_FNS: any[] = [["jf-est", "Engenheiro", "Estrutural"], ["jf-ele", "Engenheiro", "Elétrico"], ["jf-hid", "Engenheiro", "Hidráulico"],
+  ["jf-arq", "Arquiteto", "Arquitetônico"], ["jf-int", "Arquiteto", "Interiores"]].map(([id, profession, specialty], i) => ({ id, tenant_id: HQ, profession, specialty, sort_order: (i + 1) * 10 }));
+const fnLabel = (f: any) => f.specialty ? `${f.profession} › ${f.specialty}` : f.profession;
+const ROLE_NAME: Record<string, string> = { lead_architecture: "Líder de Arquitetura", lead_engineering: "Líder de Engenharia", lead_approval: "Líder de Aprovação",
+  architecture: "Arquitetura", engineering: "Engenharia", interiors: "Interiores", approval: "Aprovação", support: "Colaborador indireto" };
+function clientTeam(projectId: string) {
+  const pr = PROJECTS.find((x) => x.id === projectId); if (!pr) return [];
+  const map = new Map<string, any>();
+  pr.team.filter((t: any) => t.active).forEach((t: any) => {
+    const prof = profiles.find((x) => x.id === t.user.id); if (!prof) return;
+    const m = map.get(prof.id) ?? { id: prof.id, name: prof.name, avatar_url: null, bio: prof.bio, is_leader: false, roles: [], areas: [],
+      functions: JOB_FNS.filter((f) => (prof.function_ids ?? []).includes(f.id)).map(fnLabel) };
+    if (t.project_role.startsWith("lead_")) { m.is_leader = true; m.roles.push(ROLE_NAME[t.project_role]); }
+    else if (t.project_role !== "support") m.areas.push(ROLE_NAME[t.project_role]);
+    map.set(prof.id, m);
+  });
+  pr.services.forEach((x: any) => { if (x.responsible && map.has(x.responsible.id)) map.get(x.responsible.id).roles.push(`Responsável por ${x.service.name}`); });
+  return [...map.values()].sort((a, b) => Number(b.is_leader) - Number(a.is_leader) || a.name.localeCompare(b.name));
+}
+
 // ---------- Setores da empresa ----------
 let SECTORS: any[] = [["s-arq", "Arquitetura"], ["s-eng", "Engenharia"], ["s-int", "Interiores"], ["s-apr", "Aprovação"]]
   .map(([id, name], i) => ({ id, tenant_id: HQ, name, sort_order: (i + 1) * 10 }));
@@ -815,6 +852,7 @@ function visibleRows(table: string): any[] {
   if (table === "project_board_columns") return [...BOARD_COLS].sort((a, b) => a.sort_order - b.sort_order);
   if (table === "project_board_cards") return BOARD_CARDS;
   if (table === "service_families") return FAMILIES;
+  if (table === "job_functions") return JOB_FNS.filter((x) => global || x.tenant_id === p.tenant_id).sort((a, b) => a.sort_order - b.sort_order);
   if (table === "sectors") return SECTORS.filter((x) => global || x.tenant_id === p.tenant_id).sort((a, b) => a.sort_order - b.sort_order);
   if (table === "schedule_templates") return TEMPLATES;
   if (table === "template_task_dependencies") return TEMPLATE_DEPS;

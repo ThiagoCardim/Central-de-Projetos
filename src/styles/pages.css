@@ -1494,3 +1494,21 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .sector__add { display: flex; gap: var(--s2); padding: var(--s3) var(--s4); border-top: 1px solid var(--border); background: var(--surface); border-radius: 0 0 var(--r-card) var(--r-card); }
 .sector__add .input { flex: 1; }
 @media (max-width: 1023px) { .settings__grid { grid-template-columns: 1fr; } }
+.fn__spec { font-weight: 500; color: var(--text-2); }
+.person__bio { display: grid; gap: 4px; justify-items: start; }
+.person__bio-text { margin: 0; font-size: var(--fs-sub); color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.person__bio .link { font-size: var(--fs-sub); padding: 0; border: 0; background: none; cursor: pointer; }
+
+/* Cliente: equipe do projeto */
+.cteam { display: grid; gap: var(--s3); padding-top: var(--s4); border-top: 1px solid var(--border); }
+.cteam__head { display: grid; gap: 2px; }
+.cteam__head h3 { margin: 0; font-size: var(--fs-md); font-weight: 700; }
+.cteam__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--s3); }
+.cmember { display: flex; gap: var(--s3); padding: var(--s3) var(--s4); border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); }
+.cmember.is-leader { border-color: color-mix(in srgb, var(--brand) 40%, var(--border)); background: linear-gradient(135deg, var(--brand-pastel), transparent 60%), var(--surface); }
+.cmember__body { display: grid; gap: 4px; min-width: 0; align-content: start; }
+.cmember__name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.cmember__roles { font-size: var(--fs-sub); font-weight: 600; color: var(--brand-text); }
+.cmember__fns { display: flex; flex-wrap: wrap; gap: 4px; }
+.cmember__fn { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--r-pill); background: var(--neutral-pastel); color: var(--text-2); font-size: 12px; font-weight: 600; }
+.cmember__bio { margin: 2px 0 0; font-size: var(--fs-sub); color: var(--text-2); }

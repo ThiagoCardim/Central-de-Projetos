@@ -5,7 +5,7 @@ import { useAsync, useDocumentTitle } from "@/hooks";
 import { Link, useNavigate } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
 import {
-  Badge, Button, Card, EmptyState, LoadError, MetricCard, ProgressBar, Skeleton,
+  Avatar, Badge, Button, Card, EmptyState, LoadError, MetricCard, ProgressBar, Skeleton,
 } from "@/components/ui/primitives";
 import { Icon } from "@/components/ui/Icon";
 import { AwaitingTeamCard, StepTimeline, TaskList } from "@/components/domain/cards";
@@ -358,8 +358,43 @@ function ClientProjectCard({ project: p, changes }: { project: ClientProject; ch
           </section>
         ))}
       </div>
+      <ProjectTeam projectId={p.id} />
       {changes && changes.length > 0 && <ClientChanges changes={changes} />}
     </Card>
+  );
+}
+
+/** Quem cuida do projeto: liderança e responsáveis pelos serviços contratados. */
+function ProjectTeam({ projectId }: { projectId: string }) {
+  const q = useAsync(() => api.clientProjectTeam(projectId), [projectId]);
+  const team = q.data ?? [];
+  if (q.loading && !q.data) return <Skeleton height={120} radius={12} />;
+  if (team.length === 0) return null;
+  return (
+    <section className="cteam" aria-label="Equipe do seu projeto">
+      <header className="cteam__head">
+        <h3>Equipe do seu projeto</h3>
+        <span className="subtext">Os profissionais responsáveis por cada parte do que você contratou</span>
+      </header>
+      <ul className="cteam__list">
+        {team.map((m) => (
+          <li key={m.id} className={cx("cmember", m.is_leader && "is-leader")}>
+            <Avatar name={m.name} src={m.avatar_url} size="lg" />
+            <div className="cmember__body">
+              <div className="cmember__name">
+                <strong>{m.name}</strong>
+                {m.is_leader && <Badge tone="brand" tag>Liderança</Badge>}
+              </div>
+              <span className="cmember__roles">{m.roles.length ? m.roles.join(" · ") : m.areas.length ? m.areas.join(" · ") : "Equipe de apoio"}</span>
+              {m.functions.length > 0 && (
+                <span className="cmember__fns">{m.functions.map((f) => <span key={f} className="cmember__fn">{f}</span>)}</span>
+              )}
+              {m.bio && <p className="cmember__bio">{m.bio}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

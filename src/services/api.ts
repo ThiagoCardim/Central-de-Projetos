@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -36,7 +36,7 @@ async function adminUsers<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 const PROFILE_COLUMNS =
-  "id, auth_user_id, tenant_id, name, email, role, employment_type, client_type, status, phone, avatar_url, invited_at, last_seen_at, created_at, sector_id";
+  "id, auth_user_id, tenant_id, name, email, role, employment_type, client_type, status, phone, avatar_url, invited_at, last_seen_at, created_at, sector_id, function_ids, bio";
 
 export const api = {
   // ---------- Sessão ----------
@@ -287,6 +287,21 @@ export const api = {
     return (data as PerfSettings | null) ?? { tenant_id: tenantId, weight_delivery: 60, weight_on_time: 30, weight_no_backlog: 10, band_ok: 70, band_great: 90,
       min_volume: 3, include_assigned_tasks: true, highlight_includes_pj: false };
   },
+  // Funções da equipe (cadastro da administração) e perfil profissional
+  async listJobFunctions(): Promise<JobFunction[]> {
+    const { data, error } = await supabase.from("job_functions").select("id, tenant_id, profession, specialty, sort_order")
+      .is("archived_at", null).order("sort_order").order("profession");
+    if (error) throw toUserError(error);
+    return data as JobFunction[];
+  },
+  jobFunctionList: (tenantId: string) => rpc<JobFunctionRow[]>("job_function_list", { p_tenant: tenantId }),
+  jobFunctionSave: (tenantId: string | null, id: string | null, profession: string, specialty: string | null) =>
+    rpc<string>("job_function_save", { p_tenant: tenantId, p_id: id, p_profession: profession, p_specialty: specialty }),
+  jobFunctionDelete: (id: string) => rpc<number>("job_function_delete", { p_id: id }),
+  jobFunctionReorder: (tenantId: string, ids: string[]) => rpc<void>("job_function_reorder", { p_tenant: tenantId, p_ids: ids }),
+  setPersonProfile: (profileId: string, functionIds: string[], bio: string | null) =>
+    rpc<void>("set_person_profile", { p_profile: profileId, p_functions: functionIds, p_bio: bio }),
+  clientProjectTeam: (projectId: string) => rpc<ProjectTeamMember[]>("client_project_team", { p_project: projectId }),
   sectorList: (tenantId: string) => rpc<SectorRow[]>("sector_list", { p_tenant: tenantId }),
   sectorSave: (tenantId: string | null, id: string | null, name: string) => rpc<string>("sector_save", { p_tenant: tenantId, p_id: id, p_name: name }),
   sectorDelete: (id: string) => rpc<number>("sector_delete", { p_id: id }),

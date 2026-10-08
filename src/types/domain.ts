@@ -44,6 +44,9 @@ export interface Profile {
   created_at: string;
   /** Setor da empresa (cadastro da administração), usado na performance do time. */
   sector_id?: string | null;
+  /** Funções (Profissão › Especialidade) e descrição que aparecem para o cliente. */
+  function_ids?: string[];
+  bio?: string | null;
 }
 
 export interface ClientRecord {
@@ -590,3 +593,11 @@ export interface PerfHighlights { month: string; settings: PerfSettings; items: 
 /* ---------- Setores da empresa ---------- */
 export interface Sector { id: string; tenant_id: string; name: string; sort_order: number }
 export interface SectorRow { id: string; name: string; sort_order: number; people: number }
+
+/* ---------- Funções da equipe ---------- */
+export interface JobFunction { id: string; tenant_id: string; profession: string; specialty: string | null; sort_order: number }
+export interface JobFunctionRow { id: string; profession: string; specialty: string | null; sort_order: number; people: number }
+export interface ProjectTeamMember {
+  id: string; name: string; avatar_url: string | null; bio: string | null; is_leader: boolean;
+  roles: string[]; areas: string[]; functions: string[];
+}

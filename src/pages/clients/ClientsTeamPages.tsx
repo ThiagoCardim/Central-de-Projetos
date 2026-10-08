@@ -6,7 +6,7 @@ import { PageHead } from "@/layouts/AppLayout";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Skeleton, Tabs,
 } from "@/components/ui/primitives";
-import { Drawer, useToast } from "@/components/ui/overlays";
+import { Drawer, Modal, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import { OptionPicker } from "@/components/ui/OptionPicker";
 import type { ClientListItem, ClientType } from "@/types/domain";
@@ -210,6 +210,24 @@ export function TeamPage() {
     }
   }
 
+  // Funções e descrição (perfil profissional que o cliente vê)
+  const jobFns = useAsync(() => api.listJobFunctions(), []);
+  const [profOf, setProfOf] = useState<Record<string, { function_ids: string[]; bio: string | null }>>({});
+  const profFor = (p: { id: string; function_ids?: string[]; bio?: string | null }) => profOf[p.id] ?? { function_ids: p.function_ids ?? [], bio: p.bio ?? null };
+  const fnOptionsFor = (tenantId: string) => (jobFns.data ?? []).filter((f) => f.tenant_id === tenantId)
+    .map((f) => ({ value: f.id, label: f.specialty ? `${f.profession} › ${f.specialty}` : f.profession, group: f.profession }));
+  const [bioEdit, setBioEdit] = useState<{ id: string; name: string; bio: string } | null>(null);
+  const [bioSaving, setBioSaving] = useState(false);
+  async function saveProfile(p: { id: string; name: string; function_ids?: string[]; bio?: string | null }, next: { function_ids: string[]; bio: string | null }) {
+    const prev = profOf[p.id];
+    setProfOf((m) => ({ ...m, [p.id]: next }));
+    try { await api.setPersonProfile(p.id, next.function_ids, next.bio); return true; }
+    catch (e) {
+      setProfOf((m) => { const n = { ...m }; if (prev === undefined) delete n[p.id]; else n[p.id] = prev; return n; });
+      toast((e as Error).message, "error"); return false;
+    }
+  }
+
   const sectorName = (id: string | null) => (id ? sectors.data?.find((x) => x.id === id)?.name ?? null : null);
   const team = (staff.data ?? []).filter((p) => p.status === "ativo" && p.role !== "client" && p.role !== "global_admin"
     && (emp === "all" || p.employment_type === emp));
@@ -269,6 +287,22 @@ export function TeamPage() {
                     emptyText={permissions?.can_manage_tenant ? "Nenhum setor cadastrado. Cadastre em Configurações." : "Nenhum setor cadastrado pela administração."}
                     onChange={(v) => void changeSector(p, v)} />
                 </div>
+                <div className="person__sector">
+                  <span className="label">Funções</span>
+                  <OptionPicker label={`Funções de ${p.name}`} multiple value={profFor(p).function_ids} placeholder="Definir funções"
+                    options={fnOptionsFor(p.tenant_id)} loading={jobFns.loading} disabled={!canEditSector(p)}
+                    emptyText={permissions?.can_manage_tenant ? "Nenhuma função cadastrada. Cadastre em Configurações." : "Nenhuma função cadastrada pela administração."}
+                    onChange={(v) => void saveProfile(p, { ...profFor(p), function_ids: v })} />
+                </div>
+                <div className="person__bio">
+                  <span className="label">Sobre (o cliente vê)</span>
+                  {profFor(p).bio ? <p className="person__bio-text">{profFor(p).bio}</p> : <p className="subtext person__bio-text">Sem descrição.</p>}
+                  {canEditSector(p) && (
+                    <button type="button" className="link" onClick={() => setBioEdit({ id: p.id, name: p.name, bio: profFor(p).bio ?? "" })}>
+                      {profFor(p).bio ? "Editar descrição" : "Escrever descrição"}
+                    </button>
+                  )}
+                </div>
                 <div className="person__load">
                   <span className="label">Projetos ativos</span>
                   <span className="person__count num">{projects.length}</span>
@@ -285,6 +319,25 @@ export function TeamPage() {
           })}
         </div>
       )}
+      <Modal open={!!bioEdit} onClose={() => setBioEdit(null)} title={`Sobre ${bioEdit?.name ?? ""}`}
+        footer={<>
+          <Button variant="ghost" onClick={() => setBioEdit(null)}>Cancelar</Button>
+          <Button icon="check" loading={bioSaving} onClick={async () => {
+            if (!bioEdit) return;
+            const person = (staff.data ?? []).find((x) => x.id === bioEdit.id);
+            if (!person) return;
+            setBioSaving(true);
+            const ok = await saveProfile(person, { ...profFor(person), bio: bioEdit.bio.trim() || null });
+            setBioSaving(false);
+            if (ok) { toast("Descrição salva."); setBioEdit(null); }
+          }}>Salvar</Button>
+        </>}>
+        <Field label="Breve descrição" hint={`Aparece para o cliente em “Equipe do seu projeto”. ${500 - (bioEdit?.bio.length ?? 0)} caracteres restantes.`}>
+          {({ id }) => <textarea id={id} className="input textarea" rows={5} maxLength={500} autoFocus
+            placeholder="Ex.: Engenheiro civil com 10 anos de experiência em projetos estruturais residenciais."
+            value={bioEdit?.bio ?? ""} onChange={(e) => setBioEdit((b) => b && ({ ...b, bio: e.target.value }))} />}
+        </Field>
+      </Modal>
     </div>
   );
 }
