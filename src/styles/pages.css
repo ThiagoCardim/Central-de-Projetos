@@ -1469,3 +1469,28 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 /* Equipe: setor */
 .team-filters { display: flex; flex-wrap: wrap; gap: var(--s3); margin-bottom: var(--s1); }
 .person__sector { display: grid; gap: 6px; }
+
+/* Configurações */
+.settings__bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
+.settings__bar .tabs { flex: 1; min-width: 0; }
+.settings__unit, .pmonth__unit { width: min(280px, 100%); }
+.pmonth__unit { margin-left: auto; }
+.settings__grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s4); align-items: start; }
+.settings__pad { padding: var(--s4); }
+.settings__help { display: grid; gap: var(--s2); padding: var(--s4); border: 1px dashed var(--border-strong); border-radius: var(--r-card); font-size: var(--fs-sub); color: var(--text-2); }
+.settings__help h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-body); color: var(--text); }
+.settings__help p { margin: 0; }
+.settings__save { display: flex; justify-content: flex-end; gap: var(--s2); padding-top: var(--s3); border-top: 1px solid var(--border); }
+.sectors { list-style: none; margin: 0; padding: 0; }
+.sector { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: 6px var(--s4); border-top: 1px solid var(--border); }
+.sector:first-child { border-top: 0; }
+.sector__order { display: flex; flex-direction: column; }
+.sector__order .btn { height: 18px; min-height: 0; width: 26px; }
+.sector__name { flex: 1; min-width: 0; font-weight: 600; }
+.sector__people { font-size: var(--fs-sub); color: var(--text-3); white-space: nowrap; }
+.sector__actions { display: flex; gap: 2px; }
+.sector__edit { flex: 1; display: flex; align-items: center; gap: var(--s2); }
+.sector__edit .input { flex: 1; }
+.sector__add { display: flex; gap: var(--s2); padding: var(--s3) var(--s4); border-top: 1px solid var(--border); background: var(--surface); border-radius: 0 0 var(--r-card) var(--r-card); }
+.sector__add .input { flex: 1; }
+@media (max-width: 1023px) { .settings__grid { grid-template-columns: 1fr; } }

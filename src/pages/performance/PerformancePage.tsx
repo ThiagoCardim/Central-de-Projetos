@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "@/services/auth";
-import { Link } from "@/lib/router";
+import { Link, useNavigate } from "@/lib/router";
+import { OptionPicker } from "@/components/ui/OptionPicker";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
 import { PageHead } from "@/layouts/AppLayout";
 import {
-  Avatar, Badge, Button, Card, EmptyState, Field, Input, LoadError, MetricCard, Segmented, Skeleton,
+  Avatar, Badge, Button, Card, EmptyState, LoadError, MetricCard, Segmented, Skeleton,
 } from "@/components/ui/primitives";
-import { Drawer, Modal, useToast } from "@/components/ui/overlays";
-import type { PerfHighlights, PerfOverview, PerfRow, PerfSettings } from "@/types/domain";
+import { Drawer } from "@/components/ui/overlays";
+import type { PerfHighlights, PerfOverview, PerfRow } from "@/types/domain";
 import { cx, plural } from "@/utils/format";
 import { todayISO } from "@/pages/schedule/model";
 import {
@@ -20,15 +21,17 @@ import {
    ========================================================================== */
 export function PerformancePage() {
   useDocumentTitle("Performance");
-  const { profile } = useAuth();
-  const toast = useToast();
+  const { profile, permissions } = useAuth();
+  const navigate = useNavigate();
+  const isGlobal = permissions?.role === "global_admin";
   const [month, setMonth] = useState(() => monthOf(todayISO()));
-  const q = useAsync(() => api.performanceOverview(month), [month]);
+  const [tenant, setTenant] = useState<string>(permissions?.tenant_id ?? "");
+  const tenants = useAsync(() => (isGlobal ? api.listTenants() : Promise.resolve([])), [isGlobal]);
+  const q = useAsync(() => api.performanceOverview(month, isGlobal ? tenant || null : null), [month, tenant]);
   const hl = useAsync(() => api.performanceHighlights(month), [month]);
   const [data, setData] = useState<PerfOverview | null>(null);
   useEffect(() => { if (q.data) setData(q.data); }, [q.data]);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [config, setConfig] = useState(false);
   const isCurrent = month === monthOf(todayISO());
 
   const monthBar = (
@@ -38,6 +41,12 @@ export function PerformancePage() {
       <Button size="sm" variant="ghost" iconOnly icon="chevronRight" disabled={isCurrent} onClick={() => setMonth(shiftMonth(month, 1))}>Próximo mês</Button>
       {!isCurrent && <Button size="sm" variant="secondary" onClick={() => setMonth(monthOf(todayISO()))}>Mês atual</Button>}
       {isCurrent && data && <span className="subtext">Parcial até hoje</span>}
+      {isGlobal && (
+        <div className="pmonth__unit">
+          <OptionPicker label="Unidade" value={tenant} options={(tenants.data ?? []).map((t) => ({ value: t.id, label: t.name }))}
+            loading={tenants.loading} onChange={(v) => v && setTenant(v)} />
+        </div>
+      )}
     </div>
   );
 
@@ -47,7 +56,7 @@ export function PerformancePage() {
     <div className="page perf">
       <PageHead title={data?.scope === "self" ? "Minha performance" : "Performance do time"}
         subtitle="Entregas de etapas dos projetos e tarefas da liderança, medidas mês a mês"
-        actions={data?.can_configure && <Button variant="outline" icon="sliders" onClick={() => setConfig(true)}>Regras da nota</Button>} />
+        actions={data?.can_configure && <Button variant="outline" icon="sliders" onClick={() => navigate("/configuracoes?aba=performance")}>Regras da nota</Button>} />
       {monthBar}
       {!data ? <><Skeleton height={100} radius={16} /><Skeleton height={320} radius={16} /></> : data.scope === "self" ? (
         <div className="stack">
@@ -63,10 +72,6 @@ export function PerformancePage() {
         title={data?.people.find((p) => p.id === openId)?.name ?? "Performance"} subtitle={monthLabel(month)}>
         {openId && data && <PersonPerformance profileId={openId} month={month} settings={data.settings} />}
       </Drawer>
-      {data?.can_configure && (
-        <SettingsModal open={config} settings={data.settings} tenantId={data.tenant_id ?? profile!.tenant_id}
-          onClose={() => setConfig(false)} onSaved={() => { setConfig(false); toast("Regras da nota atualizadas."); void q.reload(); void hl.reload(); }} />
-      )}
     </div>
   );
 }
@@ -220,69 +225,5 @@ function MatrixView({ people }: { people: PerfRow[] }) {
         </table>
       </div>
     </Card>
-  );
-}
-
-/* ---------- Regras da nota ---------- */
-function SettingsModal({ open, settings, tenantId, onClose, onSaved }: {
-  open: boolean; settings: PerfSettings; tenantId: string; onClose: () => void; onSaved: () => void;
-}) {
-  const toast = useToast();
-  const [v, setV] = useState(settings);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => { if (open) setV(settings); }, [open, settings]);
-  const total = v.weight_delivery + v.weight_on_time + v.weight_no_backlog;
-  const num = (k: keyof PerfSettings, min: number, max: number) => ({
-    type: "number" as const, min, max, value: String(v[k] as number),
-    onChange: (e: ChangeEvent<HTMLInputElement>) => setV((x) => ({ ...x, [k]: Math.max(min, Math.min(max, Number(e.target.value) || 0)) })),
-  });
-  const invalid = total <= 0 ? "Defina ao menos um peso maior que zero." : v.band_great <= v.band_ok ? "A faixa “acima do esperado” precisa ser maior que a “satisfatória”." : null;
-
-  async function save() {
-    if (invalid) return;
-    setSaving(true);
-    try {
-      const { tenant_id: _t, ...rest } = v; void _t;
-      await api.savePerformanceSettings(tenantId, rest); onSaved();
-    } catch (e) { toast((e as Error).message, "error"); } finally { setSaving(false); }
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} wide title="Regras da nota de performance"
-      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button icon="check" loading={saving} disabled={!!invalid} onClick={save}>Salvar regras</Button></>}>
-      <div className="stack pset">
-        <section>
-          <h3 className="pset__title">Pesos da nota</h3>
-          <p className="subtext">Quanto cada parte vale na nota final. Os pesos são proporcionais (a soma não precisa dar 100).</p>
-          <div className="pset__grid">
-            <Field label="Cumprimento">{({ id }) => <Input id={id} {...num("weight_delivery", 0, 100)} />}</Field>
-            <Field label="Pontualidade">{({ id }) => <Input id={id} {...num("weight_on_time", 0, 100)} />}</Field>
-            <Field label="Sem atrasos em aberto">{({ id }) => <Input id={id} {...num("weight_no_backlog", 0, 100)} />}</Field>
-          </div>
-        </section>
-        <section>
-          <h3 className="pset__title">Faixas</h3>
-          <div className="pset__grid">
-            <Field label="Satisfatório a partir de" hint="Abaixo disso: abaixo do esperado.">{({ id }) => <Input id={id} {...num("band_ok", 1, 150)} />}</Field>
-            <Field label="Acima do esperado a partir de">{({ id }) => <Input id={id} {...num("band_great", 1, 150)} />}</Field>
-          </div>
-        </section>
-        <section>
-          <h3 className="pset__title">Ranking e destaques</h3>
-          <div className="pset__grid">
-            <Field label="Mínimo de entregas previstas" hint="Para concorrer ao destaque do setor no mês.">{({ id }) => <Input id={id} {...num("min_volume", 0, 200)} />}</Field>
-          </div>
-          <label className="pset__check">
-            <input type="checkbox" checked={v.include_assigned_tasks} onChange={(e) => setV((x) => ({ ...x, include_assigned_tasks: e.target.checked }))} />
-            <span><b>Contar as tarefas atribuídas pela liderança</b><small>Além das etapas dos projetos. Tarefas pessoais nunca contam.</small></span>
-          </label>
-          <label className="pset__check">
-            <input type="checkbox" checked={v.highlight_includes_pj} onChange={(e) => setV((x) => ({ ...x, highlight_includes_pj: e.target.checked }))} />
-            <span><b>Colaboradores PJ concorrem ao destaque</b><small>A performance do PJ é medida e aparece para a gestão, mas nunca para o próprio PJ. Deixe desmarcado se o destaque for divulgado ao time.</small></span>
-          </label>
-        </section>
-        {invalid && <p className="field__error" role="alert">{invalid}</p>}
-      </div>
-    </Modal>
   );
 }

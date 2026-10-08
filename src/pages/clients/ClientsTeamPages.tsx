@@ -193,11 +193,11 @@ export function TeamPage() {
   const sectors = useAsync(() => api.listSectors(), []);
   const toast = useToast();
   const [sectorOf, setSectorOf] = useState<Record<string, string | null>>({});
-  const sectorId = (p: { id: string; sector_family_id?: string | null }) => (p.id in sectorOf ? sectorOf[p.id] : p.sector_family_id ?? null);
+  const sectorId = (p: { id: string; sector_id?: string | null }) => (p.id in sectorOf ? sectorOf[p.id] : p.sector_id ?? null);
   const RANK: Record<string, number> = { collaborator: 1, leader: 2, unit_admin: 3, global_admin: 4 };
   const canEditSector = (p: { id: string; role: string }) =>
     !!permissions && (permissions.can_manage_users || (p.id !== permissions.profile_id && RANK[p.role] <= RANK[permissions.role]));
-  async function changeSector(p: { id: string; name: string }, familyId: string) {
+  async function changeSector(p: { id: string; name: string }, familyId: string) { // familyId = id do setor
     const prev = sectorOf[p.id];
     setSectorOf((m) => ({ ...m, [p.id]: familyId || null }));
     try {
@@ -212,9 +212,11 @@ export function TeamPage() {
 
   const team = (staff.data ?? []).filter((p) => p.status === "ativo" && p.role !== "client" && p.role !== "global_admin"
     && (emp === "all" || p.employment_type === emp));
-  const people = team.filter((p) => sector === "all" || (sectorId(p) ?? "none") === sector);
+  const people = team.filter((p) => sector === "all" || (sector === "none" ? !sectorId(p) : sectorName(sectorId(p)) === sector));
   const withoutSector = team.filter((p) => !sectorId(p)).length;
-  const sectorOptions = (sectors.data ?? []).map((x) => ({ value: x.id, label: x.name }));
+  const sectorName = (id: string | null) => (id ? sectors.data?.find((x) => x.id === id)?.name ?? null : null);
+  const optionsFor = (tenantId: string) => (sectors.data ?? []).filter((x) => x.tenant_id === tenantId).map((x) => ({ value: x.id, label: x.name }));
+  const filterNames = [...new Set((sectors.data ?? []).filter((x) => team.some((p) => sectorId(p) === x.id)).map((x) => x.name))];
   const byUser = new Map<string, { id: string; name: string; role: string }[]>();
   (work.data ?? []).forEach((w) => {
     if (!w.project || ["completed", "cancelled"].includes(w.project.status)) return;
@@ -233,7 +235,7 @@ export function TeamPage() {
       ]} />
       <div className="team-filters">
         <Segmented<string> label="Setor" value={sector} onChange={setSector}
-          options={[{ value: "all", label: "Todos os setores" }, ...sectorOptions.filter((o) => team.some((p) => sectorId(p) === o.value)),
+          options={[{ value: "all", label: "Todos os setores" }, ...filterNames.map((n) => ({ value: n, label: n })),
             ...(withoutSector ? [{ value: "none", label: `Sem setor (${withoutSector})` }] : [])]} />
       </div>
       {withoutSector > 0 && sector !== "none" && (
@@ -263,7 +265,8 @@ export function TeamPage() {
                 <div className="person__sector">
                   <span className="label">Setor</span>
                   <OptionPicker label={`Setor de ${p.name}`} value={sectorId(p) ?? ""} clearable placeholder="Definir setor"
-                    options={sectorOptions} loading={sectors.loading} disabled={!canEditSector(p)} invalid={!sectorId(p)}
+                    options={optionsFor(p.tenant_id)} loading={sectors.loading} disabled={!canEditSector(p)} invalid={!sectorId(p)}
+                    emptyText={permissions?.can_manage_tenant ? "Nenhum setor cadastrado. Cadastre em Configurações." : "Nenhum setor cadastrado pela administração."}
                     onChange={(v) => void changeSector(p, v)} />
                 </div>
                 <div className="person__load">

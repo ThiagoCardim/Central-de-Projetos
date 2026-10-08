@@ -42,8 +42,8 @@ export interface Profile {
   invited_at: string | null;
   last_seen_at: string | null;
   created_at: string;
-  /** Setor (família de serviço) usado na performance do time. */
-  sector_family_id?: string | null;
+  /** Setor da empresa (cadastro da administração), usado na performance do time. */
+  sector_id?: string | null;
 }
 
 export interface ClientRecord {
@@ -586,3 +586,7 @@ export interface PerfHighlight {
   score: number; band: PerfBand; planned: number; delivered: number; on_time_pct: number | null;
 }
 export interface PerfHighlights { month: string; settings: PerfSettings; items: PerfHighlight[] }
+
+/* ---------- Setores da empresa ---------- */
+export interface Sector { id: string; tenant_id: string; name: string; sort_order: number }
+export interface SectorRow { id: string; name: string; sort_order: number; people: number }

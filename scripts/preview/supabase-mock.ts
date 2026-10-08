@@ -38,8 +38,8 @@ let profiles: any[] = [
   ["p-fl", POCOS, "André Vilela", "andre@youconsuldeminas.com.br", "leader", "pj", null, "ativo", true],
 ].map(([id, tenant_id, name, email, role, employment_type, client_type, status, linked], i) => ({
   id, auth_user_id: linked ? `auth-${id}` : null, tenant_id, name, email, role, employment_type, client_type, status,
-  sector_family_id: ({ "p-ld": "f-arquitetura", "p-c1": "f-arquitetura", "p-a2": "f-arquitetura", "p-a3": "f-arquitetura", "p-c2": "f-engenharia",
-    "p-pj": "f-engenharia", "p-e2": "f-engenharia", "p-i1": "f-interiores", "p-i2": "f-interiores" } as Record<string, string>)[id as string] ?? null,
+  sector_id: ({ "p-ld": "s-arq", "p-c1": "s-arq", "p-a2": "s-arq", "p-a3": "s-arq", "p-c2": "s-eng",
+    "p-pj": "s-eng", "p-e2": "s-eng", "p-i1": "s-int", "p-i2": "s-int" } as Record<string, string>)[id as string] ?? null,
   phone: null, avatar_url: null, invited_at: `2026-0${(i % 8) + 1}-1${i % 9}T12:00:00Z`, last_seen_at: null, created_at: "2026-01-10T12:00:00Z",
 }));
 
@@ -241,7 +241,15 @@ function rpc(name: string, _args?: any) {
     case "performance_overview": return delay({ data: perfOverview(_args?.p_month), error: perfOverview(_args?.p_month) ? null : { message: "A performance não está disponível para o seu perfil", code: "42501" } }, 250);
     case "performance_person": return delay({ data: perfPerson(_args.p_profile, _args?.p_month), error: null }, 200);
     case "performance_highlights": return delay({ data: perfHighlights(_args?.p_month), error: null }, 150);
-    case "set_profile_sector": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) t.sector_family_id = _args.p_family; return delay({ data: null, error: null }, 150); }
+    case "set_person_sector": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) t.sector_id = _args.p_sector; return delay({ data: null, error: null }, 150); }
+    case "sector_list": return delay({ data: sectorList(_args.p_tenant), error: null }, 120);
+    case "sector_save": {
+      if (_args.p_id) { const x = SECTORS.find((y) => y.id === _args.p_id); if (x) x.name = _args.p_name; return delay({ data: _args.p_id, error: null }, 150); }
+      const id = `s-${Date.now()}`; SECTORS.push({ id, tenant_id: _args.p_tenant, name: _args.p_name, sort_order: 999 }); return delay({ data: id, error: null }, 150);
+    }
+    case "sector_delete": { const n = profiles.filter((p) => p.sector_id === _args.p_id).length; profiles.forEach((p) => { if (p.sector_id === _args.p_id) p.sector_id = null; });
+      SECTORS = SECTORS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
+    case "sector_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = SECTORS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "save_performance_settings": PERF_SET = { ...PERF_SET, ..._args.p }; return delay({ data: PERF_SET, error: null }, 200);
     case "my_steps": return delay({ data: mySteps(), error: null }, 200);
     case "my_notifications": return delay({ data: NOTIFS, error: null }, 100);
@@ -696,13 +704,19 @@ function teamWork() {
     .map(workJson).sort((a, b) => a.due_date.localeCompare(b.due_date));
 }
 
+// ---------- Setores da empresa ----------
+let SECTORS: any[] = [["s-arq", "Arquitetura"], ["s-eng", "Engenharia"], ["s-int", "Interiores"], ["s-apr", "Aprovação"]]
+  .map(([id, name], i) => ({ id, tenant_id: HQ, name, sort_order: (i + 1) * 10 }));
+const sectorList = (t: string) => SECTORS.filter((x) => x.tenant_id === t).sort((a, b) => a.sort_order - b.sort_order)
+  .map((x) => ({ id: x.id, name: x.name, sort_order: x.sort_order, people: profiles.filter((p) => p.sector_id === x.id && p.status === "ativo").length }));
+
 // ---------- Performance (dados sintéticos e estáveis por pessoa/mês) ----------
 let PERF_SET: any = { tenant_id: HQ, weight_delivery: 60, weight_on_time: 30, weight_no_backlog: 10, band_ok: 70, band_great: 90, min_volume: 3,
   include_assigned_tasks: true, highlight_includes_pj: false };
 const PERF_ACTS: Record<string, string[]> = {
-  "f-arquitetura": ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo"],
-  "f-engenharia": ["Projeto Estrutural", "Projeto Elétrico", "Projeto Hidrossanitário", "Compatibilização Estrutural", "Correção de projeto"],
-  "f-interiores": ["Planejamento", "Briefing", "Projeto de Interiores", "Renderização", "Detalhamento"],
+  "s-arq": ["Planejamento", "Envio do Briefing", "Estudo Preliminar", "Alterações", "Imagens 3D e Vídeo"],
+  "s-eng": ["Projeto Estrutural", "Projeto Elétrico", "Projeto Hidrossanitário", "Compatibilização Estrutural", "Correção de projeto"],
+  "s-int": ["Planejamento", "Briefing", "Projeto de Interiores", "Renderização", "Detalhamento"],
 };
 const PERF_PROFILE: Record<string, [number, number]> = { // [entrega base, pontualidade base]
   "p-ld": [0.8, 0.9], "p-c1": [0.75, 0.66], "p-a2": [0.95, 0.95], "p-a3": [0.6, 0.55], "p-c2": [0.85, 0.8], "p-pj": [1, 1], "p-e2": [0.9, 0.85],
@@ -713,8 +727,8 @@ const shiftM = (iso: string, n: number) => { const [y, m] = iso.split("-").map(N
 function rnd(seed: string) { let h = 2166136261; for (const c of seed) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; }
 function perfRow(p: any, month: string): any {
   const base = PERF_PROFILE[p.id] ?? [0.8, 0.8];
-  const sector = FAMILIES.find((f) => f.id === p.sector_family_id);
-  const acts = (PERF_ACTS[p.sector_family_id] ?? ["Etapas de projeto"]).map((label, i) => {
+  const sector = SECTORS.find((f) => f.id === p.sector_id);
+  const acts = (PERF_ACTS[p.sector_id] ?? ["Etapas de projeto"]).map((label, i) => {
     const planned = base[0] === 0 ? 0 : 1 + Math.floor(rnd(p.id + month + i) * 4);
     const delivered = Math.min(planned + (rnd(month + p.id + i) > 0.85 ? 1 : 0), Math.round(planned * Math.min(1.1, base[0] + (rnd(i + p.id + month) - 0.5) * 0.3)));
     const on_time = Math.round(delivered * Math.min(1, base[1] + (rnd(month + i + p.id + "t") - 0.5) * 0.2));
@@ -748,7 +762,7 @@ function perfOverview(m?: string | null) {
   const end = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toISOString().slice(0, 10);
   return { month, month_end: end, cut: end, tenant_id: HQ, settings: PERF_SET, scope: manager ? "team" : "self",
     can_configure: ["unit_admin", "global_admin"].includes(me0.role), can_set_sector: manager,
-    sectors: FAMILIES.map((f) => ({ id: f.id, name: f.name })), people: people.map((p) => perfRow(p, month)), trend: perfTrend(people, month) };
+    sectors: sectorList(HQ).map((f) => ({ id: f.id, name: f.name })), people: people.map((p) => perfRow(p, month)), trend: perfTrend(people, month) };
 }
 function perfPerson(id: string, m?: string | null) {
   const p = profiles.find((x) => x.id === id); const month = monthStart(m); const row = perfRow(p, month);
@@ -763,7 +777,7 @@ function perfHighlights(m?: string | null) {
   const manager = ["leader", "unit_admin", "global_admin"].includes(me0.role);
   if (!manager && me0.employment_type !== "clt") return null;
   const month = monthStart(m);
-  const rows = perfStaff().filter((x) => x.sector_family_id && (x.employment_type === "clt" || PERF_SET.highlight_includes_pj)).map((p) => perfRow(p, month))
+  const rows = perfStaff().filter((x) => x.sector_id && (x.employment_type === "clt" || PERF_SET.highlight_includes_pj)).map((p) => perfRow(p, month))
     .filter((r) => r.score != null && r.planned >= PERF_SET.min_volume);
   const best = new Map<string, any>();
   rows.forEach((r) => { const b = best.get(r.sector.id); if (!b || r.score > b.score || (r.score === b.score && r.delivered > b.delivered)) best.set(r.sector.id, r); });
@@ -801,6 +815,7 @@ function visibleRows(table: string): any[] {
   if (table === "project_board_columns") return [...BOARD_COLS].sort((a, b) => a.sort_order - b.sort_order);
   if (table === "project_board_cards") return BOARD_CARDS;
   if (table === "service_families") return FAMILIES;
+  if (table === "sectors") return SECTORS.filter((x) => global || x.tenant_id === p.tenant_id).sort((a, b) => a.sort_order - b.sort_order);
   if (table === "schedule_templates") return TEMPLATES;
   if (table === "template_task_dependencies") return TEMPLATE_DEPS;
   if (table === "template_tasks") return TEMPLATES.filter((t) => t.active).flatMap((t) => t.tasks.map((x: any) => ({ ...x,

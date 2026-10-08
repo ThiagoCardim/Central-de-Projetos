@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -36,7 +36,7 @@ async function adminUsers<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 const PROFILE_COLUMNS =
-  "id, auth_user_id, tenant_id, name, email, role, employment_type, client_type, status, phone, avatar_url, invited_at, last_seen_at, created_at, sector_family_id";
+  "id, auth_user_id, tenant_id, name, email, role, employment_type, client_type, status, phone, avatar_url, invited_at, last_seen_at, created_at, sector_id";
 
 export const api = {
   // ---------- Sessão ----------
@@ -277,7 +277,20 @@ export const api = {
     rpc<PerfOverview>("performance_overview", { p_month: month, p_tenant: tenantId ?? null }),
   performancePerson: (profileId: string, month: string | null) => rpc<PerfPersonDetail>("performance_person", { p_profile: profileId, p_month: month }),
   performanceHighlights: (month: string | null) => rpc<PerfHighlights | null>("performance_highlights", { p_month: month }),
-  setProfileSector: (profileId: string, familyId: string | null) => rpc<void>("set_profile_sector", { p_profile: profileId, p_family: familyId }),
+  setProfileSector: (profileId: string, sectorId: string | null) => rpc<void>("set_person_sector", { p_profile: profileId, p_sector: sectorId }),
+  // Setores da empresa (cadastro da administração, por unidade)
+  async performanceSettings(tenantId: string): Promise<PerfSettings> {
+    const { data, error } = await supabase.from("performance_settings")
+      .select("tenant_id, weight_delivery, weight_on_time, weight_no_backlog, band_ok, band_great, min_volume, include_assigned_tasks, highlight_includes_pj")
+      .eq("tenant_id", tenantId).maybeSingle();
+    if (error) throw toUserError(error);
+    return (data as PerfSettings | null) ?? { tenant_id: tenantId, weight_delivery: 60, weight_on_time: 30, weight_no_backlog: 10, band_ok: 70, band_great: 90,
+      min_volume: 3, include_assigned_tasks: true, highlight_includes_pj: false };
+  },
+  sectorList: (tenantId: string) => rpc<SectorRow[]>("sector_list", { p_tenant: tenantId }),
+  sectorSave: (tenantId: string | null, id: string | null, name: string) => rpc<string>("sector_save", { p_tenant: tenantId, p_id: id, p_name: name }),
+  sectorDelete: (id: string) => rpc<number>("sector_delete", { p_id: id }),
+  sectorReorder: (tenantId: string, ids: string[]) => rpc<void>("sector_reorder", { p_tenant: tenantId, p_ids: ids }),
   savePerformanceSettings: (tenantId: string, s: Omit<PerfSettings, "tenant_id">) => rpc<PerfSettings>("save_performance_settings", { p_tenant: tenantId, p: s }),
   /** Minhas tarefas do dia (pessoais e atribuídas pela liderança). */
   listWorkItems: () => rpc<WorkItem[]>("my_work_items"),
@@ -519,10 +532,11 @@ export const api = {
     return url;
   },
   reorderTaskLibrary: (ids: string[]) => rpc<void>("reorder_task_library", { p_ids: ids }),
-  async listSectors(): Promise<{ id: string; name: string }[]> {
-    const { data, error } = await supabase.from("service_families").select("id, name").eq("active", true).order("sort_order");
+  /** Setores visíveis (da minha unidade; ADM global vê todas). Filtre por tenant_id da pessoa. */
+  async listSectors(): Promise<Sector[]> {
+    const { data, error } = await supabase.from("sectors").select("id, tenant_id, name, sort_order").order("sort_order").order("name");
     if (error) throw toUserError(error);
-    return data as { id: string; name: string }[];
+    return data as Sector[];
   },
   removeAvatar: (profileId: string) => rpc<void>("set_profile_avatar", { p_profile: profileId, p_url: null }),
 

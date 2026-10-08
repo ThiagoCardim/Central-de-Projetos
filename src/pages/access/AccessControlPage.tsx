@@ -256,7 +256,7 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
     else if (target) setForm({
       name: target.name, email: target.email, phone: target.phone ?? "", tenant_id: target.tenant_id,
       role: target.role, employment_type: target.employment_type, client_type: target.client_type,
-      client_id: "", new_client_name: "", sector: target.sector_family_id ?? "",
+      client_id: "", new_client_name: "", sector: target.sector_id ?? "",
     });
   }, [target, permissions?.tenant_id]);
 
@@ -318,7 +318,7 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
           phone: form.phone.trim() || null,
           tenant_id: isGlobal && form.tenant_id !== editing.tenant_id ? form.tenant_id : null,
         });
-        if (role !== "client" && form.sector !== (editing.sector_family_id ?? "")) await api.setProfileSector(editing.id, form.sector || null);
+        if (role !== "client" && form.sector !== (editing.sector_id ?? "")) await api.setProfileSector(editing.id, form.sector || null);
         toast("Usuário atualizado.");
       }
       onSaved();
@@ -472,7 +472,7 @@ function UserDrawer({ target, tenants, onClose, onSaved, onStatusChanged }: {
               <Field label="Setor" hint="Usado na performance do time e no destaque do mês.">
                 {() => (
                   <OptionPicker label="Setor" value={form.sector} clearable placeholder="Sem setor" loading={sectors.loading}
-                    options={(sectors.data ?? []).map((x) => ({ value: x.id, label: x.name }))} onChange={(v) => set("sector", v)} />
+                    options={(sectors.data ?? []).filter((x) => x.tenant_id === form.tenant_id).map((x) => ({ value: x.id, label: x.name }))} onChange={(v) => set("sector", v)} />
                 )}
               </Field>
             </fieldset>
