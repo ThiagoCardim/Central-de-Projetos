@@ -12,7 +12,8 @@ export type Capability =
   | "distribute"
   | "manager"
   | "staff"
-  | "performance";
+  | "performance"
+  | "approvals";
 
 export function can(perms: Permissions | null, cap: Capability): boolean {
   if (!perms) return false;
@@ -28,6 +29,8 @@ export function can(perms: Permissions | null, cap: Capability): boolean {
     case "staff": return perms.is_staff;
     // PJ é medido, mas não vê a própria performance; a gestão vê a equipe.
     case "performance": return perms.is_manager || perms.can_view_performance;
+    // Controle de aprovações e comissões: ADMs e líderes de aprovação.
+    case "approvals": return !!perms.can_view_approvals;
   }
 }
 

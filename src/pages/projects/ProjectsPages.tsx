@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
 import { Link, useNavigate, useParams, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
+import { ProjectApprovalsCard } from "@/pages/approvals/ProjectApprovals";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
 } from "@/components/ui/primitives";
@@ -239,6 +240,8 @@ export function ProjectDetailPage() {
               ? <div className="card__note"><Link to={`/projetos/${p.id}/cronograma`} className="btn btn--secondary btn--sm">Abrir cronograma</Link></div>
               : <p className="subtext card__note">O cronograma é gerado a partir dos padrões YouCon quando a equipe for confirmada.</p>}
           </Card>
+
+          {permissions?.is_staff && ["in_progress", "on_hold", "completed"].includes(p.status) && <ProjectApprovalsCard projectId={p.id} />}
 
           <TeamCard project={p} canAssign={canAssign} staff={!!permissions?.is_staff} me={profile?.id ?? null} onEdit={() => setTeamOpen(true)} />
         </div>

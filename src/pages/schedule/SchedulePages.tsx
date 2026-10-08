@@ -14,6 +14,7 @@ import type { ProjectDetail, ProjectSchedule, ScheduleTask, ScheduleTrack, Staff
 import { alertPhrase, cx, formatDate, initials, plural, TASK_STATUS_TONE } from "@/utils/format";
 import { TaskDrawer } from "./TaskDrawer";
 import { AddTaskDrawer } from "./AddTaskDrawer";
+import { IncludeTramiteButton } from "@/pages/approvals/ProjectApprovals";
 import { GanttView } from "./GanttView";
 import { AdjustmentsView, RequestAdjustmentModal } from "./Adjustments";
 import {
@@ -83,8 +84,11 @@ export function ProjectSchedulePage() {
       <PageHead title={p.name}
         subtitle={<>{p.client?.name ?? "—"} <span className="sep" aria-hidden="true" /> Cronograma por serviço, em dias úteis</>}
         actions={canManage && s && s.tasks.length > 0 ? (
-          <Segmented<"view" | "manage"> label="Modo do cronograma" value={mode} onChange={setMode}
-            options={[{ value: "view", label: "Visualização" }, { value: "manage", label: "Modo gestão" }]} />
+          <>
+            {mode === "manage" && <IncludeTramiteButton projectId={p.id} onDone={() => { reload(); void project.reload(); }} />}
+            <Segmented<"view" | "manage"> label="Modo do cronograma" value={mode} onChange={setMode}
+              options={[{ value: "view", label: "Visualização" }, { value: "manage", label: "Modo gestão" }]} />
+          </>
         ) : undefined}
       />
 

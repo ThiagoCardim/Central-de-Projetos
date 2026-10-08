@@ -26,6 +26,70 @@ const FAQ_FB: any[] = [
   { id: "fb-5", item_id: "fi-128", helpful: true, query: "quem paga as taxas", created_at: "2026-10-04T16:30:00Z" },
 ];
 
+// Aprovações e comissões
+const APR_TYPES: any[] = [
+  ["prefeitura", "Prefeitura", "Aprovação / Projeto Legal"], ["condominio", "Condomínio", "Aprovação / Projeto Legal"],
+  ["terraplanagem", "Terraplanagem", "Aprovação de Terraplanagem"], ["demolicao", "Projeto de Demolição", "Aprovação de Projeto de Demolição"],
+  ["regularizacao_terreno", "Regularização de Terreno", "Regularização de Terreno"], ["supressao_vegetal", "Supressão Vegetal", "Supressão Vegetal"],
+  ["cindacta", "CINDACTA", "Aprovação CINDACTA"], ["vigilancia_sanitaria", "Vigilância Sanitária", "Trâmites de Vigilância Sanitária"],
+  ["ligacoes", "Ligação de Água, Energia e Esgoto", "Ligação de Água, Energia e Esgoto"], ["pgr", "PGR", "PGR"],
+].map(([code, name, service], i) => ({ id: `at-${code}`, code, name, service, sort_order: (i + 1) * 10 }));
+const APR_RATES: Record<string, number | null> = { prefeitura: 800, condominio: 400, terraplanagem: 350, demolicao: 300, cindacta: 450, vigilancia_sanitaria: 500 };
+const APR_PROJ: Record<string, string[]> = {
+  pr1: ["prefeitura", "condominio", "terraplanagem"], pr2: ["prefeitura", "cindacta", "vigilancia_sanitaria"], pr3: ["prefeitura", "pgr", "ligacoes"],
+};
+const APR_PNAME: Record<string, [string, string, string]> = {
+  pr1: ["Residência Souza", "YC-2026-0014", "Fernanda Souza"], pr2: ["Edifício Horizonte", "YC-2026-0017", "Construtora Horizonte"],
+  pr3: ["Clínica Vida", "YC-2026-0019", "Clínica Vida Ltda."], pr4: ["Casa Moreira", "YC-2026-0011", "Paulo Moreira"], pr5: ["Loja Central", "YC-2026-0009", "Grupo Central"],
+};
+const aprPerson = (id: string, name: string) => ({ id, name, avatar_url: null, employment_type: id.includes("pj") ? "pj" : "clt" });
+let APPROVALS: any[] = [
+  ["ap1", "pr1", "prefeitura", -3, "PMPC 2231/2026", "awaiting_review", aprPerson("p-c2", "Lucas Ferreira"), 800],
+  ["ap2", "pr2", "prefeitura", -9, "SEPLAN 88213", "to_release", aprPerson("p-c2", "Lucas Ferreira"), 800],
+  ["ap3", "pr2", "cindacta", -12, "COMAER 4410", "to_release", aprPerson("p-pj2", "Eduardo Prado"), 450],
+  ["ap4", "pr3", "prefeitura", -20, null, "released", aprPerson("p-c1", "Beatriz Nogueira"), 800],
+  ["ap5", "pr4", "condominio", -26, "Cond. Jardins 12", "paid", aprPerson("p-c2", "Lucas Ferreira"), 400],
+  ["ap6", "pr5", "vigilancia_sanitaria", -5, "VISA 0098", "proof_rejected", aprPerson("p-pj2", "Eduardo Prado"), 500],
+  ["ap7", "pr4", "terraplanagem", -1, null, "awaiting_review", aprPerson("p-pj2", "Eduardo Prado"), null],
+].map(([id, project_id, code, ago, protocol_number, status, recipient, amount]: any) => {
+  const ty = APR_TYPES.find((t) => t.code === code)!;
+  const [project_name, project_code, client_name] = APR_PNAME[project_id];
+  return {
+    id, project_id, tenant_id: HQ, tenant_name: "YouCon Franqueadora", project_name, project_code, client_name,
+    type_id: ty.id, type_name: ty.name, type_code: code, protocol_number, approved_on: d(ago), notes: null,
+    proof: { path: `${project_id}/${id}/x.pdf`, name: `aprovacao-${code}.pdf`, size: 220000, type: "application/pdf" },
+    status, review_note: status === "proof_rejected" ? "O arquivo é o protocolo de entrada, não a aprovação. Envie o alvará." : null, cancel_note: null,
+    registered_at: d(ago) + "T15:20:00Z", registered_by: { id: recipient.id, name: recipient.name },
+    reviewed_at: ["to_release", "released", "paid", "proof_rejected"].includes(status) ? d(ago + 1) + "T10:00:00Z" : null,
+    reviewed_by: ["to_release", "released", "paid", "proof_rejected"].includes(status) ? { id: "p-ld", name: "Rafael Andrade" } : null,
+    released_at: ["released", "paid"].includes(status) ? d(ago + 2) + "T11:00:00Z" : null,
+    paid_at: status === "paid" ? d(-2) + "T09:00:00Z" : null,
+    recipient, amount,
+  };
+});
+let APR_INCLUDED: Record<string, string[]> = { pr1: ["terraplanagem"], pr2: ["cindacta", "vigilancia_sanitaria"], pr3: ["pgr", "ligacoes"] };
+function aprFlags(a: any) {
+  const p = me(); const admin = ["global_admin", "unit_admin"].includes(p?.role); const lead = p?.id === "p-ld";
+  return { ...a, amount: admin || lead ? a.amount : null, can_admin: admin, can_review: a.status === "awaiting_review" && (admin || lead),
+    can_resubmit: a.status === "proof_rejected" && p?.role !== "client" };
+}
+function aprBoard(pid: string) {
+  const p = me(); const manager = ["global_admin", "unit_admin", "leader"].includes(p?.role);
+  const codes = APR_PROJ[pid] ?? ["prefeitura", "condominio"];
+  return {
+    can_register: p?.role !== "client", can_include: manager,
+    protocols: codes.map((code) => {
+      const ty = APR_TYPES.find((t) => t.code === code)!;
+      const a = APPROVALS.find((x) => x.project_id === pid && x.type_code === code && x.status !== "cancelled");
+      return { type_id: ty.id, type_code: code, type_name: ty.name, sort_order: ty.sort_order, project_service_id: `ps-${code}`, service_name: ty.service,
+        task_id: null, task_status: null, approval_id: a?.id ?? null, approval_status: a?.status ?? null };
+    }),
+    approvals: APPROVALS.filter((x) => x.project_id === pid && x.status !== "cancelled").map(aprFlags),
+    tramites: APR_TYPES.filter((t) => !["prefeitura", "condominio"].includes(t.code))
+      .map((t) => ({ service_id: `svc-${t.code}`, name: t.service, included: (APR_INCLUDED[pid] ?? []).includes(t.code) })),
+  };
+}
+
 const tenants = [
   { id: HQ, name: "YouCon Franqueadora", type: "franqueadora", status: "ativo", parent_tenant_id: null, slug: "youcon", city: "Poços de Caldas", state: "MG", created_at: "2026-01-10T12:00:00Z" },
   { id: POCOS, name: "YouCon Sul de Minas", type: "franquia", status: "ativo", parent_tenant_id: HQ, slug: "sul-de-minas", city: "Pouso Alegre", state: "MG", created_at: "2026-06-02T12:00:00Z" },
@@ -87,6 +151,7 @@ function permissions() {
     can_manage_users: global || r === "unit_admin", can_manage_tenant: global || r === "unit_admin",
     can_manage_tenants: global, can_manage_templates: global, can_distribute: global,
     can_view_intake: global || r === "unit_admin", can_view_performance: p.employment_type === "clt" || p.role === "global_admin",
+    can_view_approvals: global || r === "unit_admin" || p.id === "p-ld", can_admin_approvals: global || r === "unit_admin",
     is_manager: ["leader", "unit_admin", "global_admin"].includes(r), is_staff: r !== "client",
   };
 }
@@ -271,6 +336,25 @@ function rpc(name: string, _args?: any) {
       profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
     case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "project_approval_board": return delay({ data: aprBoard(_args.p_project), error: null }, 200);
+    case "approvals_list": return delay({ data: APPROVALS.filter((a) => a.status !== "cancelled").map(aprFlags)
+      .sort((a, b) => b.approved_on.localeCompare(a.approved_on)), error: null }, 220);
+    case "approval_rates_list": return delay({ data: APR_TYPES.map((t) => ({ type_id: t.id, code: t.code, name: t.name, active: true, amount: APR_RATES[t.code] ?? null, updated_at: null })), error: null }, 150);
+    case "approval_rate_save": { const t = APR_TYPES.find((x) => x.id === _args.p_type); if (t) APR_RATES[t.code] = _args.p_amount; return delay({ data: null, error: null }, 150); }
+    case "approval_review": { const a = APPROVALS.find((x) => x.id === _args.p_id); if (a) { a.status = _args.p_ok ? "to_release" : "proof_rejected"; a.review_note = _args.p_note; a.reviewed_at = new Date().toISOString(); a.reviewed_by = { id: "p-ld", name: "Rafael Andrade" }; } return delay({ data: null, error: null }, 200); }
+    case "approval_set_status": { const a = APPROVALS.find((x) => x.id === _args.p_id); if (a) { a.status = _args.p_status; if (_args.p_status === "released") a.released_at = new Date().toISOString(); if (_args.p_status === "paid") a.paid_at = new Date().toISOString(); } return delay({ data: null, error: null }, 200); }
+    case "approval_update": { const a = APPROVALS.find((x) => x.id === _args.p_id); if (a) { a.amount = _args.p_amount; const r = profiles.find((x) => x.id === _args.p_recipient); if (r) a.recipient = aprPerson(r.id, r.name); } return delay({ data: null, error: null }, 200); }
+    case "approval_include_tramite": { const code = String(_args.p_service).replace("svc-", ""); (APR_INCLUDED[_args.p_project] ??= []).push(code); (APR_PROJ[_args.p_project] ??= ["prefeitura", "condominio"]).push(code); return delay({ data: { tracks_created: 1 }, error: null }, 300); }
+    case "approval_register": {
+      const ty = APR_TYPES.find((t) => t.id === _args.p_type)!; const ex = APPROVALS.find((x) => x.id === _args.p_id);
+      if (ex) { Object.assign(ex, { status: "awaiting_review", proof: _args.p_proof, approved_on: _args.p_approved_on }); return delay({ data: ex.id, error: null }, 300); }
+      const [project_name, project_code, client_name] = APR_PNAME[_args.p_project] ?? ["Projeto", null, null]; const mine = me();
+      APPROVALS.unshift({ id: _args.p_id, project_id: _args.p_project, tenant_id: HQ, tenant_name: "YouCon Franqueadora", project_name, project_code, client_name,
+        type_id: ty.id, type_name: ty.name, type_code: ty.code, protocol_number: _args.p_protocol, approved_on: _args.p_approved_on, notes: null, proof: _args.p_proof,
+        status: "awaiting_review", review_note: null, cancel_note: null, registered_at: new Date().toISOString(), registered_by: { id: mine.id, name: mine.name },
+        reviewed_at: null, reviewed_by: null, released_at: null, paid_at: null, recipient: aprPerson(mine.id, mine.name), amount: APR_RATES[ty.code] ?? null });
+      return delay({ data: _args.p_id, error: null }, 300);
+    }
     case "faq_feedback_add": FAQ_FB.unshift({ id: `fb-${Date.now()}`, item_id: _args.p_item, helpful: _args.p_helpful, query: _args.p_query, created_at: new Date().toISOString() }); return delay({ data: null, error: null }, 150);
     case "faq_item_save": {
       const x = _args.p_id ? FAQ_ITEMS.find((y) => y.id === _args.p_id) : null;
@@ -979,6 +1063,7 @@ export function createClient() {
       from: (_bucket: string) => ({
         upload: () => delay({ data: {}, error: null }, 300),
         getPublicUrl: (path: string) => ({ data: { publicUrl: `/${path}` } }),
+        createSignedUrl: (_path: string) => delay({ data: { signedUrl: mockImage(0) }, error: null }, 120),
         createSignedUrls: (paths: string[]) => delay({ data: paths.map((path, i) => ({ path, signedUrl: mockImage(i), error: null })), error: null }, 120),
       }),
     },

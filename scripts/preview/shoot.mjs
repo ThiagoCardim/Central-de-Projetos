@@ -288,6 +288,16 @@ const scenes = [
   { name: "faq-admin-edit", url: "/configuracoes?as=global_admin&aba=faq", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(400); await p.getByRole("button", { name: "Editar pergunta" }).nth(2).click(); await p.waitForTimeout(300); } },
   { name: "faq-admin-search", url: "/configuracoes?as=global_admin&aba=faq", vp: DESKTOP, action: async (p) => { await p.getByLabel("Buscar pergunta").fill("taxa"); await p.waitForTimeout(300); } },
   { name: "faq-home-client", url: "/?as=client", vp: DESKTOP, full: true },
+  { name: "apr-page-admin", url: "/aprovacoes?as=unit_admin", vp: DESKTOP, full: true },
+  { name: "apr-page-leader", url: "/aprovacoes?as=leader", vp: DESKTOP, full: true },
+  { name: "apr-review", url: "/aprovacoes?as=leader", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(400); await p.getByRole("button", { name: "Conferir", exact: true }).first().click(); await p.waitForTimeout(400); } },
+  { name: "apr-reject", url: "/aprovacoes?as=leader", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(400); await p.getByRole("button", { name: "Conferir", exact: true }).first().click(); await p.waitForTimeout(300); await p.getByRole("button", { name: "Recusar", exact: true }).click(); await p.waitForTimeout(200); } },
+  { name: "apr-release-drawer", url: "/aprovacoes?as=unit_admin", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(400); await p.getByRole("button", { name: /Abrir CINDACTA/ }).click(); await p.waitForTimeout(400); } },
+  { name: "apr-rates", url: "/aprovacoes?as=unit_admin&aba=valores", vp: DESKTOP, full: true },
+  { name: "apr-project-card", url: "/projetos/pr1?as=leader", vp: DESKTOP, full: true },
+  { name: "apr-register", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: "Projeto aprovado" }).click(); await p.waitForTimeout(200); await p.getByLabel(/Condomínio/).check(); await p.waitForTimeout(200); } },
+  { name: "apr-include", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: "Incluir trâmite no cronograma" }).click(); await p.waitForTimeout(300); } },
+  { name: "m-apr-page", url: "/aprovacoes?as=unit_admin", vp: MOBILE, full: true },
 ];
 
 const browser = await chromium.launch();

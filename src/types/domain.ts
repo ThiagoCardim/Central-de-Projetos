@@ -72,6 +72,8 @@ export interface Permissions {
   can_distribute: boolean;
   can_view_intake: boolean;
   can_view_performance: boolean;
+  can_view_approvals?: boolean;
+  can_admin_approvals?: boolean;
   is_manager: boolean;
   is_staff: boolean;
 }
@@ -609,3 +611,26 @@ export interface FaqItem {
   keywords: string | null; sort_order: number; updated_at: string;
 }
 export interface FaqFeedback { id: string; item_id: string | null; helpful: boolean; query: string | null; created_at: string }
+
+/* ---------- Aprovações de projeto e comissões ---------- */
+export type ApprovalStatus = "awaiting_review" | "proof_rejected" | "to_release" | "released" | "paid" | "cancelled";
+export interface ApprovalProof { path: string; name: string; size: number; type: string }
+export interface ApprovalRecord {
+  id: string; project_id: string; tenant_id: string; project_name: string; project_code: string | null; client_name: string | null; tenant_name: string | null;
+  type_id: string; type_name: string; type_code: string;
+  protocol_number: string | null; approved_on: string; proof: ApprovalProof; notes: string | null;
+  status: ApprovalStatus; review_note: string | null; cancel_note: string | null;
+  registered_at: string; reviewed_at: string | null; released_at: string | null; paid_at: string | null;
+  registered_by: { id: string; name: string } | null; reviewed_by: { id: string; name: string } | null;
+  recipient: { id: string; name: string; avatar_url: string | null; employment_type: EmploymentType | null } | null;
+  amount: number | null; can_resubmit: boolean; can_review: boolean; can_admin: boolean;
+}
+export interface ApprovalProtocol {
+  type_id: string; type_code: string; type_name: string; project_service_id: string; service_name: string;
+  task_id: string | null; task_status: TaskStatus | null; approval_id: string | null; approval_status: ApprovalStatus | null;
+}
+export interface ApprovalBoard {
+  can_register: boolean; can_include: boolean; protocols: ApprovalProtocol[]; approvals: ApprovalRecord[];
+  tramites: { service_id: string; name: string; included: boolean }[];
+}
+export interface ApprovalRate { type_id: string; code: string; name: string; amount: number | null; updated_at: string | null }

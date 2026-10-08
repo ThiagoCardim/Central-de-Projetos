@@ -233,8 +233,8 @@ select tst.ok((select count(*) from public.audit_logs where entity_type = 'profi
 -- -----------------------------------------------------------------------------
 -- Catálogo e calendário
 -- -----------------------------------------------------------------------------
-select tst.ok((select count(*) from public.services) = 19, 'Catálogo com 19 serviços');
-select tst.ok((select count(*) from public.services where has_schedule_template) = 12, '12 serviços com cronograma padrão');
+select tst.ok((select count(*) from public.services) = 26, 'Catálogo com 26 serviços (inclui 7 trâmites de aprovação)');
+select tst.ok((select count(*) from public.services where has_schedule_template) = 20, '20 serviços com cronograma padrão (inclui 8 trâmites)');
 select tst.ok(not (select available_for_b2c from public.services where code = 'spda'), 'SPDA indisponível para B2C');
 select tst.ok((select count(*) from public.template_tasks tt join public.schedule_templates st on st.id = tt.template_id
                join public.services s on s.id = st.service_id where s.code = 'projeto_arquitetonico') = 5, 'Arquitetônico com 5 etapas');

@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -11,6 +11,8 @@ import type {
 
 export const ADJ_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export const ADJ_IMAGE_MAX = 8 * 1024 * 1024;
+export const APPROVAL_PROOF_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+export const APPROVAL_PROOF_MAX = 10 * 1024 * 1024;
 
 async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(fn, args);
@@ -302,6 +304,36 @@ export const api = {
   setPersonProfile: (profileId: string, functionIds: string[], bio: string | null) =>
     rpc<void>("set_person_profile", { p_profile: profileId, p_functions: functionIds, p_bio: bio }),
   clientProjectTeam: (projectId: string) => rpc<ProjectTeamMember[]>("client_project_team", { p_project: projectId }),
+  // Aprovações de projeto e comissões (regras validadas no banco)
+  projectApprovalBoard: (projectId: string) => rpc<ApprovalBoard>("project_approval_board", { p_project: projectId }),
+  /** Envia o comprovante (PDF ou imagem) e registra a aprovação. Reenvio usa o mesmo id. */
+  async registerApproval(input: { id?: string; project_id: string; type_id: string; approved_on: string; protocol?: string | null; notes?: string | null; file: File }): Promise<string> {
+    const f = input.file;
+    if (!APPROVAL_PROOF_TYPES.includes(f.type)) throw new UserFacingError(`“${f.name}”: use PDF ou imagem (JPG, PNG ou WebP).`);
+    if (f.size > APPROVAL_PROOF_MAX) throw new UserFacingError(`“${f.name}” passa de 10 MB.`);
+    const id = input.id ?? crypto.randomUUID();
+    const ext = f.type === "application/pdf" ? "pdf" : f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : "jpg";
+    const path = `${input.project_id}/${id}/${crypto.randomUUID()}.${ext}`;
+    const up = await supabase.storage.from("approval-proofs").upload(path, f, { contentType: f.type, cacheControl: "3600" });
+    if (up.error) throw new UserFacingError(`Não foi possível enviar “${f.name}”. Tente novamente.`);
+    return rpc<string>("approval_register", {
+      p_id: id, p_project: input.project_id, p_type: input.type_id, p_approved_on: input.approved_on,
+      p_protocol: input.protocol?.trim() || null, p_proof: { path, name: f.name, size: f.size, type: f.type }, p_notes: input.notes?.trim() || null,
+    });
+  },
+  approvalReview: (id: string, ok: boolean, note?: string | null) => rpc<void>("approval_review", { p_id: id, p_ok: ok, p_note: note ?? null }),
+  approvalSetStatus: (id: string, status: ApprovalStatus, note?: string | null) => rpc<void>("approval_set_status", { p_id: id, p_status: status, p_note: note ?? null }),
+  approvalUpdate: (id: string, amount: number | null, recipientId: string | null) => rpc<void>("approval_update", { p_id: id, p_amount: amount, p_recipient: recipientId }),
+  approvalsList: (tenantId: string | null) => rpc<ApprovalRecord[]>("approvals_list", { p_tenant: tenantId }),
+  approvalRatesList: (tenantId: string) => rpc<ApprovalRate[]>("approval_rates_list", { p_tenant: tenantId }),
+  approvalRateSave: (tenantId: string, typeId: string, amount: number) => rpc<void>("approval_rate_save", { p_tenant: tenantId, p_type: typeId, p_amount: amount }),
+  includeTramite: (projectId: string, serviceId: string) => rpc<{ tracks_created?: number }>("approval_include_tramite", { p_project: projectId, p_service: serviceId }),
+  /** Link temporário (1 h) para abrir o comprovante privado. */
+  async approvalProofUrl(path: string): Promise<string> {
+    const { data, error } = await supabase.storage.from("approval-proofs").createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) throw new UserFacingError("Não foi possível abrir o comprovante.");
+    return data.signedUrl;
+  },
   // Dúvidas frequentes: leitura para todos; edição só da administração global (validado no banco)
   async listFaq(): Promise<{ categories: FaqCategory[]; items: FaqItem[] }> {
     const [c, i] = await Promise.all([
