@@ -125,3 +125,33 @@ select tst.login('lid@hq'); set role authenticated;
 select public.set_task_status((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, 'completed');
 reset role;
 select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).status = 'completed', 'Retrabalho concluído normalmente');
+
+-- Reabertura com início do retrabalho no futuro
+select tst.login('lid@hq'); set role authenticated;
+select public.reopen_task((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, current_date + 14, 3,
+  tst.reason('Cliente pediu alteração em etapa já concluída'));
+reset role; select tst.login('');
+select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).status in ('not_started', 'ready')
+          and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).actual_start_date is null
+          and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).start_not_before = current_date + 14,
+  'Início futuro: etapa aguarda a data, sem início real gravado');
+select tst.login('lid@hq'); set role authenticated;
+select public.set_task_status((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, 'in_progress');
+select public.set_task_status((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, 'completed');
+reset role;
+select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).status = 'completed'
+          and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).actual_start_date = current_date,
+  'Pode iniciar antes da data prevista e concluir sem erro');
+
+-- Dado antigo com início real no futuro: concluir não quebra
+begin;
+select private.engine_on();
+update public.project_tasks set status = 'in_progress', actual_start_date = current_date + 10, actual_end_date = null,
+       planned_start_date = current_date + 10, planned_end_date = current_date + 20
+ where id = (tst.task('projeto_arquitetonico', 'alteracoes')).id;
+commit;
+select tst.login('lid@hq'); set role authenticated;
+select public.set_task_status((tst.task('projeto_arquitetonico', 'alteracoes')).id, 'completed');
+reset role;
+select tst.ok((tst.task('projeto_arquitetonico', 'alteracoes')).actual_start_date <= (tst.task('projeto_arquitetonico', 'alteracoes')).actual_end_date,
+  'Conclusão corrige início real que estava no futuro');
