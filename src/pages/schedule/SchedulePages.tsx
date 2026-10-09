@@ -463,7 +463,7 @@ function StepCard({ task, staff, onOpen }: { task: ScheduleTask; staff: StaffMem
   const tone = TASK_STATUS_TONE[st];
   const skipped = task.status === "cancelled";
   return (
-    <button type="button" className={cx("step", `step--${tone}`, skipped && "step--skipped")} onClick={() => onOpen(task.id)}
+    <button type="button" className={cx("step", `step--${tone}`, skipped && "step--skipped", task.cycle_kind === "feedback" && "step--client")} onClick={() => onOpen(task.id)}
       aria-label={`${task.name}: ${st === "overdue" ? "atrasada" : ""}`.trim()}>
       <span className="step__name">{task.name}</span>
       <span className="step__dates num">

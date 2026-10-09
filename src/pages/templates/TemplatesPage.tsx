@@ -55,7 +55,7 @@ function variantLabel(t: Variant, short = false) {
 }
 
 interface FlowStep { id: string; name: string; duration_type: DurationType; days: number | null; client_visible: boolean;
-  include_if: string[] | null; waits: string[] }
+  include_if: string[] | null; waits: string[]; review_cycle: boolean; review_days: number | null; feedback_days: number | null }
 
 /** Agrupa etapas ativas em fases a partir das dependências internas do padrão. */
 function toPhases(template: ScheduleTemplate, deps: TemplateDependency[]): FlowStep[][] {
@@ -67,6 +67,7 @@ function toPhases(template: ScheduleTemplate, deps: TemplateDependency[]): FlowS
     (phases[groups[i]] ??= []).push({
       id: t.id, name: t.name, duration_type: t.duration_type, days: t.default_duration_days, client_visible: t.client_visible,
       include_if: t.include_if_service_codes,
+      review_cycle: !!t.review_cycle, review_days: t.review_days ?? null, feedback_days: t.feedback_days ?? null,
       waits: deps.filter((d) => d.template_task_id === t.id && d.predecessor_service_code)
         .map((d) => `${(d.predecessor_task_code ?? "").replaceAll("_", " ")} (${(d.predecessor_service_code ?? "").replaceAll("_", " ")})`),
     });
@@ -79,6 +80,20 @@ function phaseDuration(steps: { duration_type: DurationType; days: number | null
   const partial = fixed.some((s) => !s.days) || steps.some((s) => s.duration_type === "dependent" || s.duration_type === "external");
   const max = Math.max(0, ...fixed.map((s) => s.days ?? 0));
   return { days: max, partial };
+}
+
+/** Revisões incluídas do serviço (Configurações › Entregas e revisões). */
+function useIncludedRevisions(serviceId: string) {
+  const q = useAsync(() => api.deliverySettings().catch(() => null), []);
+  const row = q.data?.services.find((x) => x.id === serviceId);
+  return row ? (row.revisions_enabled ? row.included_revisions : 0) : null;
+}
+
+function cycleLabel(s: { review_days: number | null; feedback_days: number | null }, included: number | null) {
+  const fb = `feedback ${s.feedback_days ? `${s.feedback_days} d.u.` : "no prazo da unidade"}`;
+  if (included === 0) return `Apresentação ao cliente · ${fb} · revisões desativadas no serviço`;
+  const rounds = included === null ? "revisões" : plural(included, "revisão", "revisões");
+  return `Apresentação ao cliente · ${rounds} de ${s.review_days ?? "?"} d.u. · ${fb}`;
 }
 
 function durationLabel(s: { duration_type: DurationType; days: number | null }) {
@@ -326,6 +341,7 @@ function MoreMenu({ items }: { items: { label: string; icon: "edit" | "plus" | "
 /* ---------- Fluxo visual por fases ---------- */
 function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; usage: number; variants: number }) {
   const deps = useAsync(() => api.templateDependencies(template.id), [template.id]);
+  const included = useIncludedRevisions(template.service_id);
   const phases = deps.data ? toPhases(template, deps.data) : null;
   const total = phases?.reduce((n, ph) => n + phaseDuration(ph).days, 0) ?? 0;
   const partial = phases?.some((ph) => phaseDuration(ph).partial) ?? false;
@@ -358,8 +374,9 @@ function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; u
                         <li key={s.id} className="pstep">
                           <span className="pstep__name">{s.name}</span>
                           <span className={cx("pstep__dur", s.duration_type === "fixed" && !s.days && "text-warning")}>{durationLabel(s)}</span>
-                          {(s.waits.length > 0 || s.include_if?.length || !s.client_visible) && (
+                          {(s.waits.length > 0 || s.include_if?.length || !s.client_visible || s.review_cycle) && (
                             <span className="pstep__tags">
+                              {s.review_cycle && <span className="pstep__tag is-cycle"><Icon name="refresh" size={12} /> {cycleLabel(s, included)}</span>}
                               {s.waits.map((w) => <span key={w} className="pstep__tag">Aguarda {w}</span>)}
                               {s.include_if?.length ? <span className="pstep__tag">Só se contratar {s.include_if.join(", ").replaceAll("_", " ")}</span> : null}
                               {!s.client_visible && <span className="pstep__tag">Interna</span>}
@@ -376,6 +393,7 @@ function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; u
           <div className="flow__legend">
             <span><Icon name="sequence" size={14} /> uma fase começa quando a anterior termina</span>
             <span><Icon name="parallel" size={14} /> etapas lado a lado acontecem ao mesmo tempo</span>
+            {phases.some((ph) => ph.some((s) => s.review_cycle)) && <span><Icon name="refresh" size={14} /> apresentação ganha feedback e revisões no cronograma (não somadas aqui)</span>}
             <span className="grow" />
             <span className="num"><strong>{plural(steps, "etapa", "etapas")}</strong> em {plural(phases.length, "fase", "fases")} · ~{total} dias úteis{partial ? " + prazos a definir" : ""}</span>
           </div>
@@ -389,9 +407,10 @@ function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; u
    Editor por fases
    ========================================================================== */
 interface EStep { key: string; id: string | null; name: string; duration_type: DurationType; days: string; client_visible: boolean;
-  include_if: string[] | null; cross: string; showCross: boolean }
+  include_if: string[] | null; cross: string; showCross: boolean; review_cycle: boolean; review_days: string; feedback_days: string }
 interface EPhase { key: string; steps: EStep[] }
-const newStep = (): EStep => ({ key: crypto.randomUUID(), id: null, name: "", duration_type: "fixed", days: "", client_visible: true, include_if: null, cross: "", showCross: false });
+const newStep = (): EStep => ({ key: crypto.randomUUID(), id: null, name: "", duration_type: "fixed", days: "", client_visible: true, include_if: null, cross: "", showCross: false,
+  review_cycle: false, review_days: "", feedback_days: "" });
 
 function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
   template: ScheduleTemplate; service: CatalogService; onClose: () => void; onSaved: () => void; onDone: () => void;
@@ -401,6 +420,7 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
   const library = useAsync(() => api.listTaskLibrary(), []);
   const crossOptions = useAsync(() => api.activeTemplateTasks(), []);
   const deps = useAsync(() => api.templateDependencies(template.id), [template.id]);
+  const included = useIncludedRevisions(template.service_id);
   const [name, setName] = useState(template.name);
   const [phases, setPhases] = useState<EPhase[] | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -423,6 +443,7 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
     setPhases(flow.length ? flow.map((ph) => ({ key: crypto.randomUUID(), steps: ph.map((s) => ({
       key: s.id, id: s.id, name: s.name, duration_type: s.duration_type, days: s.days ? String(s.days) : "",
       client_visible: s.client_visible, include_if: s.include_if, cross: crossOf(s.id), showCross: !!crossOf(s.id),
+      review_cycle: s.review_cycle, review_days: s.review_days ? String(s.review_days) : "", feedback_days: s.feedback_days ? String(s.feedback_days) : "",
     })) })) : [{ key: crypto.randomUUID(), steps: [newStep()] }]);
   }, [deps.data, phases, template]);
 
@@ -457,12 +478,20 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
     id: s.id, name: s.name.trim(), duration_type: s.duration_type, parallel: i > 0,
     duration_days: s.duration_type === "fixed" && s.days ? Number(s.days) : null,
     client_visible: s.client_visible, include_if: s.include_if,
+    review_cycle: s.review_cycle,
+    review_days: s.review_cycle && s.review_days ? Number(s.review_days) : null,
+    feedback_days: s.review_cycle && s.feedback_days ? Number(s.feedback_days) : null,
     cross_deps: s.cross ? [{ service_code: s.cross.split(".")[0], task_code: s.cross.split(".")[1] }] : [],
   })));
 
   async function save(thenPublish: boolean) {
     if (phases!.some((ph) => ph.steps.some((x) => !x.name.trim()))) {
       setMissing(true); setPublishing(false); setErr("Selecione a etapa em todas as linhas (ou remova as linhas vazias).");
+      return;
+    }
+    const noDays = phases!.flatMap((ph) => ph.steps).find((x) => x.review_cycle && !(Number(x.review_days) >= 1));
+    if (noDays) {
+      setMissing(true); setPublishing(false); setErr(`Informe quantos dias úteis cada revisão de “${noDays.name || "apresentação"}” leva.`);
       return;
     }
     setBusy(thenPublish ? "publish" : "save"); setErr(null);
@@ -552,6 +581,11 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
                               <Input className="es__days" aria-label="Dias úteis" type="number" min={1} max={2000} inputMode="numeric" placeholder="dias"
                                 value={s.days} onChange={(e) => updateStep(pi, si, { days: e.target.value })} />
                             ) : <span className="es__days es__days--none" aria-hidden="true" />}
+                            <Button variant="ghost" size="sm" iconOnly icon="refresh" className={cx("es__cycle", s.review_cycle && "is-on")} aria-pressed={s.review_cycle}
+                              title={s.review_cycle ? "Apresentação ao cliente: abre feedback e rodadas de revisão (clique para desligar)" : "Marcar como apresentação ao cliente (abre feedback e rodadas de revisão)"}
+                              onClick={() => updateStep(pi, si, { review_cycle: !s.review_cycle, ...(!s.review_cycle && !s.review_days ? { review_days: "5" } : {}), client_visible: s.review_cycle ? s.client_visible : true })}>
+                              {s.review_cycle ? "Apresentação ao cliente" : "Marcar como apresentação"}
+                            </Button>
                             <Button variant="ghost" size="sm" iconOnly icon={s.client_visible ? "user" : "lock"}
                               title={s.client_visible ? "O cliente vê esta etapa (clique para tornar interna)" : "Etapa interna: o cliente não vê (clique para mostrar)"}
                               onClick={() => updateStep(pi, si, { client_visible: !s.client_visible })}>
@@ -559,6 +593,30 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
                             </Button>
                             <Button variant="ghost" size="sm" iconOnly icon="x" onClick={() => removeStep(pi, si)}>Remover etapa</Button>
                           </div>
+                          {s.review_cycle && (
+                            <div className="es__cycle-box">
+                              <div className="es__cycle-head">
+                                <Icon name="refresh" size={14} />
+                                <span><b>Apresentação ao cliente.</b> No cronograma, logo depois desta etapa entram: Feedback do cliente
+                                  {included === 0 ? " (as revisões estão desativadas neste serviço)" : included ? `, depois ${plural(included, "rodada", "rodadas")} de Revisão + Feedback` : ", depois as rodadas de Revisão + Feedback"}.
+                                  Rodadas adicionais liberadas em Entregas entram na hora.</span>
+                              </div>
+                              <div className="es__cycle-fields">
+                                <label className="field">
+                                  <span className="field__label">Cada revisão</span>
+                                  <span className="es__cycle-input"><Input type="number" min={1} max={60} inputMode="numeric" value={s.review_days} aria-invalid={missing && !(Number(s.review_days) >= 1)}
+                                    onChange={(e) => updateStep(pi, si, { review_days: e.target.value })} /> dias úteis</span>
+                                </label>
+                                <label className="field">
+                                  <span className="field__label">Feedback do cliente</span>
+                                  <span className="es__cycle-input"><Input type="number" min={1} max={15} inputMode="numeric" value={s.feedback_days} placeholder="—"
+                                    onChange={(e) => updateStep(pi, si, { feedback_days: e.target.value })} /> dias úteis</span>
+                                  <span className="field__hint">Vazio: usa o prazo de retorno da unidade.</span>
+                                </label>
+                              </div>
+                              <span className="subtext">Quantidade de revisões incluídas: Configurações › Entregas e revisões. A revisão fica com o responsável por esta etapa.</span>
+                            </div>
+                          )}
                           {(s.showCross || s.include_if?.length) ? (
                             <div className="es__extra">
                               {s.showCross && (

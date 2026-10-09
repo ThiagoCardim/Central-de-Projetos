@@ -260,7 +260,7 @@ export const api = {
           project_service:project_services(id, status, service:services(id, name, code, family:service_families(name, sort_order)))`)
         .eq("project_id", projectId).order("created_at"),
       supabase.from("project_tasks")
-        .select("id, schedule_track_id, code, name, description, sequence, duration_type, planned_duration_days, planned_start_date, planned_end_date, actual_start_date, actual_end_date, status, status_changed_at, responsible_user_id, waiting_reason, notes, start_not_before, auto_skipped, client_visible, reopen_count, last_reopened_at")
+        .select("id, schedule_track_id, code, name, description, sequence, duration_type, planned_duration_days, planned_start_date, planned_end_date, actual_start_date, actual_end_date, status, status_changed_at, responsible_user_id, waiting_reason, notes, start_not_before, auto_skipped, client_visible, reopen_count, last_reopened_at, cycle_kind, cycle_round")
         .eq("project_id", projectId).order("sequence"),
       supabase.from("task_dependencies")
         .select("id, task_id, depends_on_task_id, dependency_type, lag_days, source, task:project_tasks!task_dependencies_task_id_fkey!inner(project_id)")
@@ -728,7 +728,7 @@ export const api = {
   },
   async listTemplates(serviceId: string): Promise<ScheduleTemplate[]> {
     const { data, error } = await supabase.from("schedule_templates")
-      .select("id, service_id, name, version, client_type, area_min, area_max, status, active, notes, published_at, created_at, tasks:template_tasks(id, template_id, code, name, description, sort_order, default_duration_days, duration_type, include_if_service_codes, client_visible, active)")
+      .select("id, service_id, name, version, client_type, area_min, area_max, status, active, notes, published_at, created_at, tasks:template_tasks(id, template_id, code, name, description, sort_order, default_duration_days, duration_type, include_if_service_codes, client_visible, active, review_cycle, review_days, feedback_days)")
       .eq("service_id", serviceId).order("version", { ascending: false });
     if (error) throw toUserError(error);
     // Rascunhos descartados ficam arquivados sem publicação: não aparecem como versão.

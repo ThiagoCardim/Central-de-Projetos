@@ -343,6 +343,9 @@ export interface ScheduleTask {
   /** Quantas vezes a etapa foi reaberta depois de concluída. */
   reopen_count?: number;
   last_reopened_at?: string | null;
+  /** Rodada de apresentação: feedback do cliente ou revisão (gerada pelo padrão). */
+  cycle_kind?: "feedback" | "revision" | null;
+  cycle_round?: number | null;
 }
 
 export interface TaskDependency {
@@ -503,6 +506,8 @@ export interface TemplateTask {
   id: string; template_id: string; code: string; name: string; description: string | null; sort_order: number;
   default_duration_days: number | null; duration_type: DurationType; include_if_service_codes: string[] | null;
   client_visible: boolean; active: boolean;
+  /** Apresentação ao cliente: ganha feedback e rodadas de revisão no cronograma. */
+  review_cycle: boolean; review_days: number | null; feedback_days: number | null;
 }
 export interface TemplateDependency {
   id: string; template_task_id: string; predecessor_task_id: string | null;

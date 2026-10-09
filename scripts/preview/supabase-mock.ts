@@ -276,7 +276,7 @@ const DLV_SETTINGS: any[] = [
   ["Engenharia", "Projeto Hidrossanitário", true, 3, ["producao_disciplina"], [["producao_disciplina", "Produção da disciplina"], ["compatibilizacao", "Compatibilização"], ["executivo", "Executivo"]]],
   ["Aprovações", "Aprovação / Projeto Legal", false, 0, [], [["projeto_legal", "Projeto Legal"], ["protocolo", "Protocolo Condomínio ou Prefeitura"]]],
   ["Aprovações", "Aprovação CINDACTA", false, 0, [], [["aprovacao_orgao", "Aprovação CINDACTA"]]],
-].map(([family, n, en, inc, codes, opts]: any, i) => ({ id: "svc-" + i, name: n, family, area: "architecture", revisions_enabled: en, included_revisions: inc, creation_task_codes: codes,
+].map(([family, n, en, inc, codes, opts]: any, i) => ({ id: ({ "Projeto Arquitetônico": "arq", "Design de Interiores": "int", "Projeto Estrutural": "est", "Projeto Elétrico": "ele" } as any)[n] ?? "svc-" + i, name: n, family, area: "architecture", revisions_enabled: en, included_revisions: inc, creation_task_codes: codes,
   task_options: opts.map(([code, nm]: any) => ({ code, name: nm })) }));
 const REV_PEOPLE = [
   { id: "p-c2", name: "Lucas Ferreira", avatar_url: null, presentations: 2, revisions: 7, approved: 2, approved_rounds: 8, courtesy: 1, paid: 0 },
@@ -921,7 +921,8 @@ function track(id: string, projectId: string, psId: string, svc: { id: string; n
       planned_duration_days: days, planned_start_date: s0, planned_end_date: e0, actual_start_date: i <= done && status !== "not_started" && s0 ? s0 : null,
       actual_end_date: status === "completed" ? e0 : null, status, status_changed_at: new Date(Date.now() - 5 * 86400000).toISOString(),
       responsible_user_id: resp[i] === undefined ? resp[0] ?? null : resp[i], waiting_reason: status === "waiting_client" ? "Aguardando planta do condomínio" : null,
-      notes: null, start_not_before: null, auto_skipped: false, client_visible: true });
+      notes: null, start_not_before: null, auto_skipped: false, client_visible: true,
+      cycle_kind: code.includes("__fb") ? "feedback" : code.includes("__rev") ? "revision" : null });
     if (prev) DEPS.push({ id: `d-${tid}`, task_id: tid, depends_on_task_id: prev, dependency_type: "finish_to_start", lag_days: 0, source: "template" });
     prev = tid; if (e0) cur = nextBiz(e0);
   });
@@ -932,8 +933,11 @@ function track(id: string, projectId: string, psId: string, svc: { id: string; n
 }
 track("tr-arq", "pr1", "ps-arq", { id: "arq", name: "Projeto Arquitetônico", code: "projeto_arquitetonico", family: "Arquitetura", fs: 10 }, "in_progress",
   { name: "Projeto Arquitetônico", version: 1 }, d(-46),
-  [["planejamento", "Planejamento", 20], ["envio_briefing", "Envio do Briefing", 7], ["estudo_preliminar", "Estudo Preliminar", 20], ["alteracoes", "Alterações", 30], ["imagens_3d_video", "Imagens 3D e Vídeo", 10]],
-  2, ["p-c1", "p-c1", "p-c1", "p-c1", "p-pj"]);
+  [["planejamento", "Planejamento", 20], ["envio_briefing", "Envio do Briefing", 7], ["estudo_preliminar", "Estudo Preliminar", 20],
+   ["estudo_preliminar__fb0", "Feedback do cliente · Estudo Preliminar", 2], ["estudo_preliminar__rev1", "Revisão 1", 5], ["estudo_preliminar__fb1", "Feedback do cliente · Revisão 1", 2],
+   ["estudo_preliminar__rev2", "Revisão 2", 5], ["estudo_preliminar__fb2", "Feedback do cliente · Revisão 2", 2], ["estudo_preliminar__rev3", "Revisão 3", 5], ["estudo_preliminar__fb3", "Feedback do cliente · Revisão 3", 2],
+   ["alteracoes", "Alterações", 30], ["imagens_3d_video", "Imagens 3D e Vídeo", 10]],
+  2, ["p-c1", "p-c1", "p-c1", "p-c1", "p-c1", "p-c1", "p-c1", "p-c1", "p-c1", "p-c1", "p-c1", "p-pj"]);
 track("tr-int", "pr1", "ps-int", { id: "int", name: "Design de Interiores", code: "design_interiores", family: "Interiores", fs: 40 }, "in_progress",
   { name: "Design de Interiores — até 500 m²", version: 1 }, d(-12),
   [["planejamento", "Planejamento", 10], ["envio_briefing", "Envio do Briefing", 5, "fixed", "waiting_client"], ["projeto_interiores", "Projeto de Interiores", 10],
@@ -943,7 +947,7 @@ track("tr-est", "pr1", "ps-est", { id: "est", name: "Projeto Estrutural", code: 
   [["briefing_arq_apr_eng", "Briefing Arq + Apr + Eng", 3, "fixed", "completed"], ["producao_arquitetura", "Tempo de Produção da Arquitetura", 25, "dependent", "in_progress"],
    ["revisao_apr_arq_eng", "Revisão APR x ARQ x ENG", 2], ["planejamento", "Planejamento", 10], ["producao_disciplina", "Produção da disciplina", null],
    ["compatibilizacao", "Compatibilização", null], ["executivo", "Executivo", null]], 0, ["p-pj"]);
-DEPS.push({ id: "d-x1", task_id: "tr-est-producao_arquitetura", depends_on_task_id: "tr-arq-estudo_preliminar", dependency_type: "finish_to_start", lag_days: 0, source: "template" });
+DEPS.push({ id: "d-x1", task_id: "tr-est-producao_arquitetura", depends_on_task_id: "tr-arq-estudo_preliminar__fb3", dependency_type: "finish_to_start", lag_days: 0, source: "template" });
 // atraso proposital para a visão geral
 { const t = TASKS.find((x) => x.id === "tr-arq-estudo_preliminar"); t.planned_end_date = d(-2); }
 
@@ -1083,7 +1087,9 @@ const CATALOG = [
   leadership_area: family_id === "f-engenharia" || family_id === "f-orcamentos" ? "engineering" : family_id === "f-aprovacoes" ? "approval" : "architecture", sort_order: i * 10, active: true, aliases: code === "projeto_arquitetonico" ? ["Arquitetura"] : [] }));
 const tplTasks = (tid: string, defs: [string, string, number | null, string?][]) => defs.map(([code, name, days, type = "fixed"], i) => ({
   id: `${tid}-${code}`, template_id: tid, code, name, description: null, sort_order: (i + 1) * 10, default_duration_days: days, duration_type: type,
-  include_if_service_codes: code === "compatibilizacao_interiores" ? ["design_interiores"] : null, client_visible: true, active: true }));
+  include_if_service_codes: code === "compatibilizacao_interiores" ? ["design_interiores"] : null, client_visible: true, active: true,
+  review_cycle: ["estudo_preliminar", "projeto_interiores"].includes(code), review_days: ["estudo_preliminar", "projeto_interiores"].includes(code) ? 5 : null,
+  feedback_days: code === "estudo_preliminar" ? 2 : null }));
 const TEMPLATES: any[] = [
   { id: "t-arq2", service_id: "arq", name: "Projeto Arquitetônico", version: 2, client_type: null, area_min: null, area_max: null, status: "published", active: true,
     notes: "Inclui levantamento no local", published_at: d(-20), created_at: d(-21),

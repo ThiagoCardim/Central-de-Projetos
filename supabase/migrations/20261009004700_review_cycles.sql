@@ -265,8 +265,7 @@ begin
           v_name,
           case when p_kind = 'revision' then 'Rodada de revisão pedida pelo cliente.' else 'Prazo para o cliente aprovar ou pedir alterações.' end,
           p_parent.sequence + case when p_kind = 'revision' then 2 * p_round else 2 * p_round + 1 end,
-          'fixed', v_days, true, 'not_started',
-          case when p_kind = 'revision' then p_parent.responsible_user_id end,
+          'fixed', v_days, true, 'not_started', p_parent.responsible_user_id,
           p_parent.id, p_kind, p_round)
   returning id into v_id;
 
@@ -373,7 +372,8 @@ begin
 end;
 $$;
 
--- Responsável da apresentação vale para as revisões ainda não iniciadas (quem estava com ele).
+-- Responsável da apresentação vale para as rodadas ainda não iniciadas (na revisão, faz;
+-- no feedback, acompanha o retorno do cliente).
 create or replace function private.cycle_follow_responsible() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
@@ -382,7 +382,7 @@ begin
      and exists (select 1 from public.project_tasks c where c.cycle_parent_id = new.id) then
     perform private.engine_on();
     update public.project_tasks c set responsible_user_id = new.responsible_user_id
-     where c.cycle_parent_id = new.id and c.cycle_kind = 'revision' and c.actual_start_date is null
+     where c.cycle_parent_id = new.id and c.actual_start_date is null
        and c.status in ('not_started', 'ready')
        and (c.responsible_user_id is null or c.responsible_user_id = old.responsible_user_id);
   end if;

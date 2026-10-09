@@ -96,7 +96,8 @@ select tst.ok(string_agg(name, ' > ' order by sequence) = 'Planejamento > Envio 
   from public.project_tasks pt join public.project_schedule_tracks tr on tr.id = pt.schedule_track_id where tr.project_service_id = tst.ps('projeto_arquitetonico');
 select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar__rev2')).planned_duration_days = 5
   and (tst.task('projeto_arquitetonico', 'estudo_preliminar__fb2')).planned_duration_days = 2, 'Prazos do padrão: revisão 5, feedback 2 dias úteis');
-select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar__rev1')).responsible_user_id = tst.uid('col@hq'), 'Revisão fica com a responsável pela apresentação');
+select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar__rev1')).responsible_user_id = tst.uid('col@hq')
+  and (tst.task('projeto_arquitetonico', 'estudo_preliminar__fb1')).responsible_user_id = tst.uid('col@hq'), 'Rodadas ficam com a responsável pela apresentação');
 select tst.ok(tst.deps_on((tst.task('projeto_arquitetonico', 'alteracoes')).id) = array[(tst.task('projeto_arquitetonico', 'estudo_preliminar__fb3')).id],
   'Alterações aguarda o último feedback');
 select tst.ok(tst.deps_on((tst.task('projeto_arquitetonico', 'estudo_preliminar__rev1')).id) = array[(tst.task('projeto_arquitetonico', 'estudo_preliminar__fb0')).id],
@@ -114,6 +115,9 @@ select tst.publish('projeto_arquitetonico', 'presentation');
 reset role;
 select tst.ok(tst.st('estudo_preliminar') = 'completed' and tst.st('estudo_preliminar__fb0') = 'waiting_client', 'Apresentação concluída; feedback aguardando o cliente');
 select tst.ok(tst.open_waits('task') = 1 and tst.open_waits('delivery') = 0, 'Prazo do cliente corre pela etapa de feedback (sem espera duplicada)');
+select tst.login('col@hq'); set role authenticated;
+select tst.ok((public.project_client_waits(tst.pid()) -> 'waits' -> 0 ->> 'can_return')::boolean, 'Responsável pela apresentação registra o retorno do feedback');
+reset role;
 
 -- Cliente pede a revisão 1
 select tst.login('cli@x'); set role authenticated;
