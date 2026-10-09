@@ -26,6 +26,7 @@ const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 const filter = process.argv[2] ?? "";
 
+const skipNps = async (p) => { await p.waitForTimeout(1300); const b = p.getByRole("button", { name: "Responder depois" }); if (await b.count()) { await b.click(); await p.waitForTimeout(400); } };
 const gantt = async (p) => { await p.getByRole("tab", { name: "Gantt" }).click(); await p.waitForTimeout(400); };
 const scenes = [
   { name: "login", url: "/entrar", vp: DESKTOP },
@@ -317,6 +318,22 @@ const scenes = [
   { name: "nps-panel", url: "/cs?as=cs&aba=nps", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(800); } },
   { name: "nps-panel-light", url: "/cs?as=unit_admin&aba=nps", vp: DESKTOP, light: true, full: true, action: async (p) => { await p.waitForTimeout(800); } },
   { name: "m-nps-panel", url: "/cs?as=cs&aba=nps", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(800); } },
+  { name: "help-client", url: "/ajuda?as=client", vp: { width: 1440, height: 1000 }, action: async (p) => { await skipNps(p); } },
+  { name: "help-filled", url: "/ajuda?as=client", vp: { width: 1440, height: 1100 }, action: async (p) => { await skipNps(p);
+    await p.getByRole("radio", { name: /Residência Souza/ }).click(); await p.getByRole("radio", { name: /^Engenharia/ }).click();
+    await p.getByLabel("Sua dúvida").fill("A laje da área gourmet aguenta uma caixa d'água de 1.000 litros?"); await p.waitForTimeout(200); } },
+  { name: "help-done", url: "/ajuda?as=client", vp: { width: 1440, height: 1000 }, action: async (p) => { await skipNps(p);
+    await p.getByRole("radio", { name: /Residência Souza/ }).click(); await p.getByRole("radio", { name: /^Aprovação/ }).click();
+    const [pop] = await Promise.all([p.waitForEvent("popup").catch(() => null), p.getByRole("button", { name: "Falar no WhatsApp" }).click()]);
+    if (pop) await pop.close(); await p.waitForTimeout(700); } },
+  { name: "m-help", url: "/ajuda?as=client", vp: MOBILE, full: true, action: async (p) => { await skipNps(p); await p.getByRole("radio", { name: /^Prazos/ }).click(); await p.waitForTimeout(200); } },
+  { name: "help-home", url: "/?as=client", vp: DESKTOP, full: true, action: async (p) => { await skipNps(p); } },
+  { name: "support-panel", url: "/cs?as=cs&aba=atendimentos", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "support-close", url: "/cs?as=cs&aba=atendimentos", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(700); await p.getByRole("button", { name: "Resolvido", exact: true }).first().click(); await p.waitForTimeout(300); } },
+  { name: "m-support-panel", url: "/cs?as=cs&aba=atendimentos", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "support-settings", url: "/configuracoes?as=global_admin&aba=atendimento", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "support-settings-light", url: "/configuracoes?as=unit_admin&aba=atendimento", vp: DESKTOP, light: true, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "m-support-settings", url: "/configuracoes?as=unit_admin&aba=atendimento", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(700); } },
 ];
 
 const browser = await chromium.launch();

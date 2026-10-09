@@ -160,6 +160,57 @@ function csDashboard() {
 }
 
 // NPS
+// "Preciso de ajuda"
+const SUPPORT_TPL = "Olá, {lider}! Aqui é {cliente}, do projeto {projeto}. Estou precisando de uma ajuda sobre {assunto}. {mensagem} Consegue me ajudar?";
+let SUPPORT_CATS: any[] = [
+  { id: "sc1", label: "Projeto arquitetônico e interiores", description: "Plantas, layout, acabamentos, imagens 3D", target: "architecture", sort_order: 10, active: true },
+  { id: "sc2", label: "Engenharia", description: "Estrutural, elétrico, hidráulico e demais projetos técnicos", target: "engineering", sort_order: 20, active: true },
+  { id: "sc3", label: "Aprovação e documentação", description: "Prefeitura, condomínio, órgãos, taxas e documentos", target: "approval", sort_order: 30, active: true },
+  { id: "sc4", label: "Prazos e andamento do projeto", description: "Entender em que etapa o projeto está e as próximas entregas", target: "cs", sort_order: 40, active: true },
+];
+const SUPPORT_PEOPLE: any[] = [
+  { id: "p-ua", name: "Mariana Lopes", role: "unit_admin", whatsapp: null, leads: ["engineering"], projects_led: 2 },
+  { id: "p-cs", name: "Juliana Martins", role: "customer_success", whatsapp: "5535998887766", leads: [], projects_led: 0 },
+  { id: "p-ld", name: "Rafael Andrade", role: "leader", whatsapp: "5535999991111", leads: ["architecture", "approval"], projects_led: 3 },
+  { id: "p-ga", name: "Thiago Cardim", role: "global_admin", whatsapp: null, leads: [], projects_led: 0 },
+];
+let SUPPORT_SETTINGS: any = { cs_whatsapp: "5535998887766", message_template: SUPPORT_TPL };
+const tsAgo = (h: number) => new Date(Date.now() - h * 3600000).toISOString();
+let SUPPORT_TICKETS: any[] = [
+  { id: "st1", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza",
+    requester: { id: "p-cl", name: "Fernanda Souza", phone: "(35) 99876-1234", email: "fernanda.souza@gmail.com" },
+    category: "Aprovação e documentação", target: "approval", contact_name: "Rafael Andrade", has_whatsapp: true,
+    message: "Queria saber se a prefeitura já pediu alguma correção.", status: "open", cs_note: null, created_at: tsAgo(3), closed_at: null, closed_by: null, tenant_name: "YouCon Franqueadora" },
+  { id: "st2", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza",
+    requester: { id: "p-cl", name: "Fernanda Souza", phone: "(35) 99876-1234", email: "fernanda.souza@gmail.com" },
+    category: "Engenharia", target: "engineering", contact_name: "Mariana Lopes", has_whatsapp: false,
+    message: "A laje da área gourmet aguenta uma caixa d'água?", status: "open", cs_note: null, created_at: tsAgo(26), closed_at: null, closed_by: null, tenant_name: "YouCon Franqueadora" },
+  { id: "st3", project_id: "pr2", project_name: "Edifício Aurora", project_code: "YC-2026-0015", client_name: "Construtora Horizonte",
+    requester: { id: "p-cl2", name: "Construtora Horizonte", phone: null, email: "obras@horizonte.com.br" },
+    category: "Prazos e andamento do projeto", target: "cs", contact_name: "Customer Success", has_whatsapp: true,
+    message: null, status: "resolved", cs_note: "Cliente confirmou que recebeu o cronograma atualizado.", created_at: tsAgo(80), closed_at: tsAgo(70), closed_by: { id: "p-cs", name: "Juliana Martins" }, tenant_name: "YouCon Franqueadora" },
+  { id: "st4", project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza",
+    requester: { id: "p-cl", name: "Fernanda Souza", phone: "(35) 99876-1234", email: "fernanda.souza@gmail.com" },
+    category: "Projeto arquitetônico e interiores", target: "architecture", contact_name: "Rafael Andrade", has_whatsapp: true,
+    message: "Posso trocar o piso da sala?", status: "unresolved", cs_note: "Líder ainda não retornou sobre a troca de piso.", created_at: tsAgo(150), closed_at: tsAgo(100), closed_by: { id: "p-cs", name: "Juliana Martins" }, tenant_name: "YouCon Franqueadora" },
+];
+const urlEnc = (t: string) => encodeURIComponent(t).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+function supportOpen(a: any) {
+  const c = SUPPORT_CATS.find((x) => x.id === a.p_category);
+  const contact = c.target === "architecture" || c.target === "approval" ? SUPPORT_PEOPLE[2] : c.target === "engineering" ? SUPPORT_PEOPLE[0] : null;
+  const wa = contact?.whatsapp ?? SUPPORT_SETTINGS.cs_whatsapp;
+  const name = contact?.whatsapp ? contact.name : wa ? "Customer Success" : contact?.name ?? null;
+  const msg = (a.p_message ?? "").trim();
+  const text = SUPPORT_SETTINGS.message_template.replace("{lider}", contact?.whatsapp ? contact.name.split(" ")[0] : "equipe YouCon").replace("{cliente}", "Fernanda")
+    .replace("{projeto}", "Residência Souza").replace("{assunto}", c.label.toLowerCase()).replace("{mensagem}", msg ? (/[.!?]$/.test(msg) ? msg : msg + ".") : "").replace(/\s{2,}/g, " ").trim();
+  const id = "st" + Date.now();
+  SUPPORT_TICKETS.unshift({ id, project_id: a.p_project, project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza",
+    requester: { id: "p-cl", name: "Fernanda Souza", phone: "(35) 99876-1234", email: null }, category: c.label, target: c.target, contact_name: name, has_whatsapp: !!wa,
+    message: msg || null, status: "open", cs_note: null, created_at: new Date().toISOString(), closed_at: null, closed_by: null, tenant_name: "YouCon Franqueadora" });
+  // No preview não abre o WhatsApp de verdade.
+  return { id, contact_name: name, has_whatsapp: !!wa, url: wa ? `about:blank#wa.me/${wa}?text=${urlEnc(text)}` : null, text };
+}
+
 let NPS_PENDING: any[] = [{ project_service_id: "ps-arq-1", project_id: "pr1", project_name: "Residência Souza", service_name: "Projeto Arquitetônico",
   completed_on: d(-1), question: "De 0 a 10, quanto você recomendaria a YouCon para um amigo ou familiar?" }];
 const NPS_ROWS: any[] = [
@@ -439,6 +490,14 @@ function rpc(name: string, _args?: any) {
       profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
     case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "support_options": return delay({ data: { categories: SUPPORT_CATS.filter((c) => c.active), projects: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014" }, { id: "pr7", name: "Reforma do apartamento", code: "YC-2026-0019" }] }, error: null }, 150);
+    case "support_open": return delay({ data: supportOpen(_args), error: null }, 300);
+    case "support_tickets_list": return delay({ data: SUPPORT_TICKETS, error: null }, 200);
+    case "support_ticket_update": { const t = SUPPORT_TICKETS.find((x) => x.id === _args.p_id); if (t) { t.status = _args.p_status; t.cs_note = _args.p_note ?? t.cs_note; t.closed_at = _args.p_status === "open" ? null : new Date().toISOString(); t.closed_by = _args.p_status === "open" ? null : { id: "p-cs", name: "Juliana Martins" }; } return delay({ data: null, error: null }, 200); }
+    case "support_settings_get": return delay({ data: { tenant_id: _args.p_tenant, ...SUPPORT_SETTINGS, default_template: SUPPORT_TPL, people: SUPPORT_PEOPLE, categories: SUPPORT_CATS, can_edit_categories: me()?.role === "global_admin" }, error: null }, 150);
+    case "support_settings_save": SUPPORT_SETTINGS = { cs_whatsapp: _args.p_cs_whatsapp?.replace(/\D/g, "") || null, message_template: _args.p_template || SUPPORT_TPL }; return delay({ data: null, error: null }, 200);
+    case "set_person_whatsapp": { const p = SUPPORT_PEOPLE.find((x) => x.id === _args.p_profile); let d = (_args.p_whatsapp ?? "").replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; if (p) p.whatsapp = d || null; return delay({ data: d || null, error: null }, 200); }
+    case "support_category_save": { if (_args.p_id) { const c = SUPPORT_CATS.find((x) => x.id === _args.p_id); Object.assign(c, { label: _args.p_label, description: _args.p_description, target: _args.p_target, active: _args.p_active }); } else SUPPORT_CATS.push({ id: "sc" + Date.now(), label: _args.p_label, description: _args.p_description, target: _args.p_target, sort_order: 99, active: true }); return delay({ data: "ok", error: null }, 200); }
     case "nps_pending": return delay({ data: me()?.role === "client" ? NPS_PENDING : [], error: null }, 150);
     case "nps_answer": case "nps_skip": NPS_PENDING = NPS_PENDING.filter((x) => x.project_service_id !== _args.p_ps); return delay({ data: null, error: null }, 250);
     case "nps_overview": return delay({ data: npsOverview(), error: null }, 220);

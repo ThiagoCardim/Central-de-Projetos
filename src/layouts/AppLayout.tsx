@@ -81,7 +81,7 @@ function SessionActions() {
   );
 }
 
-const MOBILE_LABEL: Record<string, string> = { "Controle de Acessos": "Acessos", "Minhas tarefas": "Tarefas", "Dúvidas frequentes": "Dúvidas", "Customer Success": "CS" };
+const MOBILE_LABEL: Record<string, string> = { "Controle de Acessos": "Acessos", "Minhas tarefas": "Tarefas", "Dúvidas frequentes": "Dúvidas", "Customer Success": "CS", "Preciso de ajuda": "Ajuda" };
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { profile, permissions } = useAuth();

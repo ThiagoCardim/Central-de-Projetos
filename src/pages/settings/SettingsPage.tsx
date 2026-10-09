@@ -12,11 +12,12 @@ import type { JobFunctionRow, PerfSettings, SectorRow } from "@/types/domain";
 import { plural } from "@/utils/format";
 import { FaqSettings } from "./FaqSettings";
 import { CsSettingsPanel } from "./CsSettings";
+import { SupportSettingsPanel } from "./SupportSettings";
 
 /* ==========================================================================
    Configurações (administração): setores da empresa e regras de performance
    ========================================================================== */
-type Tab = "setores" | "funcoes" | "performance" | "cs" | "faq";
+type Tab = "setores" | "funcoes" | "performance" | "cs" | "atendimento" | "faq";
 
 export function SettingsPage() {
   useDocumentTitle("Configurações");
@@ -25,7 +26,7 @@ export function SettingsPage() {
   const initial = useSearchParam("aba") as Tab | null;
   // O FAQ é único para toda a rede: só a administração global edita.
   const canFaq = !!permissions?.can_manage_tenants;
-  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" || initial === "cs" || (initial === "faq" && canFaq) ? initial : "setores");
+  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" || initial === "cs" || initial === "atendimento" || (initial === "faq" && canFaq) ? initial : "setores");
   const [tenant, setTenant] = useState(permissions?.tenant_id ?? "");
   const tenants = useAsync(() => (isGlobal ? api.listTenants() : Promise.resolve([])), [isGlobal]);
 
@@ -35,7 +36,7 @@ export function SettingsPage() {
       <div className="settings__bar">
         <Tabs<Tab> label="Configurações" value={tab} onChange={setTab} tabs={[
           { value: "setores", label: "Setores" }, { value: "funcoes", label: "Funções" }, { value: "performance", label: "Regras de performance" },
-          { value: "cs", label: "Customer Success" },
+          { value: "cs", label: "Customer Success" }, { value: "atendimento", label: "Atendimento ao cliente" },
           ...(canFaq ? [{ value: "faq" as Tab, label: "FAQ" }] : []),
         ]} />
         {isGlobal && tab !== "faq" && (
@@ -48,6 +49,7 @@ export function SettingsPage() {
       {tab === "faq" ? <FaqSettings /> : tenant && (tab === "setores" ? <SectorsSettings key={tenant} tenantId={tenant} />
         : tab === "funcoes" ? <FunctionsSettings key={tenant} tenantId={tenant} />
         : tab === "cs" ? <CsSettingsPanel key={tenant} tenantId={tenant} />
+        : tab === "atendimento" ? <SupportSettingsPanel key={tenant} tenantId={tenant} />
         : <PerformanceRules key={tenant} tenantId={tenant} />)}
     </div>
   );

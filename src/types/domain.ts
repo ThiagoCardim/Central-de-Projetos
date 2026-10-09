@@ -688,3 +688,22 @@ export interface NpsResponse {
   project_id: string; project_name: string; project_code: string | null; client_name: string | null;
   service_name: string; respondent: string; tenant_name: string | null; category: NpsCategory;
 }
+
+/* ---------- "Preciso de ajuda" (atendimento pelo WhatsApp) ---------- */
+export type SupportTarget = "architecture" | "engineering" | "approval" | "cs";
+export interface SupportCategory { id: string; label: string; description: string | null; target: SupportTarget; active?: boolean; sort_order?: number }
+export interface SupportOptions { categories: SupportCategory[]; projects: { id: string; name: string; code: string | null }[] }
+export interface SupportOpenResult { id: string; contact_name: string | null; has_whatsapp: boolean; url: string | null; text: string }
+export type SupportStatus = "open" | "resolved" | "unresolved";
+export interface SupportTicket {
+  id: string; project_id: string; project_name: string; project_code: string | null; client_name: string | null;
+  requester: { id: string; name: string; phone: string | null; email: string | null };
+  category: string; target: SupportTarget; contact_name: string | null; has_whatsapp: boolean;
+  message: string | null; status: SupportStatus; cs_note: string | null; created_at: string; closed_at: string | null;
+  closed_by: { id: string; name: string } | null; tenant_name: string | null;
+}
+export interface SupportPerson { id: string; name: string; role: UserRole; whatsapp: string | null; leads: SupportTarget[]; projects_led: number }
+export interface SupportSettings {
+  tenant_id: string; cs_whatsapp: string | null; message_template: string; default_template: string;
+  people: SupportPerson[]; categories: SupportCategory[]; can_edit_categories: boolean;
+}

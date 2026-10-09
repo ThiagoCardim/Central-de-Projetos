@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -311,6 +311,20 @@ export const api = {
   npsSkip: (projectServiceId: string, mode: "later" | "never") => rpc<void>("nps_skip", { p_ps: projectServiceId, p_mode: mode }),
   npsOverview: (from: string | null, to: string | null) => rpc<NpsOverview>("nps_overview", { p_tenant: null, p_from: from, p_to: to }),
   npsResponses: (from: string | null, to: string | null) => rpc<NpsResponse[]>("nps_responses_list", { p_tenant: null, p_from: from, p_to: to }),
+  // "Preciso de ajuda": cliente fala com o líder certo pelo WhatsApp; o CS acompanha
+  supportOptions: () => rpc<SupportOptions>("support_options"),
+  supportOpen: (projectId: string, categoryId: string, message: string | null) =>
+    rpc<SupportOpenResult>("support_open", { p_project: projectId, p_category: categoryId, p_message: message?.trim() || null }),
+  supportTickets: () => rpc<SupportTicket[]>("support_tickets_list"),
+  supportTicketUpdate: (id: string, status: SupportStatus, note: string | null) =>
+    rpc<void>("support_ticket_update", { p_id: id, p_status: status, p_note: note?.trim() || null }),
+  supportSettings: (tenantId: string) => rpc<SupportSettings>("support_settings_get", { p_tenant: tenantId }),
+  supportSettingsSave: (tenantId: string, csWhatsapp: string | null, template: string | null) =>
+    rpc<void>("support_settings_save", { p_tenant: tenantId, p_cs_whatsapp: csWhatsapp?.trim() || null, p_template: template?.trim() || null }),
+  setPersonWhatsapp: (profileId: string, whatsapp: string | null) =>
+    rpc<string | null>("set_person_whatsapp", { p_profile: profileId, p_whatsapp: whatsapp?.trim() || null }),
+  supportCategorySave: (c: { id: string | null; label: string; description: string | null; target: SupportTarget; active: boolean }) =>
+    rpc<string>("support_category_save", { p_id: c.id, p_label: c.label.trim(), p_description: c.description?.trim() || null, p_target: c.target, p_active: c.active }),
   // Customer Success: chamados para a equipe e painel
   csRequests: (scope: "all" | "mine" | "project", projectId?: string | null) =>
     rpc<CsRequest[]>("cs_requests_list", { p_scope: scope, p_project: projectId ?? null }),

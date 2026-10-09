@@ -22,6 +22,7 @@ import { MyWorkPage } from "@/pages/work/MyWorkPage";
 import { PerformancePage } from "@/pages/performance/PerformancePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { FaqPage } from "@/pages/faq/FaqPage";
+import { HelpPage } from "@/pages/support/HelpPage";
 import { ApprovalsPage } from "@/pages/approvals/ApprovalsPage";
 import { CsPage } from "@/pages/cs/CsPage";
 
@@ -102,6 +103,7 @@ export function App() {
             { path: "/configuracoes", element: <Protected requires="manageUnit"><SettingsPage /></Protected> },
             { path: "/aprovacoes", element: <Protected requires="approvals"><ApprovalsPage /></Protected> },
             { path: "/duvidas", element: <Protected><FaqPage /></Protected> },
+            { path: "/ajuda", element: <Protected requires="client"><HelpPage /></Protected> },
             { path: "/performance", element: <Protected requires="performance"><PerformancePage /></Protected> },
             { path: "/cronograma", element: <Protected requires="staff"><MySchedulePage /></Protected> },
             { path: "/servicos", element: <Protected requires="manager"><TemplatesPage /></Protected> },

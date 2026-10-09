@@ -345,6 +345,10 @@ function FaqPrompt() {
         <SearchInput aria-label="Sua dúvida" placeholder="Ex.: quem paga as taxas?" value={text} maxLength={300} onChange={(e) => setText(e.target.value)} />
         <Button type="submit" icon="search">Buscar</Button>
       </form>
+      <div className="faqp__help">
+        <span>Prefere falar com alguém da equipe?</span>
+        <Button variant="outline" icon="chat" onClick={() => navigate("/ajuda")}>Preciso de ajuda</Button>
+      </div>
     </Card>
   );
 }

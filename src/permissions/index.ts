@@ -16,7 +16,8 @@ export type Capability =
   | "approvals"
   | "oversight"
   | "csDesk"
-  | "cs";
+  | "cs"
+  | "client";
 
 export function can(perms: Permissions | null, cap: Capability): boolean {
   if (!perms) return false;
@@ -39,6 +40,8 @@ export function can(perms: Permissions | null, cap: Capability): boolean {
     // Chamados do CS: o CS, a gestão (líderes recebem os chamados).
     case "csDesk": return perms.is_manager || !!perms.is_cs;
     case "cs": return !!perms.is_cs;
+    // Atalhos exclusivos do cliente ("Preciso de ajuda").
+    case "client": return perms.role === "client";
   }
 }
 

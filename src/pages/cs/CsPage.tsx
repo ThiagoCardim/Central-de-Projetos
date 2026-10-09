@@ -11,6 +11,7 @@ import { normName } from "@/components/ui/StepPicker";
 import type { CsDashboard, CsKind, CsRequest } from "@/types/domain";
 import { CS_KIND, CsRow, NewRequestModal, RequestDrawer } from "./csUi";
 import { NpsPanel, npsZone } from "./NpsPanel";
+import { SupportPanel, SupportSummary } from "@/pages/support/SupportPanel";
 
 /* ==========================================================================
    Customer Success: chamados (CS e liderança) e painel do CS
@@ -25,20 +26,25 @@ const FILTERS: { value: Filter; label: string; match: (r: CsRequest) => boolean 
   { value: "all", label: "Todos", match: () => true },
 ];
 
+type MainTab = "chamados" | "atendimentos" | "nps";
+
 export function CsPage() {
   useDocumentTitle("Customer Success");
   const { permissions } = useAuth();
   const isCs = !!permissions?.is_cs;
   const canOpen = isCs || permissions?.role === "unit_admin" || permissions?.role === "global_admin";
   const deep = useSearchParam("chamado");
-  const [mainTab, setMainTab] = useState<"chamados" | "nps">(useSearchParam("aba") === "nps" ? "nps" : "chamados");
+  const aba = useSearchParam("aba");
+  const [mainTab, setMainTab] = useState<MainTab>(aba === "nps" || aba === "atendimentos" ? aba : "chamados");
+  useEffect(() => { if (aba === "nps" || aba === "atendimentos") setMainTab(aba); }, [aba]);
   const [scope, setScope] = useState<"mine" | "all">(isCs ? "all" : "mine");
   const q = useAsync(() => api.csRequests(scope), [scope]);
   const [filter, setFilter] = useState<Filter>("active");
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(deep);
   const [newKind, setNewKind] = useState<CsKind | null>(null);
-  useEffect(() => { if (deep) setOpenId(deep); }, [deep]);
+  const [newProject, setNewProject] = useState<string | null>(null);
+  useEffect(() => { if (deep) { setOpenId(deep); setMainTab("chamados"); } }, [deep]);
 
   const rows = q.data ?? [];
   const s = normName(search);
@@ -51,15 +57,17 @@ export function CsPage() {
         subtitle={isCs ? "Seus chamados e alertas para a equipe" : "Chamados e alertas do Customer Success para a liderança dos projetos"}
         actions={canOpen ? (
           <>
-            <Button variant="outline" icon="alert" onClick={() => setNewKind("alert")}>Criar alerta</Button>
-            <Button icon="headset" onClick={() => setNewKind("clarification")}>Novo chamado</Button>
+            <Button variant="outline" icon="alert" onClick={() => { setNewProject(null); setNewKind("alert"); }}>Criar alerta</Button>
+            <Button icon="headset" onClick={() => { setNewProject(null); setNewKind("clarification"); }}>Novo chamado</Button>
           </>
         ) : undefined} />
-      <Tabs<"chamados" | "nps"> label="Customer Success" value={mainTab} onChange={setMainTab} tabs={[
+      <Tabs<MainTab> label="Customer Success" value={mainTab} onChange={setMainTab} tabs={[
         { value: "chamados", label: "Chamados", count: rows.filter((r) => r.status === "open" || r.status === "answered").length || undefined },
+        { value: "atendimentos", label: "Pedidos de ajuda" },
         { value: "nps", label: "NPS" },
       ]} />
-      {mainTab === "nps" ? <NpsPanel /> : <>
+      {mainTab === "nps" ? <NpsPanel /> : mainTab === "atendimentos"
+        ? <SupportPanel onOpenRequest={canOpen ? (pid) => { setNewProject(pid); setNewKind("clarification"); } : undefined} /> : <>
       {!isCs && (
         <Segmented<"mine" | "all"> label="Escopo" value={scope} onChange={setScope} options={[
           { value: "mine", label: "Para mim" }, { value: "all", label: "Todos dos meus projetos" },
@@ -94,8 +102,8 @@ export function CsPage() {
         )}
       </>}
       <RequestDrawer id={openId} onClose={() => setOpenId(null)} onChanged={() => void q.reload()} />
-      <NewRequestModal open={!!newKind} defaultKind={newKind ?? "clarification"} onClose={() => setNewKind(null)}
-        onCreated={(id) => { setNewKind(null); void q.reload(); setOpenId(id); }} />
+      <NewRequestModal open={!!newKind} projectId={newProject} defaultKind={newKind ?? "clarification"} onClose={() => setNewKind(null)}
+        onCreated={(id) => { setNewKind(null); void q.reload(); setMainTab("chamados"); setOpenId(id); }} />
     </div>
   );
 }
@@ -163,6 +171,8 @@ export function CsHome() {
           </Card>
         </div>
       </div>
+
+      <SupportSummary />
 
       <NpsSummary />
 

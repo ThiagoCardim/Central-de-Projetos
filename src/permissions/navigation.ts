@@ -43,6 +43,7 @@ export const NAVIGATION: NavSection[] = [
   {
     title: "Ajuda",
     items: [
+      { key: "help", label: "Preciso de ajuda", to: "/ajuda", icon: "chat", requires: "client", mobile: true },
       { key: "faq", label: "Dúvidas frequentes", to: "/duvidas", icon: "help", requires: "home", mobile: true },
     ],
   },

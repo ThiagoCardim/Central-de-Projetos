@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/services/api";
 import { useAsync, useDocumentTitle } from "@/hooks";
-import { useSearchParam } from "@/lib/router";
+import { Link, useSearchParam } from "@/lib/router";
+import { useAuth } from "@/services/auth";
 import { PageHead } from "@/layouts/AppLayout";
 import { Badge, Button, Card, EmptyState, LoadError, Skeleton } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/overlays";
@@ -18,6 +19,7 @@ const EXAMPLES = ["Quanto tempo demora a aprovação?", "Quem paga as taxas?", "
 
 export function FaqPage() {
   useDocumentTitle("Dúvidas frequentes");
+  const isClient = useAuth().permissions?.role === "client";
   const initial = useSearchParam("q") ?? "";
   const q = useAsync(() => api.listFaq(), []);
   const [text, setText] = useState(initial);
@@ -41,7 +43,8 @@ export function FaqPage() {
   return (
     <div className="page faq">
       <PageHead title="Dúvidas frequentes"
-        subtitle="Respostas da equipe YouCon sobre documentação, aprovação, prazos e o andamento do projeto." />
+        subtitle="Respostas da equipe YouCon sobre documentação, aprovação, prazos e o andamento do projeto."
+        actions={isClient ? <Link to="/ajuda" className="btn btn--secondary"><Icon name="chat" /> Preciso de ajuda</Link> : undefined} />
 
       <section className="faq-hero" aria-label="Buscar dúvida">
         <label htmlFor="faq-q" className="faq-hero__label">Qual é a sua dúvida?</label>
@@ -64,15 +67,15 @@ export function FaqPage() {
       {q.error ? <LoadError message={q.error} onRetry={() => void q.reload()} />
         : q.loading && !q.data ? <div className="stack"><Skeleton height={56} radius={12} /><Skeleton height={240} radius={16} /></div>
         : items.length === 0 ? <Card><EmptyState icon="search" title="Nenhuma pergunta publicada ainda." text="Em breve a equipe YouCon publicará as respostas mais comuns aqui." /></Card>
-        : searching ? <Results key={query} query={query} hits={index.search(query, 8)} stems={index.queryStems(query)} catTitle={catTitle} onBrowse={() => ask("")} />
+        : searching ? <Results key={query} isClient={isClient} query={query} hits={index.search(query, 8)} stems={index.queryStems(query)} catTitle={catTitle} onBrowse={() => ask("")} />
         : <Browse categories={categories} items={items} />}
     </div>
   );
 }
 
 /* ---------- Resultado da busca ---------- */
-function Results({ query, hits, stems, catTitle, onBrowse }: {
-  query: string; hits: FaqHit[]; stems: Set<string>; catTitle: Map<string, string>; onBrowse: () => void;
+function Results({ isClient, query, hits, stems, catTitle, onBrowse }: {
+  isClient: boolean; query: string; hits: FaqHit[]; stems: Set<string>; catTitle: Map<string, string>; onBrowse: () => void;
 }) {
   const confident = isConfident(hits);
   const [best, ...rest] = hits;
@@ -83,7 +86,7 @@ function Results({ query, hits, stems, catTitle, onBrowse }: {
       <Card>
         <EmptyState icon="search" title="Não encontramos uma resposta para isso."
           text="Tente escrever de outro jeito, com menos palavras, ou navegue pelas categorias."
-          action={<div className="faq-actions"><NotFound query={query} /><Button size="sm" variant="ghost" onClick={onBrowse}>Ver todas as categorias</Button></div>} />
+          action={<div className="faq-actions">{isClient && <HelpLink />}<NotFound query={query} /><Button size="sm" variant="ghost" onClick={onBrowse}>Ver todas as categorias</Button></div>} />
       </Card>
     );
   }
@@ -118,10 +121,15 @@ function Results({ query, hits, stems, catTitle, onBrowse }: {
 
       <div className="faq-results__foot">
         <span>Não encontrou o que procurava? Fale com a equipe do seu projeto.</span>
+        {isClient && <HelpLink />}
         <NotFound query={query} />
       </div>
     </div>
   );
+}
+
+function HelpLink() {
+  return <Link to="/ajuda" className="btn btn--primary btn--sm"><Icon name="chat" /> Falar com a equipe</Link>;
 }
 
 /** Registra a dúvida sem resposta para a administração melhorar o FAQ. */
