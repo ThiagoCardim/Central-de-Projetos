@@ -7,6 +7,7 @@ import { PageHead } from "@/layouts/AppLayout";
 import { ProjectApprovalsCard } from "@/pages/approvals/ProjectApprovals";
 import { ProjectCsCard } from "@/pages/cs/CsPage";
 import { ProjectDeliveriesCard } from "@/pages/deliveries/Deliveries";
+import { ClientWaitsCard } from "@/pages/schedule/ClientWaits";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
 } from "@/components/ui/primitives";
@@ -227,6 +228,7 @@ export function ProjectDetailPage() {
 
       <div className="detail-grid">
         <div className="stack" style={{ gap: 16 }}>
+          {permissions?.is_staff && p.status === "in_progress" && <ClientWaitsCard projectId={p.id} />}
           <Card title="Serviços contratados" count={p.services.filter((s) => s.active).length}>
             <ul className="svc-list">
               {p.services.filter((s) => s.active).map((s) => (

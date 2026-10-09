@@ -372,6 +372,17 @@ const scenes = [
     await p.getByRole("tab", { name: /Ajustes entre setores/ }).click(); await p.waitForTimeout(300);
     await p.goto("http://localhost:4173/projetos/pr1/cronograma"); await p.waitForTimeout(900);
     console.log("   aba:", await p.locator('[role=tab][aria-selected=true]').first().innerText()); } },
+  { name: "cw-project", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "cw-return", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(700);
+    await p.getByRole("button", { name: "Cliente retornou" }).first().click(); await p.waitForTimeout(300); } },
+  { name: "cw-waive", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(700);
+    await p.getByRole("button", { name: "Abonar dias" }).first().click(); await p.waitForTimeout(300); } },
+  { name: "cw-client-home", url: "/?as=client", vp: { width: 1440, height: 1100 }, action: async (p) => { await skipNps(p); await p.waitForTimeout(500); } },
+  { name: "cw-client-dlv", url: "/entregas?as=client", vp: { width: 1440, height: 900 }, action: async (p) => { await skipNps(p); await p.waitForTimeout(600); } },
+  { name: "cw-cs", url: "/?as=cs", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(900); } },
+  { name: "cw-settings", url: "/configuracoes?as=unit_admin&aba=cs", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(500); } },
+  { name: "cw-schedule", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(800); } },
+  { name: "m-cw-client-home", url: "/?as=client", vp: MOBILE, full: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(500); } },
 ];
 
 const browser = await chromium.launch();

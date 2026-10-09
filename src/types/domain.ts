@@ -753,3 +753,14 @@ export interface RevisionEntry {
   id: string; round: number; created_at: string; items: number; on_behalf: boolean; project_id: string; project_name: string;
   project_code: string | null; service: string; allowed: number; approved: boolean;
 }
+
+/* ---------- Prazo de retorno do cliente ---------- */
+export interface ClientWait {
+  id: string; project_id: string; source: "delivery" | "task"; label: string; project_service_id: string | null; task_id: string | null;
+  started_on: string; due_on: string; returned_on: string | null; close_source: "portal" | "team" | "status" | "cancelled" | null;
+  state: "open" | "late" | "closed"; late_days: number; waived_until: string | null; waive_reason: string | null;
+  returned_note: string | null; returned_by: string | null; can_return: boolean; can_waive: boolean;
+  project_name?: string; project_code?: string | null; client_name?: string | null;
+}
+export interface ProjectClientWaits { days: number; enabled: boolean; total_late_days: number; waits: ClientWait[] }
+export interface ClientWaitSettings { tenant_id: string; enabled: boolean; days: number }

@@ -14,6 +14,7 @@ import { PendingAdjustmentsCard } from "@/pages/schedule/Adjustments";
 import { MyDayCard, TeamTasksCard, useWorkSummary } from "./WorkCards";
 import { HighlightsCard, MyPerformanceCard } from "./PerfCards";
 import { CsHome, CsInboxCard } from "@/pages/cs/CsPage";
+import { ClientWaitBanner } from "@/pages/schedule/ClientWaits";
 import { myDayStats, teamStats } from "@/pages/work/workStats";
 import { todayISO } from "@/pages/schedule/model";
 import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
@@ -319,6 +320,7 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
   }
   return (
     <div className="stack client">
+      <ClientWaitBanner />
       <ClientDeliveriesBanner />
       {projects.map((p) => (
         <ClientProjectCard key={p.id} project={p}
@@ -332,8 +334,10 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
 /** Entregas que aguardam a avaliação do cliente. */
 function ClientDeliveriesBanner() {
   const q = useAsync(() => api.deliveryProjects(), []);
+  const waits = useAsync(() => api.myClientWaits(), []);
   const list = (q.data ?? []).filter((x) => x.awaiting_client > 0);
-  if (list.length === 0) return null;
+  // O aviso de prazo de retorno já cobre as entregas que aguardam o cliente.
+  if (list.length === 0 || !waits.data || waits.data.some((w) => w.source === "delivery")) return null;
   const total = list.reduce((a, x) => a + x.awaiting_client, 0);
   return (
     <Card className="dlvbanner">

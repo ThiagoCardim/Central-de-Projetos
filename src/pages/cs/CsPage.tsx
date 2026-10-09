@@ -12,6 +12,7 @@ import type { CsDashboard, CsKind, CsRequest } from "@/types/domain";
 import { CS_KIND, CsRow, NewRequestModal, RequestDrawer } from "./csUi";
 import { NpsPanel, npsZone } from "./NpsPanel";
 import { SupportPanel, SupportSummary } from "@/pages/support/SupportPanel";
+import { ClientWaitsOverviewCard } from "@/pages/schedule/ClientWaits";
 
 /* ==========================================================================
    Customer Success: chamados (CS e liderança) e painel do CS
@@ -154,6 +155,7 @@ export function CsHome() {
             : <ul className="cslist">{d.attention.map((r) => <CsRow key={r.id} r={r} onOpen={() => setOpenId(r.id)} />)}</ul>}
         </Card>
         <div className="stack">
+          <ClientWaitsOverviewCard />
           <Card title="Chamados por tipo">
             <ul className="cskinds">
               {d.by_kind.map((k) => (

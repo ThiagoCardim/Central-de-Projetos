@@ -286,6 +286,26 @@ const REV_PEOPLE = [
   { id: "p-e2", name: "Gabriel Souto", avatar_url: null, presentations: 1, revisions: 0, approved: 1, approved_rounds: 0, courtesy: 0, paid: 0 },
 ];
 
+// Prazo de retorno do cliente
+const isoDay = (n: number) => { const x = new Date(Date.now() + n * 86400000); return x.toISOString().slice(0, 10); };
+let CW_SETTINGS = { enabled: true, days: 2 };
+let CWAITS: any[] = [
+  { id: "cw1", project_id: "pr1", source: "delivery", label: "Avaliação: Revisão 1 · Projeto Arquitetônico", project_service_id: "ps-arq", task_id: null,
+    started_on: isoDay(-6), due_on: isoDay(-4), returned_on: null, close_source: null, state: "late", late_days: 3, waived_until: null, waive_reason: null,
+    returned_note: null, returned_by: null, project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza" },
+  { id: "cw2", project_id: "pr1", source: "task", label: "Envio de documentos do terreno", project_service_id: "ps-est", task_id: "t-x",
+    started_on: isoDay(-1), due_on: isoDay(2), returned_on: null, close_source: null, state: "open", late_days: 0, waived_until: null, waive_reason: null,
+    returned_note: null, returned_by: null, project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza" },
+  { id: "cw3", project_id: "pr1", source: "delivery", label: "Avaliação: Apresentação preliminar · Design de Interiores", project_service_id: "ps-int", task_id: null,
+    started_on: isoDay(-40), due_on: isoDay(-37), returned_on: isoDay(-36), close_source: "portal", state: "closed", late_days: 1, waived_until: null, waive_reason: null,
+    returned_note: null, returned_by: "Fernanda Souza", project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza" },
+];
+const cwFor = (w: any, staff: boolean) => {
+  const pr = me(); const lead = ["global_admin", "unit_admin"].includes(pr?.role) || pr?.id === "p-ld";
+  return { ...w, can_return: staff && w.state !== "closed" && (lead || pr?.id === "p-c1"), can_waive: staff && w.state !== "closed" && lead,
+    waive_reason: staff ? w.waive_reason : null, returned_note: staff ? w.returned_note : null, returned_by: staff ? w.returned_by : null };
+};
+
 // "Preciso de ajuda"
 const SUPPORT_TPL = "Olá, {lider}! Aqui é {cliente}, do projeto {projeto}. Estou precisando de uma ajuda sobre {assunto}. {mensagem} Consegue me ajudar?";
 let SUPPORT_CATS: any[] = [
@@ -616,6 +636,17 @@ function rpc(name: string, _args?: any) {
       profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
     case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "project_client_waits": { const staff = me()?.role !== "client"; const ws = CWAITS.filter((w) => w.project_id === "pr1");
+      return delay({ data: { days: CW_SETTINGS.days, enabled: CW_SETTINGS.enabled, total_late_days: ws.reduce((a, w) => a + w.late_days, 0), waits: ws.map((w) => cwFor(w, staff)) }, error: null }, 150); }
+    case "my_client_waits": return delay({ data: me()?.role === "client" ? CWAITS.filter((w) => w.state !== "closed").map((w) => cwFor(w, false)) : [], error: null }, 150);
+    case "client_waits_overview": return delay({ data: CWAITS.filter((w) => w.state !== "closed").map((w) => cwFor(w, true)), error: null }, 150);
+    case "client_wait_return": { const w = CWAITS.find((x) => x.id === _args.p_wait); const back = w ? w.late_days : 0;
+      if (w) Object.assign(w, { state: "closed", returned_on: _args.p_date, close_source: "team", returned_by: me()?.name, returned_note: _args.p_note, late_days: 0 });
+      return delay({ data: { refunded_days: back }, error: null }, 250); }
+    case "client_wait_waive": { const w = CWAITS.find((x) => x.id === _args.p_wait); const back = w ? w.late_days : 0;
+      if (w) Object.assign(w, { waived_until: _args.p_until, waive_reason: _args.p_reason, late_days: 0 }); return delay({ data: { refunded_days: back }, error: null }, 250); }
+    case "client_wait_settings_get": return delay({ data: { tenant_id: _args.p_tenant, ...CW_SETTINGS }, error: null }, 120);
+    case "client_wait_settings_save": CW_SETTINGS = { enabled: _args.p_enabled, days: _args.p_days }; return delay({ data: null, error: null }, 200);
     case "project_deliveries": return delay({ data: dlvBoard(_args.p_project), error: null }, 200);
     case "delivery_projects": return delay({ data: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014", awaiting_client: Object.keys(DLV).filter((k) => dlvCalc(DLV[k]).status === "awaiting_client").length, published: 12, last_published_at: dAgo(2) }], error: null }, 150);
     case "delivery_version_start": case "delivery_version_update": case "delivery_file_add": case "delivery_file_remove": case "delivery_version_discard":

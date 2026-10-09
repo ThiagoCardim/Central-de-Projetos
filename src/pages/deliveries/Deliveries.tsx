@@ -6,7 +6,7 @@ import { Badge, Button, Card, EmptyState, Input, LoadError, Segmented, Select, S
 import { ConfirmDialog, Modal, useToast } from "@/components/ui/overlays";
 import { Icon } from "@/components/ui/Icon";
 import { cx, formatDate, formatDateTime, plural } from "@/utils/format";
-import type { DeliveryBoard, DeliveryFile, DeliveryItem, DeliveryRequest, DeliveryVersion } from "@/types/domain";
+import type { ClientWait, DeliveryBoard, DeliveryFile, DeliveryItem, DeliveryRequest, DeliveryVersion } from "@/types/domain";
 import { AREA_LABEL, STATUS_TONE, extrasApproved, fmtSize, nextKind, remaining, statusLabel, versionBadge } from "./deliveriesUi";
 
 /* ==========================================================================
@@ -17,6 +17,7 @@ export interface Person { id: string; name: string }
 
 export function DeliveriesView({ projectId, people = [], initialKey }: { projectId: string; people?: Person[]; initialKey?: string | null }) {
   const q = useAsync(() => api.projectDeliveries(projectId), [projectId]);
+  const waits = useAsync(() => api.projectClientWaits(projectId).catch(() => null), [projectId]);
   const [key, setKey] = useState<string | null>(initialKey ?? null);
   const b = q.data;
 
@@ -48,13 +49,14 @@ export function DeliveriesView({ projectId, people = [], initialKey }: { project
           </button>
         ))}
       </nav>
-      <ServicePanel key={cur.key} board={b} it={cur} people={people} onChanged={() => void q.reload()} />
+      <ServicePanel key={cur.key} board={b} it={cur} people={people} onChanged={() => { void q.reload(); void waits.reload(); }}
+        wait={waits.data?.waits.find((w) => w.source === "delivery" && w.state !== "closed" && w.project_service_id === cur.project_service_id) ?? null} />
     </div>
   );
 }
 
 /* ---------- Painel de um serviço ---------- */
-function ServicePanel({ board, it, people, onChanged }: { board: DeliveryBoard; it: DeliveryItem; people: Person[]; onChanged: () => void }) {
+function ServicePanel({ board, it, people, onChanged, wait }: { board: DeliveryBoard; it: DeliveryItem; people: Person[]; onChanged: () => void; wait: ClientWait | null }) {
   const client = board.is_client;
   const draft = it.versions.find((v) => v.is_draft) ?? null;
   const published = it.versions.filter((v) => !v.is_draft);
@@ -82,7 +84,7 @@ function ServicePanel({ board, it, people, onChanged }: { board: DeliveryBoard; 
 
       {/* Cliente: decisão sobre a versão atual */}
       {client && it.status === "awaiting_client" && (
-        <ClientDecision it={it} onApprove={() => setModal("approve")} onRevision={() => setModal("revision")} />
+        <ClientDecision it={it} wait={wait} onApprove={() => setModal("approve")} onRevision={() => setModal("revision")} />
       )}
       {client && it.status === "revision_requested" && it.open_request && (
         <div className="dlvnote">
@@ -99,7 +101,7 @@ function ServicePanel({ board, it, people, onChanged }: { board: DeliveryBoard; 
 
       {/* Equipe: o que fazer agora */}
       {!client && (
-        <TeamActions board={board} it={it} next={draft ? null : next} onChanged={onChanged}
+        <TeamActions board={board} it={it} wait={wait} next={draft ? null : next} onChanged={onChanged}
           onRegisterRevision={() => setModal("revision")} onRegisterApproval={() => setModal("approve")} onExtra={() => setModal("extra")} />
       )}
       {!client && pendingExtra && <PendingExtra it={it} extraId={pendingExtra.id} onChanged={onChanged} />}
@@ -168,7 +170,7 @@ function PhaseTrack({ it }: { it: DeliveryItem }) {
 }
 
 /* ---------- Cliente: aprovar ou pedir revisão ---------- */
-function ClientDecision({ it, onApprove, onRevision }: { it: DeliveryItem; onApprove: () => void; onRevision: () => void }) {
+function ClientDecision({ it, wait, onApprove, onRevision }: { it: DeliveryItem; wait: ClientWait | null; onApprove: () => void; onRevision: () => void }) {
   const left = remaining(it);
   const last = it.versions.find((v) => v.id === it.last_creation_version_id);
   return (
@@ -178,6 +180,12 @@ function ClientDecision({ it, onApprove, onRevision }: { it: DeliveryItem; onApp
         <p>{left > 0
           ? <>Se estiver tudo certo, aprove para seguirmos ao detalhamento técnico. Se quiser mudanças, peça uma revisão: você tem <b>{plural(left, "revisão restante", "revisões restantes")}</b> de {it.allowed}.</>
           : <>Você já usou as <b>{plural(it.allowed, "revisão incluída", "revisões incluídas")}</b>. Aprove para seguirmos ao detalhamento. Para uma revisão adicional, <Link to="/ajuda" className="link">fale com a equipe</Link>.</>}</p>
+        {wait && (
+          <p className={cx("dlvask__due", wait.state === "late" && "is-late")}><Icon name={wait.state === "late" ? "alert" : "clock"} size={14} />
+            <span>{wait.state === "late"
+              ? <>O prazo para o seu retorno era {formatDate(wait.due_on)}.{wait.late_days ? <> O cronograma já foi adiado em <b>{plural(wait.late_days, "dia útil", "dias úteis")}</b>.</> : null} Responda para retomarmos.</>
+              : <>Responda até <b>{formatDate(wait.due_on)}</b> para manter o cronograma em dia.</>}</span></p>
+        )}
       </div>
       <div className="dlvask__actions">
         <Button variant="outline" icon="edit" disabled={left === 0} onClick={onRevision}>Pedir revisão</Button>
@@ -188,8 +196,8 @@ function ClientDecision({ it, onApprove, onRevision }: { it: DeliveryItem; onApp
 }
 
 /* ---------- Equipe: próxima ação ---------- */
-function TeamActions({ board, it, next, onChanged, onRegisterRevision, onRegisterApproval, onExtra }: {
-  board: DeliveryBoard; it: DeliveryItem; next: ReturnType<typeof nextKind>; onChanged: () => void;
+function TeamActions({ board, it, wait, next, onChanged, onRegisterRevision, onRegisterApproval, onExtra }: {
+  board: DeliveryBoard; it: DeliveryItem; wait: ClientWait | null; next: ReturnType<typeof nextKind>; onChanged: () => void;
   onRegisterRevision: () => void; onRegisterApproval: () => void; onExtra: () => void;
 }) {
   const toast = useToast();
@@ -207,7 +215,8 @@ function TeamActions({ board, it, next, onChanged, onRegisterRevision, onRegiste
   return (
     <div className={cx("dlvteam", waiting && "is-waiting")}>
       {waiting ? (
-        <p><Icon name="clock" size={15} /> Aguardando o cliente aprovar ou pedir revisão {it.open_request ? "" : `(${it.used} de ${it.allowed} usadas)`}.
+        <p><Icon name="clock" size={15} /> Aguardando o cliente aprovar ou pedir revisão {it.open_request ? "" : `(${it.used} de ${it.allowed} usadas)`}
+          {wait ? (wait.state === "late" ? ` · prazo era ${formatDate(wait.due_on)}${wait.late_days ? `, cronograma +${wait.late_days} d.u.` : ""}` : ` · prazo até ${formatDate(wait.due_on)}`) : ""}.
           {board.can_work && " Se ele respondeu por WhatsApp ou reunião, registre aqui."}</p>
       ) : it.status === "revision_requested" && it.open_request ? (
         <div className="dlvreq">

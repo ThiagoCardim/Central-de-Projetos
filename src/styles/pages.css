@@ -2288,3 +2288,38 @@ a.mw-link { text-decoration: none; }
 a.mw-card__proj { text-decoration: none; }
 .mw-card__step { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .mw-card__step:hover { color: var(--brand-text); }
+
+/* Prazo de retorno do cliente */
+.cwait.is-late { border-color: var(--warning); }
+.cwait__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.cwait__list--flush { gap: 0; }
+.cwait__list--flush .cwait__item { border-radius: 0; border-width: 1px 0 0; padding: var(--s3) var(--s4); }
+.cwait__list--flush .cwait__item:first-child { border-top: 0; }
+.cwait__list.is-closed { margin-top: var(--s2); }
+.cwait__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); padding: var(--s3); border: 1px solid var(--border); border-radius: 12px; }
+.cwait__item.is-late { border-color: var(--warning); background: var(--warning-pastel); }
+.cwait__item.is-closed { opacity: .8; }
+.cwait__item .grow { display: grid; gap: 2px; min-width: 200px; }
+.cwait__icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--brand-pastel); color: var(--brand-text); }
+.cwait__item.is-late .cwait__icon { background: var(--card); color: var(--warning-text); }
+.cwait__item.is-closed .cwait__icon { background: var(--success-pastel); color: var(--success-text); }
+.cwait__meta { font-size: var(--fs-sub); color: var(--text-2); }
+.cwait__actions { display: flex; gap: var(--s2); margin-left: auto; }
+.cwait__toggle { margin-top: var(--s2); font: inherit; font-size: var(--fs-sub); background: none; border: 0; padding: 0; cursor: pointer; }
+.cwait__link { color: inherit; text-decoration: none; display: grid; gap: 2px; }
+.cwait__link:hover b { color: var(--brand-text); }
+.cwaitc { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s4); border-color: var(--brand) !important; }
+.cwaitc.is-late { border-color: var(--warning) !important; background: radial-gradient(120% 140% at 0% 0%, var(--warning-pastel) 0%, transparent 60%), var(--card) !important; }
+.cwaitc__icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--brand-gradient); color: var(--text-on-brand); }
+.cwaitc.is-late .cwaitc__icon { background: var(--warning); color: #1a1200; }
+.cwaitc__icon svg { width: 22px; height: 22px; }
+.cwaitc .grow { flex: 1 1 320px; display: grid; gap: var(--s2); }
+.cwaitc h2 { margin: 0; font-size: var(--fs-md); }
+.cwaitc__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cwaitc__list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s2); font-size: var(--fs-sub); }
+.cwaitc__due { font-weight: 600; color: var(--brand-text); }
+.cwaitc__due.is-late { color: var(--warning-text); }
+.cwaitc__hint { margin: 0; font-size: var(--fs-sub); color: var(--text-2); }
+.cwaitc__actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-self: center; }
+.dlvask__due { display: flex; align-items: flex-start; gap: 6px; margin: var(--s2) 0 0 !important; color: var(--brand-text) !important; }
+.dlvask__due.is-late { color: var(--warning-text) !important; }

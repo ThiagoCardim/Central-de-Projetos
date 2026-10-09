@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
 import { Link, useNavigate, useParams, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
+import { ClientWaitsCard } from "./ClientWaits";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, FilterBar, Input, LoadError, MetricCard, ProgressBar, Segmented, Select,
   Skeleton, StatusBadge, Tabs,
@@ -101,6 +102,7 @@ export function ProjectSchedulePage() {
         !s ? <><Skeleton height={88} radius={16} /><Skeleton height={280} radius={16} /></> : (
         <>
           <Attention project={p} schedule={s} canManage={canManage} onChanged={() => { reload(); void project.reload(); }} />
+          {isStaffUser && p.status === "in_progress" && <ClientWaitsCard key={`cw-${s.tasks.filter((t) => t.status === "waiting_client").length}`} projectId={p.id} onChanged={reload} />}
           {s.tracks.length === 0 ? (
             <Card><EmptyState icon="calendar" title="Cronograma ainda não gerado."
               text={canManage ? "Gere o cronograma a partir dos serviços contratados." : "O líder do projeto gera o cronograma."}

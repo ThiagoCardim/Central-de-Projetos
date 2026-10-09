@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, DeliveryKind, DeliverySettingsRow, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, ClientWait, ProjectClientWaits, ClientWaitSettings, DeliveryKind, DeliverySettingsRow, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -312,6 +312,17 @@ export const api = {
   npsSkip: (projectServiceId: string, mode: "later" | "never") => rpc<void>("nps_skip", { p_ps: projectServiceId, p_mode: mode }),
   npsOverview: (from: string | null, to: string | null) => rpc<NpsOverview>("nps_overview", { p_tenant: null, p_from: from, p_to: to }),
   npsResponses: (from: string | null, to: string | null) => rpc<NpsResponse[]>("nps_responses_list", { p_tenant: null, p_from: from, p_to: to }),
+  // Prazo de retorno do cliente: espera, empurrão diário, retorno com data real e abono (regras no banco)
+  projectClientWaits: (projectId: string) => rpc<ProjectClientWaits>("project_client_waits", { p_project: projectId }),
+  myClientWaits: () => rpc<ClientWait[]>("my_client_waits"),
+  clientWaitsOverview: () => rpc<ClientWait[]>("client_waits_overview"),
+  clientWaitReturn: (waitId: string, date: string | null, note: string | null) =>
+    rpc<{ refunded_days: number }>("client_wait_return", { p_wait: waitId, p_date: date, p_note: note?.trim() || null }),
+  clientWaitWaive: (waitId: string, until: string, reason: string) =>
+    rpc<{ refunded_days: number }>("client_wait_waive", { p_wait: waitId, p_until: until, p_reason: reason.trim() }),
+  clientWaitSettings: (tenantId: string) => rpc<ClientWaitSettings>("client_wait_settings_get", { p_tenant: tenantId }),
+  clientWaitSettingsSave: (tenantId: string, enabled: boolean, days: number) =>
+    rpc<void>("client_wait_settings_save", { p_tenant: tenantId, p_enabled: enabled, p_days: days }),
   // Entregas do projeto e rodadas de revisão (regras validadas no banco)
   projectDeliveries: (projectId: string) => rpc<DeliveryBoard>("project_deliveries", { p_project: projectId }),
   deliveryProjects: () => rpc<DeliveryProjectSummary[]>("delivery_projects"),
