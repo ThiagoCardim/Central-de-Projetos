@@ -200,8 +200,8 @@ button.metric:hover { border-color: var(--border-strong); }
 @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } }
 .drawer__head { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s5) var(--s5) var(--s4); border-bottom: 1px solid var(--border); }
 .drawer__head h2 { font-size: var(--fs-md); font-weight: 700; }
-.drawer__body { flex: 1; overflow-y: auto; padding: var(--s5); }
-.drawer__foot { display: flex; align-items: center; gap: var(--s2); padding: var(--s4) var(--s5); border-top: 1px solid var(--border); background: var(--card); }
+.drawer__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--s5); }
+.drawer__foot { flex: none; display: flex; align-items: center; gap: var(--s2); padding: var(--s4) var(--s5); border-top: 1px solid var(--border); background: var(--card); }
 .drawer__foot .spacer { flex: 1; }
 
 .sheet {
@@ -218,17 +218,21 @@ button.metric:hover { border-color: var(--border-strong); }
 .sheet .drawer__foot { flex-wrap: wrap; }
 .sheet .drawer__foot .btn { flex: 1 1 auto; }
 
+/* A janela nunca passa da tela: o conteúdo rola por dentro e os botões ficam sempre visíveis. */
 .modal {
   position: fixed; z-index: 51; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+  display: flex; flex-direction: column; overflow: hidden;
   background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card);
   box-shadow: var(--shadow-pop); animation: modal-in 200ms var(--ease);
 }
 @keyframes modal-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)); } }
-.modal__body { padding: var(--s5); display: flex; flex-direction: column; gap: var(--s3); }
+.modal__body { padding: var(--s5); display: flex; flex-direction: column; gap: var(--s3); flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.modal__body > * { flex-shrink: 0; }
 .modal__body h2 { font-size: var(--fs-md); font-weight: 700; }
 .modal__body p { color: var(--text-2); }
-.modal__foot { display: flex; justify-content: flex-end; gap: var(--s2); padding: 0 var(--s5) var(--s5); }
+.modal__foot { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s2); padding: var(--s4) var(--s5) var(--s5); border-top: 1px solid var(--border); background: var(--card); }
 
 /* ---------- Toast ---------- */
 .toasts {

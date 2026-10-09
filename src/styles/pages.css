@@ -1637,7 +1637,7 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 @media (max-width: 1023px) {
   .faqadm, .faqadm__form { grid-template-columns: 1fr; }
 }
-.modal:has(.faqadm__form) { width: min(1000px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.modal:has(.faqadm__form) { width: min(1000px, calc(100vw - 32px)); }
 .modal:has(.faqadm__form) .modal__body { overflow: auto; }
 .modal:has(.faqadm__form) .modal__foot { padding-top: var(--s3); }
 
@@ -1815,7 +1815,7 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .csnew__kind:not(.cskind--alert) svg { color: var(--brand-text); }
 .csnew__row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s3); align-items: start; }
 .csnew__note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; font-size: var(--fs-sub); color: var(--text-2); }
-.modal:has(.csnew) { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.modal:has(.csnew) { width: min(760px, calc(100vw - 32px)); }
 .modal:has(.csnew) .modal__body { overflow: auto; }
 @media (max-width: 640px) { .csnew__kinds, .csnew__row { grid-template-columns: 1fr; } }
 
@@ -1893,7 +1893,7 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .is-high { --nps: var(--success); --nps-text: var(--success-text); --nps-bg: var(--success-pastel); }
 
 /* Pop-up do cliente */
-.modal:has(.nps) { width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden; }
+.modal:has(.nps) { width: min(620px, calc(100vw - 32px)); overflow: hidden; }
 .modal:has(.nps) .modal__body { overflow: auto; }
 .modal:has(.nps) .modal__foot { align-items: center; flex-wrap: wrap; }
 .nps { display: flex; flex-direction: column; gap: var(--s4); }

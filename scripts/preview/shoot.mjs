@@ -383,6 +383,15 @@ const scenes = [
   { name: "cw-settings", url: "/configuracoes?as=unit_admin&aba=cs", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(500); } },
   { name: "cw-schedule", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(800); } },
   { name: "m-cw-client-home", url: "/?as=client", vp: MOBILE, full: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(500); } },
+  { name: "modal-long", url: "/entregas?as=client", vp: { width: 1366, height: 768 }, action: async (p) => { await skipNps(p); await p.waitForTimeout(400);
+    await p.getByRole("button", { name: "Pedir revisão" }).first().click();
+    for (let i = 0; i < 7; i++) await p.getByRole("button", { name: "Adicionar alteração" }).click();
+    await p.waitForTimeout(300); console.log("   botão visível:", await p.getByRole("button", { name: "Enviar pedido de revisão" }).isVisible(),
+      "| dentro da tela:", await p.getByRole("button", { name: "Enviar pedido de revisão" }).evaluate((b) => b.getBoundingClientRect().bottom <= innerHeight)); } },
+  { name: "m-modal-long", url: "/entregas?as=client", vp: MOBILE, action: async (p) => { await skipNps(p); await p.waitForTimeout(400);
+    await p.getByRole("button", { name: "Pedir revisão" }).first().click();
+    for (let i = 0; i < 5; i++) await p.getByRole("button", { name: "Adicionar alteração" }).click();
+    await p.waitForTimeout(300); console.log("   dentro da tela:", await p.getByRole("button", { name: "Enviar pedido de revisão" }).evaluate((b) => b.getBoundingClientRect().bottom <= innerHeight)); } },
 ];
 
 const browser = await chromium.launch();
