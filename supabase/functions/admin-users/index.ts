@@ -7,7 +7,7 @@
 //      convite pelo Supabase Auth, vincular o auth_user_id e encerrar sessões.
 import { AppError, corsHeaders, fromPostgrest, json, serviceClient, userClient } from "../_shared/http.ts";
 
-type Role = "client" | "collaborator" | "leader" | "unit_admin" | "global_admin";
+type Role = "client" | "collaborator" | "customer_success" | "leader" | "unit_admin" | "global_admin";
 
 interface InvitePayload {
   action: "invite";
@@ -43,7 +43,7 @@ type Payload = InvitePayload | UpdatePayload | StatusPayload | ResendPayload;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ROLES: Role[] = ["client", "collaborator", "leader", "unit_admin", "global_admin"];
+const ROLES: Role[] = ["client", "collaborator", "customer_success", "leader", "unit_admin", "global_admin"];
 
 function assertUuid(v: unknown, field: string): string {
   if (typeof v !== "string" || !UUID_RE.test(v)) throw new AppError(422, "invalid", `Campo inválido: ${field}.`);

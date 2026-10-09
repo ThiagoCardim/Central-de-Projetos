@@ -24,6 +24,7 @@ function formatDocument(d: string | null): string {
 
 export function ClientsPage() {
   useDocumentTitle("Clientes");
+  const { permissions } = useAuth();
   const mobile = useIsMobile();
   const { data, error, loading, reload } = useAsync(() => api.listClientsWithProjects(), []);
   const [type, setType] = useState<"all" | ClientType>("all");
@@ -45,7 +46,7 @@ export function ClientsPage() {
     <div className="page">
       <PageHead title="Clientes"
         subtitle="Um cliente pode ter vários projetos. Clientes vindos do CRM são criados automaticamente e reconhecidos pelo CPF/CNPJ ou e-mail."
-        actions={<Button icon="plus" variant="secondary" onClick={() => setEditing("new")}>Novo cliente</Button>} />
+        actions={!permissions?.is_cs && <Button icon="plus" variant="secondary" onClick={() => setEditing("new")}>Novo cliente</Button>} />
       <Tabs<"all" | ClientType> label="Tipo de cliente" value={type} onChange={setType} tabs={[
         { value: "all", label: "Todos", count: all.length },
         { value: "b2c", label: "B2C", count: all.filter((c) => c.client_type === "b2c").length },
@@ -119,6 +120,8 @@ function ClientDrawer({ target, onClose, onSaved }: { target: ClientListItem | "
   const { permissions } = useAuth();
   const isNew = target === "new";
   const c = target && target !== "new" ? target : null;
+  // Customer Success consulta o cadastro sem alterar.
+  const readOnly = !!permissions?.is_cs;
   const [form, setForm] = useState({ name: "", client_type: null as ClientType | null, email: "", phone: "", document: "", company_name: "" });
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -151,9 +154,10 @@ function ClientDrawer({ target, onClose, onSaved }: { target: ClientListItem | "
   return (
     <Drawer open={target !== null} onClose={onClose} title={isNew ? "Novo cliente" : c?.name ?? ""}
       subtitle={c ? `${c.projects?.[0]?.count ?? 0} projeto(s) · desde ${formatDate(c.created_at, true)}` : "Para vincular a um usuário do portal, use Controle de Acessos."}
-      footer={<><span className="spacer" /><Button variant="ghost" onClick={onClose}>Cancelar</Button>
+      footer={readOnly ? <><span className="spacer" /><Button variant="ghost" onClick={onClose}>Fechar</Button></> : <><span className="spacer" /><Button variant="ghost" onClick={onClose}>Cancelar</Button>
         <Button type="submit" form="client-form" loading={saving}>{isNew ? "Cadastrar cliente" : "Salvar alterações"}</Button></>}>
       <form id="client-form" className="form" onSubmit={submit} noValidate>
+        <fieldset className="form__ro" disabled={readOnly}>
         {err && <Alert tone="danger" title="Não foi salvo">{err}</Alert>}
         <Field label="Tipo de cliente" required>
           {({ id }) => <Segmented<ClientType> id={id} label="Tipo de cliente" value={form.client_type}
@@ -173,6 +177,7 @@ function ClientDrawer({ target, onClose, onSaved }: { target: ClientListItem | "
           <Field label="E-mail">{({ id }) => <Input id={id} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />}</Field>
           <Field label="Telefone">{({ id }) => <Input id={id} type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} />}</Field>
         </div>
+      </fieldset>
       </form>
     </Drawer>
   );
@@ -196,7 +201,7 @@ export function TeamPage() {
   const sectorId = (p: { id: string; sector_id?: string | null }) => (p.id in sectorOf ? sectorOf[p.id] : p.sector_id ?? null);
   const RANK: Record<string, number> = { collaborator: 1, leader: 2, unit_admin: 3, global_admin: 4 };
   const canEditSector = (p: { id: string; role: string }) =>
-    !!permissions && (permissions.can_manage_users || (p.id !== permissions.profile_id && RANK[p.role] <= RANK[permissions.role]));
+    !!permissions && !permissions.is_cs && (permissions.can_manage_users || (p.id !== permissions.profile_id && RANK[p.role] <= RANK[permissions.role]));
   async function changeSector(p: { id: string; name: string }, familyId: string) { // familyId = id do setor
     const prev = sectorOf[p.id];
     setSectorOf((m) => ({ ...m, [p.id]: familyId || null }));

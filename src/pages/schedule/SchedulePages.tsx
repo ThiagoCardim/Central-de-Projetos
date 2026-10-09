@@ -129,7 +129,7 @@ export function ProjectSchedulePage() {
                 editable={canManage && mode === "manage"} canManage={canManage} onOpen={setSelected} onChanged={reload} />}
               {view === "adjustments" && !isClient && (
                 <AdjustmentsView items={adjustments.data} error={adjustments.error} loading={adjustments.loading} onRetry={adjustments.reload}
-                  schedule={s} staff={staff.data ?? []} onRequest={() => setRequesting({ taskId: null })} onChanged={reload} onOpenTask={setSelected} />
+                  schedule={s} staff={staff.data ?? []} onRequest={permissions?.is_cs ? undefined : () => setRequesting({ taskId: null })} onChanged={reload} onOpenTask={setSelected} />
               )}
               {view === "list" && <ListView schedule={s} staff={staff.data ?? []} filters={filters} me={me} onOpen={setSelected} />}
             </>
@@ -148,7 +148,7 @@ export function ProjectSchedulePage() {
       {s && (
         <TaskDrawer task={selectedTask} schedule={s} staff={staff.data ?? []} me={me} canManage={canManage}
           managementMode={mode === "manage"} onChanged={reload} onOpenTask={setSelected}
-          onRequestAdjustment={isStaffUser ? (tid) => setRequesting({ taskId: tid }) : undefined}
+          onRequestAdjustment={isStaffUser && !permissions?.is_cs ? (tid) => setRequesting({ taskId: tid }) : undefined}
           onClose={() => { setSelected(null); if (taskParam) navigate(`/projetos/${p.id}/cronograma`, { replace: true }); }} />
       )}
     </div>

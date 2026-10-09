@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -304,6 +304,19 @@ export const api = {
   setPersonProfile: (profileId: string, functionIds: string[], bio: string | null) =>
     rpc<void>("set_person_profile", { p_profile: profileId, p_functions: functionIds, p_bio: bio }),
   clientProjectTeam: (projectId: string) => rpc<ProjectTeamMember[]>("client_project_team", { p_project: projectId }),
+  // Customer Success: chamados para a equipe e painel
+  csRequests: (scope: "all" | "mine" | "project", projectId?: string | null) =>
+    rpc<CsRequest[]>("cs_requests_list", { p_scope: scope, p_project: projectId ?? null }),
+  csRequest: (id: string) => rpc<CsRequestDetail>("cs_request_detail", { p_id: id }),
+  csCreate: (input: { project_id: string; kind: CsKind; urgency: CsUrgency; title: string; body: string; task_id?: string | null }) =>
+    rpc<string>("cs_request_create", { p_project: input.project_id, p_kind: input.kind, p_urgency: input.urgency,
+      p_title: input.title.trim(), p_body: input.body.trim(), p_task: input.task_id || null }),
+  csReply: (id: string, body: string) => rpc<void>("cs_request_reply", { p_id: id, p_body: body.trim() }),
+  csSetStatus: (id: string, status: "resolved" | "cancelled" | "open") => rpc<void>("cs_request_set_status", { p_id: id, p_status: status }),
+  csDashboard: () => rpc<CsDashboard>("cs_dashboard"),
+  csSettings: (tenantId: string) => rpc<CsSettings>("cs_settings_get", { p_tenant: tenantId }),
+  csSettingsSave: (tenantId: string, s: Omit<CsSettings, "tenant_id">) =>
+    rpc<void>("cs_settings_save", { p_tenant: tenantId, p_normal_days: s.normal_days, p_high_days: s.high_days, p_urgent_hours: s.urgent_hours }),
   // Aprovações de projeto e comissões (regras validadas no banco)
   projectApprovalBoard: (projectId: string) => rpc<ApprovalBoard>("project_approval_board", { p_project: projectId }),
   /** Envia o comprovante (PDF ou imagem) e registra a aprovação. Reenvio usa o mesmo id. */

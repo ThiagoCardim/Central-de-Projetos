@@ -5,6 +5,7 @@ import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
 import { Link, useNavigate, useParams, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
 import { ProjectApprovalsCard } from "@/pages/approvals/ProjectApprovals";
+import { ProjectCsCard } from "@/pages/cs/CsPage";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
 } from "@/components/ui/primitives";
@@ -242,6 +243,7 @@ export function ProjectDetailPage() {
           </Card>
 
           {permissions?.is_staff && ["in_progress", "on_hold", "completed"].includes(p.status) && <ProjectApprovalsCard projectId={p.id} />}
+          {permissions?.is_staff && <ProjectCsCard projectId={p.id} />}
 
           <TeamCard project={p} canAssign={canAssign} staff={!!permissions?.is_staff} me={profile?.id ?? null} onEdit={() => setTeamOpen(true)} />
         </div>

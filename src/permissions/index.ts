@@ -13,7 +13,10 @@ export type Capability =
   | "manager"
   | "staff"
   | "performance"
-  | "approvals";
+  | "approvals"
+  | "oversight"
+  | "csDesk"
+  | "cs";
 
 export function can(perms: Permissions | null, cap: Capability): boolean {
   if (!perms) return false;
@@ -31,10 +34,15 @@ export function can(perms: Permissions | null, cap: Capability): boolean {
     case "performance": return perms.is_manager || perms.can_view_performance;
     // Controle de aprovações e comissões: ADMs e líderes de aprovação.
     case "approvals": return !!perms.can_view_approvals;
+    // Ver clientes e equipe: gestão e Customer Success (somente leitura).
+    case "oversight": return perms.is_manager || !!perms.is_cs;
+    // Chamados do CS: o CS, a gestão (líderes recebem os chamados).
+    case "csDesk": return perms.is_manager || !!perms.is_cs;
+    case "cs": return !!perms.is_cs;
   }
 }
 
-const RANK: Record<UserRole, number> = { client: 0, collaborator: 1, leader: 2, unit_admin: 3, global_admin: 4 };
+const RANK: Record<UserRole, number> = { client: 0, collaborator: 1, customer_success: 1, leader: 2, unit_admin: 3, global_admin: 4 };
 
 /** Papéis que o usuário logado pode atribuir (o banco aplica a mesma regra em can_grant_role). */
 export function grantableRoles(perms: Permissions | null, targetIsHeadquarters: boolean): UserRole[] {

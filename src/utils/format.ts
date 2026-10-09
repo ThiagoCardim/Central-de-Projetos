@@ -6,6 +6,7 @@ import type {
 export const ROLE_LABEL: Record<UserRole, string> = {
   client: "Cliente",
   collaborator: "Colaborador",
+  customer_success: "Customer Success",
   leader: "Líder",
   unit_admin: "ADM Unidade",
   global_admin: "ADM Global",
@@ -14,6 +15,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 export const ROLE_DESCRIPTION: Record<UserRole, string> = {
   client: "Acompanha somente os projetos do próprio cliente.",
   collaborator: "Vê e atualiza as etapas dos projetos em que está na equipe.",
+  customer_success: "Acompanha todos os projetos, cronogramas, clientes e equipe sem alterar nada. Abre chamados e alertas para a equipe.",
   leader: "Atribui equipe, edita cronogramas e acompanha prazos da unidade.",
   unit_admin: "Administra usuários, clientes e projetos desta unidade.",
   global_admin: "Administra a rede YouCon: todas as unidades, templates e distribuição.",

@@ -298,6 +298,18 @@ const scenes = [
   { name: "apr-register", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: "Projeto aprovado" }).click(); await p.waitForTimeout(200); await p.getByLabel(/Condomínio/).check(); await p.waitForTimeout(200); } },
   { name: "apr-include", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: "Incluir trâmite no cronograma" }).click(); await p.waitForTimeout(300); } },
   { name: "m-apr-page", url: "/aprovacoes?as=unit_admin", vp: MOBILE, full: true },
+  { name: "cs-home", url: "/?as=cs", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(900); } },
+  { name: "cs-page", url: "/cs?as=cs", vp: DESKTOP, full: true },
+  { name: "cs-thread", url: "/cs?as=cs&chamado=cs2", vp: { width: 1440, height: 1000 } },
+  { name: "cs-new", url: "/cs?as=cs", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(400); await p.getByRole("button", { name: "Novo chamado" }).click(); await p.waitForTimeout(400); } },
+  { name: "cs-alert", url: "/projetos/pr1?as=cs", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: "Alerta", exact: true }).click(); await p.waitForTimeout(400); } },
+  { name: "cs-project", url: "/projetos/pr1?as=cs", vp: DESKTOP, full: true },
+  { name: "cs-schedule", url: "/projetos/pr1/cronograma?as=cs", vp: DESKTOP },
+  { name: "cs-clients", url: "/clientes?as=cs", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(400); await p.locator("tr.is-clickable").first().click(); await p.waitForTimeout(300); } },
+  { name: "cs-leader-home", url: "/?as=leader", vp: DESKTOP, full: true },
+  { name: "cs-leader-reply", url: "/cs?as=leader&chamado=cs1", vp: { width: 1440, height: 1000 } },
+  { name: "cs-settings", url: "/configuracoes?as=unit_admin&aba=cs", vp: DESKTOP },
+  { name: "m-cs-home", url: "/?as=cs", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(900); } },
 ];
 
 const browser = await chromium.launch();

@@ -42,7 +42,7 @@ const serviceOfTrack = (s: ProjectSchedule, trackId: string) => s.tracks.find((t
    ========================================================================== */
 export function AdjustmentsView({ items, error, loading, onRetry, schedule, staff, onRequest, onChanged, onOpenTask }: {
   items: AdjustmentRequest[] | null; error: string | null; loading: boolean; onRetry: () => void;
-  schedule: ProjectSchedule; staff: StaffMember[]; onRequest: () => void; onChanged: () => void; onOpenTask: (id: string) => void;
+  schedule: ProjectSchedule; staff: StaffMember[]; onRequest?: () => void; onChanged: () => void; onOpenTask: (id: string) => void;
 }) {
   const toast = useToast();
   const [deciding, setDeciding] = useState<AdjustmentRequest | null>(null);
@@ -56,7 +56,7 @@ export function AdjustmentsView({ items, error, loading, onRetry, schedule, staf
           Quando um setor precisa que outro reveja algo já feito (ex.: o Estrutural pede um ajuste na Arquitetura), registre aqui.
           O líder do setor requisitado aprova, define o prazo e quem executa; o cronograma do contrato se ajusta sozinho.
         </p>
-        <Button icon="refresh" onClick={onRequest}>Solicitar ajuste</Button>
+        {onRequest && <Button icon="refresh" onClick={onRequest}>Solicitar ajuste</Button>}
       </div>
       {error ? <LoadError message={error} onRetry={onRetry} /> : loading && !items ? <Skeleton height={160} radius={16} /> :
         (items ?? []).length === 0 ? (

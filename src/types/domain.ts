@@ -1,6 +1,6 @@
 // Tipos de domínio espelhando o schema do banco (supabase/migrations).
 
-export type UserRole = "client" | "collaborator" | "leader" | "unit_admin" | "global_admin";
+export type UserRole = "client" | "collaborator" | "customer_success" | "leader" | "unit_admin" | "global_admin";
 export type EmploymentType = "clt" | "pj";
 export type ClientType = "b2c" | "b2b";
 export type RecordStatus = "ativo" | "inativo";
@@ -74,6 +74,7 @@ export interface Permissions {
   can_view_performance: boolean;
   can_view_approvals?: boolean;
   can_admin_approvals?: boolean;
+  is_cs?: boolean;
   is_manager: boolean;
   is_staff: boolean;
 }
@@ -634,3 +635,39 @@ export interface ApprovalBoard {
   tramites: { service_id: string; name: string; included: boolean }[];
 }
 export interface ApprovalRate { type_id: string; code: string; name: string; amount: number | null; updated_at: string | null }
+
+/* ---------- Customer Success ---------- */
+export type CsKind = "clarification" | "client_question" | "alert";
+export type CsUrgency = "normal" | "high" | "urgent";
+export type CsStatus = "open" | "answered" | "resolved" | "cancelled";
+export interface CsRequest {
+  id: string; project_id: string; tenant_id: string; project_name: string; project_code: string | null; client_name: string | null;
+  kind: CsKind; urgency: CsUrgency; title: string; body: string;
+  task: { id: string; name: string; status: TaskStatus; planned_end_date: string | null } | null;
+  status: CsStatus; due_at: string; created_at: string; first_response_at: string | null; last_reply_at: string | null; resolved_at: string | null;
+  created_by: { id: string; name: string }; recipients: { id: string; name: string; avatar_url: string | null }[];
+  messages: number; last_message: { author: string; body: string; at: string; from_cs: boolean } | null;
+  overdue: boolean; answered_late: boolean; is_recipient: boolean; can_close: boolean; can_reopen: boolean;
+}
+export interface CsMessage { id: string; body: string; created_at: string; author: { id: string; name: string; avatar_url: string | null; role: UserRole } }
+export interface CsRequestDetail extends CsRequest { thread: CsMessage[] }
+export interface CsRiskProject {
+  id: string; name: string; code: string | null; client_name: string | null; overdue_steps: number; max_overdue_days: number | null;
+  waiting_client: number; next_due: string | null; open_requests: number;
+}
+export interface CsUpcoming {
+  task_id: string; project_id: string; project_name: string; project_code: string | null; client_name: string | null;
+  task: string; service: string; planned_end_date: string; status: TaskStatus; responsible: string | null;
+}
+export interface CsDashboard {
+  scope: "network" | "unit";
+  counts: { open: number; awaiting_team: number; answered: number; urgent_open: number; overdue: number; created_month: number; resolved_month: number };
+  response: { avg_hours: number | null; on_time_pct: number | null; answered: number };
+  by_kind: { kind: CsKind; open: number; month: number }[];
+  trend: { week: string; created: number; resolved: number }[];
+  attention: CsRequest[];
+  projects: { active: number; with_overdue: number; waiting_client: number };
+  at_risk: CsRiskProject[];
+  upcoming: CsUpcoming[];
+}
+export interface CsSettings { tenant_id: string; normal_days: number; high_days: number; urgent_hours: number }

@@ -13,6 +13,7 @@ import { computeNextStep, type NextStep } from "./nextStep";
 import { PendingAdjustmentsCard } from "@/pages/schedule/Adjustments";
 import { MyDayCard, TeamTasksCard, useWorkSummary } from "./WorkCards";
 import { HighlightsCard, MyPerformanceCard } from "./PerfCards";
+import { CsHome, CsInboxCard } from "@/pages/cs/CsPage";
 import { myDayStats, teamStats } from "@/pages/work/workStats";
 import { todayISO } from "@/pages/schedule/model";
 import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
@@ -34,8 +35,12 @@ export function HomePage() {
   return (
     <div className="page home">
       <HomeHeader d={data} />
-      <NextStepBand step={computeNextStep(data, permissions)} />
-      {data.client ? <ClientHome projects={data.client.projects} /> : <StaffHome d={data} perms={permissions} />}
+      {permissions?.is_cs ? <CsHome /> : (
+        <>
+          <NextStepBand step={computeNextStep(data, permissions)} />
+          {data.client ? <ClientHome projects={data.client.projects} /> : <StaffHome d={data} perms={permissions} />}
+        </>
+      )}
     </div>
   );
 }
@@ -131,6 +136,7 @@ function StaffHome({ d, perms }: { d: HomeDashboard; perms: Permissions | null }
           <PendingAdjustmentsCard items={pendingAdj.data ?? []}
             onOpen={(r) => navigate(`/projetos/${r.project_id}/cronograma?aba=ajustes`)} />
           {!ops && work.mine && <MyDayCard items={work.mine} today={today} onChange={work.setMine} />}
+          {isManager && <CsInboxCard />}
           {isManager && work.team && <TeamTasksCard items={work.team} today={today} />}
           {isManager && <HighlightsCard isManager />}
           {ops && (

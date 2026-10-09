@@ -77,7 +77,7 @@ function aprBoard(pid: string) {
   const p = me(); const manager = ["global_admin", "unit_admin", "leader"].includes(p?.role);
   const codes = APR_PROJ[pid] ?? ["prefeitura", "condominio"];
   return {
-    can_register: p?.role !== "client", can_include: manager,
+    can_register: p?.role !== "client" && p?.role !== "customer_success", can_include: manager,
     protocols: codes.map((code) => {
       const ty = APR_TYPES.find((t) => t.code === code)!;
       const a = APPROVALS.find((x) => x.project_id === pid && x.type_code === code && x.status !== "cancelled");
@@ -87,6 +87,75 @@ function aprBoard(pid: string) {
     approvals: APPROVALS.filter((x) => x.project_id === pid && x.status !== "cancelled").map(aprFlags),
     tramites: APR_TYPES.filter((t) => !["prefeitura", "condominio"].includes(t.code))
       .map((t) => ({ service_id: `svc-${t.code}`, name: t.service, included: (APR_INCLUDED[pid] ?? []).includes(t.code) })),
+  };
+}
+
+// Customer Success
+const hAgo = (h: number) => new Date(Date.now() - h * 36e5).toISOString();
+const hIn = (h: number) => new Date(Date.now() + h * 36e5).toISOString();
+const CS_PNAME: Record<string, [string, string, string]> = {
+  pr1: ["Residência Souza", "YC-2026-0014", "Fernanda Souza"], pr2: ["Edifício Horizonte", "YC-2026-0017", "Construtora Horizonte"],
+  pr3: ["Clínica Vida", "YC-2026-0019", "Clínica Vida Ltda."], pr4: ["Casa Moreira", "YC-2026-0011", "Paulo Moreira"],
+};
+const ld = { id: "p-ld", name: "Rafael Andrade", avatar_url: null };
+const csBy = { id: "p-cs", name: "Juliana Martins" };
+let CS_REQ: any[] = [
+  { id: "cs1", project_id: "pr2", kind: "alert", urgency: "urgent", title: "Cliente sem retorno sobre a prefeitura há 10 dias",
+    body: "A construtora ligou duas vezes hoje. Querem saber se o protocolo foi feito e quando sai a aprovação. Estão bem insatisfeitos.",
+    task: { id: "t3", name: "Aprovação ou Alvará", status: "waiting_third_party", planned_end_date: d(12) },
+    status: "open", due_at: hAgo(1), created_at: hAgo(5), first_response_at: null, thread: [] },
+  { id: "cs2", project_id: "pr1", kind: "client_question", urgency: "high", title: "Quando a cliente recebe o Estudo Preliminar?",
+    body: "A Fernanda perguntou se o Estudo Preliminar ainda sai nesta semana, porque ela viaja na sexta.",
+    task: { id: "t1", name: "Estudo Preliminar", status: "in_progress", planned_end_date: d(-4) },
+    status: "answered", due_at: hIn(20), created_at: hAgo(26), first_response_at: hAgo(22),
+    thread: [{ id: "m1", body: "Estamos finalizando as plantas. Entregamos na quinta até as 17h; já combinei com a Beatriz.", created_at: hAgo(22), author: { ...ld, role: "leader" } }] },
+  { id: "cs3", project_id: "pr3", kind: "clarification", urgency: "normal", title: "Status do Envio do Briefing",
+    body: "O cliente diz que já mandou o briefing por e-mail. Podem confirmar se recebemos e se a etapa pode andar?",
+    task: { id: "t4", name: "Envio do Briefing", status: "waiting_client", planned_end_date: d(2) },
+    status: "open", due_at: hIn(30), created_at: hAgo(3), first_response_at: null, thread: [] },
+  { id: "cs4", project_id: "pr4", kind: "client_question", urgency: "normal", title: "Cliente quer incluir uma suíte no projeto",
+    body: "Paulo perguntou se ainda dá para incluir uma suíte no pavimento superior e se isso muda o prazo.",
+    task: null, status: "resolved", due_at: hAgo(60), created_at: hAgo(100), first_response_at: hAgo(80), resolved_at: hAgo(70),
+    thread: [{ id: "m2", body: "Dá sim. Vira um pedido de ajuste de complexidade média: +7 dias úteis. Já abri o pedido.", created_at: hAgo(80), author: { ...ld, role: "leader" } },
+             { id: "m3", body: "Perfeito, vou explicar para ele. Obrigada!", created_at: hAgo(72), author: { id: "p-cs", name: "Juliana Martins", avatar_url: null, role: "customer_success" } }] },
+];
+function csJson(r: any) {
+  const [project_name, project_code, client_name] = CS_PNAME[r.project_id] ?? ["Projeto", null, null];
+  const p = me(); const last = r.thread[r.thread.length - 1];
+  return { tenant_id: HQ, project_name, project_code, client_name, created_by: csBy, recipients: [ld], last_reply_at: last?.created_at ?? null,
+    resolved_at: null, ...r, messages: r.thread.length,
+    last_message: last ? { author: last.author.name, body: last.body.slice(0, 160), at: last.created_at, from_cs: last.author.role === "customer_success" } : null,
+    overdue: r.status === "open" && !r.first_response_at && new Date(r.due_at) < new Date(), answered_late: false,
+    is_recipient: p?.id === "p-ld", can_close: ["open", "answered"].includes(r.status) && ["customer_success", "leader", "unit_admin", "global_admin"].includes(p?.role),
+    can_reopen: ["resolved", "cancelled"].includes(r.status) && ["customer_success", "leader", "unit_admin", "global_admin"].includes(p?.role) };
+}
+function csDashboard() {
+  const list = CS_REQ.filter((r) => r.status !== "cancelled").map(csJson);
+  const open = list.filter((r) => ["open", "answered"].includes(r.status));
+  const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return {
+    scope: "network",
+    counts: { open: open.length, awaiting_team: list.filter((r) => r.status === "open").length, answered: list.filter((r) => r.status === "answered").length,
+      urgent_open: open.filter((r) => r.urgency === "urgent" || r.kind === "alert").length, overdue: list.filter((r) => r.overdue).length, created_month: 9, resolved_month: 6 },
+    response: { avg_hours: 3.6, on_time_pct: 86, answered: 14 },
+    by_kind: [{ kind: "clarification", open: 1, month: 4 }, { kind: "client_question", open: 1, month: 4 }, { kind: "alert", open: 1, month: 1 }],
+    trend: [2, 4, 3, 5, 2, 6, 4, 3].map((n, i) => { const w = new Date(monday); w.setDate(w.getDate() - (7 - i) * 7); return { week: w.toISOString().slice(0, 10), created: n, resolved: Math.max(0, n - 1) }; }),
+    attention: open.filter((r) => r.urgency === "urgent" || r.kind === "alert" || r.overdue),
+    projects: { active: 9, with_overdue: 3, waiting_client: 2 },
+    at_risk: [
+      { id: "pr2", name: "Edifício Horizonte", code: "YC-2026-0017", client_name: "Construtora Horizonte", overdue_steps: 2, max_overdue_days: 6, waiting_client: 0, next_due: d(5), open_requests: 1 },
+      { id: "pr1", name: "Residência Souza", code: "YC-2026-0014", client_name: "Fernanda Souza", overdue_steps: 1, max_overdue_days: 4, waiting_client: 1, next_due: d(3), open_requests: 1 },
+      { id: "pr3", name: "Clínica Vida", code: "YC-2026-0019", client_name: "Clínica Vida Ltda.", overdue_steps: 0, max_overdue_days: null, waiting_client: 1, next_due: d(2), open_requests: 1 },
+    ],
+    upcoming: [
+      [d(1), "pr3", "Renderização", "Design de Interiores", "Beatriz Nogueira", "Clínica Vida", "Clínica Vida Ltda."],
+      [d(2), "pr3", "Envio do Briefing", "Design de Interiores", "Beatriz Nogueira", "Clínica Vida", "Clínica Vida Ltda."],
+      [d(3), "pr1", "Estudo Preliminar", "Projeto Arquitetônico", "Beatriz Nogueira", "Residência Souza", "Fernanda Souza"],
+      [d(6), "pr2", "Projeto Legal", "Aprovação / Projeto Legal", "Lucas Ferreira", "Edifício Horizonte", "Construtora Horizonte"],
+      [d(9), "pr1", "Projeto de Interiores", "Design de Interiores", "Lucas Ferreira", "Residência Souza", "Fernanda Souza"],
+      [d(12), "pr2", "Cálculo estrutural", "Projeto Estrutural", "Camila Rocha", "Edifício Horizonte", "Construtora Horizonte"],
+    ].map(([date, pid, task, service, responsible, project_name, client_name], i) => ({ task_id: `up${i}`, project_id: pid, project_name, project_code: null, client_name,
+      task, service, planned_end_date: date, status: "not_started", responsible })),
   };
 }
 
@@ -100,6 +169,7 @@ let profiles: any[] = [
   ["p-ga", HQ, "Thiago Cardim", "thiago@youcon.com.br", "global_admin", null, null, "ativo", true],
   ["p-ua", HQ, "Mariana Lopes", "mariana@youcon.com.br", "unit_admin", "clt", null, "ativo", true],
   ["p-ld", HQ, "Rafael Andrade", "rafael@youcon.com.br", "leader", "clt", null, "ativo", true],
+  ["p-cs", HQ, "Juliana Martins", "juliana.cs@youcon.com.br", "customer_success", "clt", null, "ativo", true],
   ["p-c1", HQ, "Beatriz Nogueira", "beatriz@youcon.com.br", "collaborator", "clt", null, "ativo", true],
   ["p-c2", HQ, "Lucas Ferreira", "lucas@youcon.com.br", "collaborator", "clt", null, "ativo", true],
   ["p-pj", HQ, "Camila Rocha", "camila.eng@gmail.com", "collaborator", "pj", null, "ativo", true],
@@ -132,7 +202,7 @@ const clients = [
 ];
 
 const ROLE_PROFILE: Record<string, string> = {
-  global_admin: "p-ga", unit_admin: "p-ua", leader: "p-ld", clt: "p-c1", pj: "p-pj", client: "p-cl", empty: "p-ga",
+  global_admin: "p-ga", unit_admin: "p-ua", leader: "p-ld", cs: "p-cs", clt: "p-c1", pj: "p-pj", client: "p-cl", empty: "p-ga",
 };
 
 function currentKey(): string | null {
@@ -150,8 +220,9 @@ function permissions() {
     profile_id: p.id, tenant_id: p.tenant_id, role: r, employment_type: p.employment_type, client_type: p.client_type,
     can_manage_users: global || r === "unit_admin", can_manage_tenant: global || r === "unit_admin",
     can_manage_tenants: global, can_manage_templates: global, can_distribute: global,
-    can_view_intake: global || r === "unit_admin", can_view_performance: p.employment_type === "clt" || p.role === "global_admin",
+    can_view_intake: global || r === "unit_admin", can_view_performance: (p.employment_type === "clt" && r !== "customer_success") || p.role === "global_admin",
     can_view_approvals: global || r === "unit_admin" || p.id === "p-ld", can_admin_approvals: global || r === "unit_admin",
+    is_cs: r === "customer_success",
     is_manager: ["leader", "unit_admin", "global_admin"].includes(r), is_staff: r !== "client",
   };
 }
@@ -336,6 +407,31 @@ function rpc(name: string, _args?: any) {
       profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
     case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "cs_requests_list": {
+      const p = me(); let list = CS_REQ.map(csJson);
+      if (_args.p_project) list = list.filter((r) => r.project_id === _args.p_project);
+      if (_args.p_scope === "mine") list = list.filter((r) => r.is_recipient || r.created_by.id === p?.id);
+      return delay({ data: list.sort((a, b) => Number(["open", "answered"].includes(b.status)) - Number(["open", "answered"].includes(a.status)) || a.due_at.localeCompare(b.due_at)), error: null }, 200);
+    }
+    case "cs_request_detail": { const r = CS_REQ.find((x) => x.id === _args.p_id); return delay({ data: r ? { ...csJson(r), thread: r.thread } : null, error: r ? null : { message: "Chamado não encontrado" } }, 200); }
+    case "cs_request_create": {
+      const id = `cs-${Date.now()}`;
+      const sched = (_args.p_urgency === "urgent" ? 4 : _args.p_urgency === "high" ? 26 : 50);
+      CS_REQ.unshift({ id, project_id: _args.p_project, kind: _args.p_kind, urgency: _args.p_urgency, title: _args.p_title, body: _args.p_body, task: null,
+        status: "open", due_at: hIn(sched), created_at: new Date().toISOString(), first_response_at: null, thread: [] });
+      if (!CS_PNAME[_args.p_project]) CS_PNAME[_args.p_project] = [PROJECTS.find((x) => x.id === _args.p_project)?.name ?? "Projeto", null as any, null as any];
+      return delay({ data: id, error: null }, 300);
+    }
+    case "cs_request_reply": {
+      const r = CS_REQ.find((x) => x.id === _args.p_id); const p = me();
+      if (r) { r.thread.push({ id: `m-${Date.now()}`, body: _args.p_body, created_at: new Date().toISOString(), author: { id: p.id, name: p.name, avatar_url: null, role: p.role } });
+        if (p.role === "customer_success") r.status = "open"; else { r.status = r.status === "open" ? "answered" : r.status; r.first_response_at ??= new Date().toISOString(); } }
+      return delay({ data: null, error: null }, 250);
+    }
+    case "cs_request_set_status": { const r = CS_REQ.find((x) => x.id === _args.p_id); if (r) { r.status = _args.p_status === "open" ? (r.first_response_at ? "answered" : "open") : _args.p_status; r.resolved_at = _args.p_status === "open" ? null : new Date().toISOString(); } return delay({ data: null, error: null }, 200); }
+    case "cs_dashboard": return delay({ data: csDashboard(), error: null }, 250);
+    case "cs_settings_get": return delay({ data: { tenant_id: _args.p_tenant, normal_days: 2, high_days: 1, urgent_hours: 4 }, error: null }, 120);
+    case "cs_settings_save": return delay({ data: null, error: null }, 200);
     case "project_approval_board": return delay({ data: aprBoard(_args.p_project), error: null }, 200);
     case "approvals_list": return delay({ data: APPROVALS.filter((a) => a.status !== "cancelled").map(aprFlags)
       .sort((a, b) => b.approved_on.localeCompare(a.approved_on)), error: null }, 220);

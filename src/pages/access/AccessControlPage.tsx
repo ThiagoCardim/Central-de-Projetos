@@ -79,7 +79,7 @@ export function AccessControlPage() {
         {tab !== "clients" && (
           <Select aria-label="Perfil" value={role} onChange={(e) => setRole(e.target.value as UserRole | "")}>
             <option value="">Todos os perfis</option>
-            {(["collaborator", "leader", "unit_admin", "global_admin"] as UserRole[])
+            {(["collaborator", "customer_success", "leader", "unit_admin", "global_admin"] as UserRole[])
               .filter((r) => isGlobal || r !== "global_admin")
               .map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
             {tab === "inactive" && <option value="client">Cliente</option>}
