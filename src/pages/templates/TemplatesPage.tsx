@@ -75,11 +75,29 @@ function toPhases(template: ScheduleTemplate, deps: TemplateDependency[]): FlowS
   return phases;
 }
 
-function phaseDuration(steps: { duration_type: DurationType; days: number | null }[]) {
-  const fixed = steps.filter((s) => s.duration_type === "fixed");
-  const partial = fixed.some((s) => !s.days) || steps.some((s) => s.duration_type === "dependent" || s.duration_type === "external");
-  const max = Math.max(0, ...fixed.map((s) => s.days ?? 0));
-  return { days: max, partial };
+interface DurStep { duration_type: DurationType; days: number | null; review_cycle?: boolean; review_days?: number | null; feedback_days?: number | null }
+
+/** Dias das rodadas de uma apresentação, se o cliente usar todas as revisões incluídas:
+ *  feedback da apresentação + N × (revisão + feedback). Feedback sem prazo no padrão usa 2 (prazo padrão da unidade). */
+function cycleDays(s: DurStep, included: number | null) {
+  if (!s.review_cycle) return 0;
+  const fb = s.feedback_days || 2;
+  return fb + (included ?? 3) * ((s.review_days || 0) + fb);
+}
+
+/** Duração da fase: a etapa mais longa, contando as rodadas que vêm depois de uma apresentação. */
+function phaseDuration(steps: DurStep[], included: number | null = null) {
+  const partial = steps.some((s) => (s.duration_type === "fixed" && !s.days) || s.duration_type === "dependent" || s.duration_type === "external");
+  const base = (s: DurStep) => (s.duration_type === "fixed" ? s.days ?? 0 : 0);
+  const days = Math.max(0, ...steps.map((s) => base(s) + cycleDays(s, included)));
+  const stepsOnly = Math.max(0, ...steps.map(base));
+  return { days, cycles: days - stepsOnly, partial };
+}
+
+function phaseDurText(d: { days: number; cycles: number; partial: boolean }, short = false) {
+  const unit = short ? "d.u." : "dias úteis";
+  const main = d.days ? (d.cycles ? `${d.days - d.cycles} ${unit} + ${d.cycles} de feedback e revisões` : `${d.days} ${unit}`) : "";
+  return main + (d.partial ? (d.days ? " + a definir" : "Prazo a definir") : "");
 }
 
 /** Revisões incluídas do serviço (Configurações › Entregas e revisões). */
@@ -343,7 +361,8 @@ function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; u
   const deps = useAsync(() => api.templateDependencies(template.id), [template.id]);
   const included = useIncludedRevisions(template.service_id);
   const phases = deps.data ? toPhases(template, deps.data) : null;
-  const total = phases?.reduce((n, ph) => n + phaseDuration(ph).days, 0) ?? 0;
+  const total = phases?.reduce((n, ph) => n + phaseDuration(ph, included).days, 0) ?? 0;
+  const cycles = phases?.reduce((n, ph) => n + phaseDuration(ph, included).cycles, 0) ?? 0;
   const partial = phases?.some((ph) => phaseDuration(ph).partial) ?? false;
   const steps = phases?.reduce((n, ph) => n + ph.length, 0) ?? 0;
 
@@ -359,14 +378,14 @@ function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; u
         <>
           <ol className="flow" aria-label="Fases do padrão em ordem">
             {phases.map((ph, i) => {
-              const d = phaseDuration(ph);
+              const d = phaseDuration(ph, included);
               return (
                 <li key={i} className={cx("flow__phase", ph.length > 1 && "phase--parallel")}>
                   <span className="flow__rail" aria-hidden="true"><span className="flow__n">{i + 1}</span></span>
                   <div className="flow__body">
                     <div className="phase__head">
                       <span className="phase__n">Fase {i + 1}</span>
-                      <span className="phase__dur num">{d.days ? `${d.days} dias úteis` : ""}{d.partial ? (d.days ? " + a definir" : "Prazo a definir") : ""}</span>
+                      <span className="phase__dur num">{phaseDurText(d)}</span>
                       {ph.length > 1 && <span className="phase__par"><Icon name="parallel" size={14} /> {ph.length} etapas ao mesmo tempo</span>}
                     </div>
                     <ul className="phase__steps">
@@ -393,9 +412,9 @@ function FlowCard({ template, usage, variants }: { template: ScheduleTemplate; u
           <div className="flow__legend">
             <span><Icon name="sequence" size={14} /> uma fase começa quando a anterior termina</span>
             <span><Icon name="parallel" size={14} /> etapas lado a lado acontecem ao mesmo tempo</span>
-            {phases.some((ph) => ph.some((s) => s.review_cycle)) && <span><Icon name="refresh" size={14} /> apresentação ganha feedback e revisões no cronograma (não somadas aqui)</span>}
+            {cycles > 0 && <span><Icon name="refresh" size={14} /> apresentação ganha feedback e revisões no cronograma; o total considera todas as revisões incluídas (se o cliente aprovar antes, o projeto antecipa)</span>}
             <span className="grow" />
-            <span className="num"><strong>{plural(steps, "etapa", "etapas")}</strong> em {plural(phases.length, "fase", "fases")} · ~{total} dias úteis{partial ? " + prazos a definir" : ""}</span>
+            <span className="num"><strong>{plural(steps, "etapa", "etapas")}</strong> em {plural(phases.length, "fase", "fases")} · ~{total} dias úteis{cycles ? ` (${total - cycles} de etapas + ${cycles} de feedback e revisões)` : ""}{partial ? " + prazos a definir" : ""}</span>
           </div>
         </>
       )}
@@ -510,8 +529,10 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
 
   const others = (crossOptions.data ?? []).filter((o) => o.service_code !== service.code);
   const grouped = others.reduce<Record<string, typeof others>>((acc, o) => { (acc[o.service_name] ??= []).push(o); return acc; }, {});
-  const durOf = (ph: EPhase) => phaseDuration(ph.steps.map((s) => ({ duration_type: s.duration_type, days: s.days ? Number(s.days) : null })));
+  const durOf = (ph: EPhase) => phaseDuration(ph.steps.map((s) => ({ duration_type: s.duration_type, days: s.days ? Number(s.days) : null,
+    review_cycle: s.review_cycle, review_days: s.review_days ? Number(s.review_days) : null, feedback_days: s.feedback_days ? Number(s.feedback_days) : null })), included);
   const total = phases?.reduce((n, ph) => n + durOf(ph).days, 0) ?? 0;
+  const cycles = phases?.reduce((n, ph) => n + durOf(ph).cycles, 0) ?? 0;
 
   return (
     <Drawer open wide onClose={() => (dirty ? setLeaving(true) : onClose())}
@@ -519,7 +540,7 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
       subtitle={`Rascunho v${template.version} · ${variantLabel(template)} · vale para novos projetos depois de publicado`}
       footer={
         <>
-          <span className="subtext">{phases ? `${plural(phases.length, "fase", "fases")} · ~${total} dias úteis` : ""}{dirty ? " · alterações não salvas" : ""}</span>
+          <span className="subtext">{phases ? `${plural(phases.length, "fase", "fases")} · ~${total} dias úteis${cycles ? ` (com ${cycles} de feedback e revisões)` : ""}` : ""}{dirty ? " · alterações não salvas" : ""}</span>
           <span className="spacer" />
           <Button variant="secondary" loading={busy === "save"} disabled={!phases} onClick={() => save(false)}>Salvar rascunho</Button>
           <Button loading={busy === "publish"} disabled={!phases} onClick={() => setPublishing(true)}>Publicar versão {template.version}</Button>
@@ -551,7 +572,7 @@ function TemplateEditor({ template, service, onClose, onSaved, onDone }: {
                     onDrop={(e: DragEvent) => { e.preventDefault(); dropOn(pi, null); }}>
                     <header className="ph-edit__head">
                       <span className="phase__n">Fase {pi + 1}</span>
-                      <span className="muted num">{d.days ? `${d.days} d.u.` : ""}{d.partial ? (d.days ? " + a definir" : "Prazo a definir") : ""}</span>
+                      <span className="muted num">{phaseDurText(d, true)}</span>
                       {ph.steps.length > 1 && <span className="phase__par"><Icon name="parallel" size={14} /> {ph.steps.length} ao mesmo tempo</span>}
                       <span className="grow" />
                       <Button variant="ghost" size="sm" iconOnly icon="chevronDown" className="flip" disabled={pi === 0} onClick={() => movePhase(pi, -1)}>Mover fase para cima</Button>
