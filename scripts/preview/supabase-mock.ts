@@ -307,37 +307,62 @@ const cwFor = (w: any, staff: boolean) => {
 };
 
 // Documentos do cliente
+let DOC_SECTIONS: any[] = [
+  { id: "ds1", name: "Documentação do proprietário", sort_order: 10 },
+  { id: "ds2", name: "Documentação do imóvel e comprovação da propriedade", sort_order: 20 },
+  { id: "ds3", name: "Levantamento topográfico e informações técnicas do terreno", sort_order: 30 },
+  { id: "ds4", name: "Documentação para aprovação em condomínio", sort_order: 40 },
+];
+let DOC_QUESTIONS: any[] = [{ id: "dq1", text: "O imóvel fica em condomínio?", help: null }];
+let DOC_ANSWER: boolean | null = null;
+let DOCS_WAIT = true;
 let DOC_TYPES: any[] = [
-  { id: "dt1", name: "Matrícula atualizada do imóvel", description: "Emitida no cartório há no máximo 30 dias.", required: true, service_codes: null },
-  { id: "dt2", name: "Documento com foto dos proprietários", description: "RG ou CNH de todos que constam na matrícula.", required: true, service_codes: null },
-  { id: "dt3", name: "Levantamento topográfico", description: "Planialtimétrico, em DWG ou PDF.", required: true, service_codes: ["projeto_arquitetonico"] },
-  { id: "dt4", name: "IPTU do último ano", description: null, required: false, service_codes: null },
-  { id: "dt5", name: "Convenção e regimento do condomínio", description: "Com as regras de construção do loteamento.", required: false, service_codes: ["aprovacao_projeto_legal"] },
-  { id: "dt6", name: "Fotos do terreno", description: "Pode ser pelo celular: frente, fundos e laterais.", required: false, service_codes: null },
-].map((t, i) => ({ ...t, sort_order: (i + 1) * 10 }));
+  { id: "dt1", section_id: "ds1", holder: "pf", name: "RG ou CNH do proprietário", description: null },
+  { id: "dt2", section_id: "ds1", holder: "pf", name: "Comprovante de endereço atualizado", description: null },
+  { id: "dt3", section_id: "ds1", holder: "pj", name: "Cartão CNPJ atualizado", description: null },
+  { id: "dt4", section_id: "ds1", holder: "pj", name: "Contrato social e últimas alterações contratuais, ou consolidação contratual", description: null },
+  { id: "dt5", section_id: "ds1", holder: "pj", name: "Documento de identificação e CPF do representante legal", description: null },
+  { id: "dt6", section_id: "ds2", name: "Matrícula atualizada do imóvel", description: null },
+  { id: "dt7", section_id: "ds2", name: "IPTU", description: null },
+  { id: "dt8", section_id: "ds3", name: "Levantamento planialtimétrico ou planialtimétrico cadastral", description: "Assinado pelo profissional responsável e pelo proprietário." },
+  { id: "dt9", section_id: "ds3", name: "Arquivo editável do levantamento (DWG)", description: "Arquivo editável do levantamento topográfico, como DWG." },
+  { id: "dt10", section_id: "ds3", name: "ART ou RRT do levantamento", description: "Referente ao levantamento topográfico." },
+  { id: "dt11", section_id: "ds4", question_id: "dq1", name: "Convenção de condomínio ou regulamento interno", description: "Convenção ou regulamento interno pertinente à construção." },
+  { id: "dt12", section_id: "ds4", question_id: "dq1", name: "Regulamento ou manual de obras", description: null },
+  { id: "dt13", section_id: "ds4", question_id: "dq1", name: "Diretrizes e padrões construtivos do condomínio", description: null },
+].map((t, i) => ({ holder: null, question_id: null, service_codes: null, required: true, ...t, sort_order: (i + 1) * 10 }));
 const docFile = (id: string, name: string, kind = "file", extra: any = {}) => ({ id, round: 1, kind, name, path: kind === "file" ? `pr1/x/${id}.pdf` : null, mime: "application/pdf",
   size: kind === "file" ? 812000 : null, url: kind === "link" ? "https://drive.google.com/drive/folders/abc" : null, created_at: isoDay(-3) + "T14:20:00Z", on_behalf: false, by: "Fernanda Souza", mine: true, ...extra });
 let DOCS: any[] = [
-  { id: "d1", type: "dt1", status: "approved", files: [docFile("f1", "matricula-12345.pdf")], reviewed_by: "Beatriz Nogueira", reviewed_at: isoDay(-2) + "T10:00:00Z", submitted_at: isoDay(-3) + "T14:20:00Z" },
-  { id: "d2", type: "dt2", status: "submitted", files: [docFile("f2", "rg-fernanda.jpg"), docFile("f3", "cnh-marcos.jpg")], submitted_at: isoDay(-1) + "T09:12:00Z" },
-  { id: "d3", type: "dt3", status: "rejected", round: 2, files: [], history: [docFile("f4", "topografico.pdf")], reject_reason: "O arquivo veio sem as curvas de nível. Peça ao topógrafo a versão planialtimétrica completa.",
+  { id: "d1", type: "dt1", status: "approved", files: [docFile("f1", "cnh-fernanda.pdf")], reviewed_by: "Beatriz Nogueira", reviewed_at: isoDay(-2) + "T10:00:00Z", submitted_at: isoDay(-3) + "T14:20:00Z" },
+  { id: "d2", type: "dt2", status: "submitted", files: [docFile("f2", "conta-de-luz.jpg")], submitted_at: isoDay(-1) + "T09:12:00Z" },
+  { id: "d3", type: "dt6", status: "approved", files: [docFile("f3", "matricula-12345.pdf")], reviewed_by: "Beatriz Nogueira", reviewed_at: isoDay(-2) + "T10:00:00Z" },
+  { id: "d4", type: "dt7", status: "pending", files: [] },
+  { id: "d5", type: "dt8", status: "rejected", round: 2, files: [], history: [docFile("f4", "topografico.pdf")], reject_reason: "O levantamento veio sem a assinatura do proprietário. Envie a versão assinada pelos dois.",
     reviewed_by: "Beatriz Nogueira", reviewed_at: isoDay(-1) + "T16:00:00Z" },
-  { id: "d4", type: "dt4", status: "pending", files: [] },
-  { id: "d6", type: "dt6", status: "pending", files: [] },
-  { id: "d7", source: "extra", name: "Certidão de uso do solo", description: "Exigida pela prefeitura para o alvará. Peça no setor de urbanismo.", required: true, status: "pending", files: [],
+  { id: "d6", type: "dt9", status: "pending", files: [] },
+  { id: "d7", type: "dt10", status: "pending", files: [] },
+  { id: "d9", source: "extra", name: "Certidão de uso do solo", description: "Exigida pela prefeitura para o alvará. Peça no setor de urbanismo.", required: false, status: "pending", files: [],
     requested_by: "Ana Paula Martins", created_at: isoDay(-1) },
 ];
 let DOCS_REMOVED: any[] = [{ id: "d8", source: "standard", name: "Projeto aprovado anterior", description: null, required: false, status: "pending", removed_reason: "Terreno sem construção anterior", files: [], history: [] }];
 const docJson = (d: any, staff: boolean) => {
   const t = DOC_TYPES.find((x) => x.id === d.type);
   return { id: d.id, source: d.source ?? "standard", name: d.name ?? t?.name, description: d.description ?? t?.description ?? null, required: d.required ?? t?.required ?? false,
+    section: t ? DOC_SECTIONS.find((x) => x.id === t.section_id)?.name ?? null : null,
     status: d.status, round: d.round ?? 1, reject_reason: d.reject_reason ?? null, submitted_at: d.submitted_at ?? null, reviewed_at: d.reviewed_at ?? null,
     reviewed_by: staff ? d.reviewed_by ?? null : null, requested_by: staff ? d.requested_by ?? null : null, created_at: d.created_at ?? isoDay(-10),
     removed_at: d.removed_reason ? isoDay(-2) : null, removed_reason: staff ? d.removed_reason ?? null : null, removed_auto: false,
     files: (d.files ?? []).map((f: any) => ({ ...f, by: staff ? f.by : null })), history: d.history ?? [] };
 };
+const docList = () => {
+  const cond = DOC_ANSWER ? DOC_TYPES.filter((t) => t.question_id === "dq1").map((t) => ({ id: `dc-${t.id}`, type: t.id, status: "pending", files: [] })) : [];
+  const std = [...DOCS.filter((d) => d.type), ...cond.filter((c) => !DOCS.some((d) => d.type === c.type))];
+  const order = (d: any) => { const t = DOC_TYPES.find((x) => x.id === d.type); const sec = DOC_SECTIONS.find((x) => x.id === t?.section_id); return (sec?.sort_order ?? 0) * 1000 + (t?.sort_order ?? 0); };
+  return [...std.sort((a, b) => order(a) - order(b)), ...DOCS.filter((d) => !d.type)];
+};
 const docProgress = () => {
-  const items = DOCS.map((d) => docJson(d, true));
+  const items = docList().map((d) => docJson(d, true));
   const c = (st: string) => items.filter((d) => d.status === st).length;
   const req = items.filter((d) => d.required);
   return { total: items.length, approved: c("approved"), submitted: c("submitted"), rejected: c("rejected"), pending: c("pending"),
@@ -349,7 +374,9 @@ const docBoard = () => {
   const w = CWAITS.find((x) => x.source === "documents" && x.state !== "closed");
   return { project: { id: "pr1", name: "Residência Souza", code: "YC-2026-0014", status: "in_progress" }, is_client: !staff, is_staff: staff,
     can_upload: true, can_review: staff, can_manage: staff && lead, progress: docProgress(), wait: w ? cwFor(w, staff) : null, documents_days: CW_SETTINGS.documents_days,
-    items: DOCS.map((d) => docJson(d, staff)), removed: staff ? DOCS_REMOVED.map((d) => ({ ...docJson(d, true), removed_at: isoDay(-2) })) : [] };
+    holder: "pf", documents_wait: DOCS_WAIT,
+    questions: DOC_QUESTIONS.map((q) => ({ ...q, required: true, answer: DOC_ANSWER, answered_at: DOC_ANSWER === null ? null : isoDay(0), answered_by: DOC_ANSWER === null ? null : "Fernanda Souza", can_answer: true })),
+    items: docList().map((d) => docJson(d, staff)), removed: staff ? DOCS_REMOVED.map((d) => ({ ...docJson(d, true), removed_at: isoDay(-2) })) : [] };
 };
 
 // "Preciso de ajuda"
@@ -695,7 +722,8 @@ function rpc(name: string, _args?: any) {
     case "client_wait_settings_save": CW_SETTINGS = { enabled: _args.p_enabled, days: _args.p_days, documents_days: _args.p_documents_days ?? CW_SETTINGS.documents_days }; return delay({ data: null, error: null }, 200);
     case "project_documents": return delay({ data: docBoard(), error: null }, 200);
     case "document_projects": return delay({ data: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014", status: "in_progress", progress: docProgress() }], error: null }, 150);
-    case "document_file_add": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) { d.files.push(docFile(`f${Date.now()}`, _args.p_name ?? "Link", _args.p_kind)); if (d.status !== "submitted") { d.status = "submitted"; d.submitted_at = new Date().toISOString(); } } return delay({ data: "f", error: null }, 250); }
+    case "document_file_add": { if (String(_args.p_document).startsWith("dc-") && !DOCS.some((x) => x.id === _args.p_document)) DOCS.push({ id: _args.p_document, type: String(_args.p_document).slice(3), status: "pending", files: [] });
+      const d = DOCS.find((x) => x.id === _args.p_document); if (d) { d.files.push(docFile(`f${Date.now()}`, _args.p_name ?? "Link", _args.p_kind)); if (d.status !== "submitted") { d.status = "submitted"; d.submitted_at = new Date().toISOString(); } } return delay({ data: "f", error: null }, 250); }
     case "document_file_remove": { DOCS.forEach((d) => { d.files = d.files.filter((f: any) => f.id !== _args.p_file); if (d.status === "submitted" && !d.files.length) d.status = "pending"; }); return delay({ data: null, error: null }, 150); }
     case "document_review": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) { if (_args.p_approve) Object.assign(d, { status: "approved", reviewed_by: me()?.name, reviewed_at: new Date().toISOString() });
       else Object.assign(d, { status: "rejected", round: (d.round ?? 1) + 1, history: [...(d.history ?? []), ...d.files], files: [], reject_reason: _args.p_reason }); } return delay({ data: null, error: null }, 200); }
@@ -703,10 +731,19 @@ function rpc(name: string, _args?: any) {
     case "document_extra_update": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) Object.assign(d, { name: _args.p_name, description: _args.p_description, required: _args.p_required }); return delay({ data: null, error: null }, 150); }
     case "document_remove": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) { DOCS = DOCS.filter((x) => x !== d); DOCS_REMOVED.unshift({ ...d, removed_reason: _args.p_reason }); } return delay({ data: null, error: null }, 150); }
     case "document_restore": { const d = DOCS_REMOVED.find((x) => x.id === _args.p_document); if (d) { DOCS_REMOVED = DOCS_REMOVED.filter((x) => x !== d); DOCS.push({ ...d, removed_reason: undefined }); } return delay({ data: null, error: null }, 150); }
-    case "document_types_list": return delay({ data: { can_edit: me()?.role === "global_admin", types: DOC_TYPES,
+    case "document_answer": DOC_ANSWER = _args.p_answer; return delay({ data: null, error: null }, 200);
+    case "documents_wait_set": DOCS_WAIT = _args.p_on; return delay({ data: null, error: null }, 200);
+    case "document_section_save": { if (_args.p_id) { const x = DOC_SECTIONS.find((y) => y.id === _args.p_id); if (x) x.name = _args.p_name; return delay({ data: _args.p_id, error: null }, 150); }
+      const id = `ds${Date.now()}`; DOC_SECTIONS.push({ id, name: _args.p_name, sort_order: 999 }); return delay({ data: id, error: null }, 150); }
+    case "document_section_delete": DOC_SECTIONS = DOC_SECTIONS.filter((x) => x.id !== _args.p_id); return delay({ data: null, error: null }, 150);
+    case "document_sections_reorder": DOC_SECTIONS = (_args.p_ids as string[]).map((id, i) => ({ ...DOC_SECTIONS.find((x) => x.id === id), sort_order: (i + 1) * 10 })); return delay({ data: null, error: null }, 120);
+    case "document_question_save": { if (_args.p_id) { const x = DOC_QUESTIONS.find((y) => y.id === _args.p_id); if (x) Object.assign(x, { text: _args.p_text, help: _args.p_help }); return delay({ data: _args.p_id, error: null }, 150); }
+      const id = `dq${Date.now()}`; DOC_QUESTIONS.push({ id, text: _args.p_text, help: _args.p_help }); return delay({ data: id, error: null }, 150); }
+    case "document_question_delete": DOC_QUESTIONS = DOC_QUESTIONS.filter((x) => x.id !== _args.p_id); return delay({ data: null, error: null }, 150);
+    case "document_types_list": return delay({ data: { can_edit: me()?.role === "global_admin", types: DOC_TYPES, sections: DOC_SECTIONS, questions: DOC_QUESTIONS,
       services: CATALOG_SERVICES_FOR_DOCS() }, error: null }, 150);
-    case "document_type_save": { if (_args.p_id) { const t = DOC_TYPES.find((x) => x.id === _args.p_id); if (t) Object.assign(t, { name: _args.p_name, description: _args.p_description, required: _args.p_required, service_codes: _args.p_service_codes?.length ? _args.p_service_codes : null }); return delay({ data: _args.p_id, error: null }, 200); }
-      const id = `dt${Date.now()}`; DOC_TYPES.push({ id, name: _args.p_name, description: _args.p_description, required: _args.p_required, service_codes: _args.p_service_codes?.length ? _args.p_service_codes : null, sort_order: 999 }); return delay({ data: id, error: null }, 200); }
+    case "document_type_save": { if (_args.p_id) { const t = DOC_TYPES.find((x) => x.id === _args.p_id); if (t) Object.assign(t, { name: _args.p_name, description: _args.p_description, required: _args.p_required, service_codes: _args.p_service_codes?.length ? _args.p_service_codes : null, section_id: _args.p_section, holder: _args.p_holder, question_id: _args.p_question }); return delay({ data: _args.p_id, error: null }, 200); }
+      const id = `dt${Date.now()}`; DOC_TYPES.push({ id, name: _args.p_name, description: _args.p_description, required: _args.p_required, service_codes: _args.p_service_codes?.length ? _args.p_service_codes : null, section_id: _args.p_section, holder: _args.p_holder, question_id: _args.p_question, sort_order: 999 }); return delay({ data: id, error: null }, 200); }
     case "document_type_delete": DOC_TYPES = DOC_TYPES.filter((x) => x.id !== _args.p_id); return delay({ data: null, error: null }, 150);
     case "document_types_reorder": DOC_TYPES = (_args.p_ids as string[]).map((id) => DOC_TYPES.find((x) => x.id === id)).filter(Boolean); return delay({ data: null, error: null }, 120);
     case "project_deliveries": return delay({ data: dlvBoard(_args.p_project), error: null }, 200);

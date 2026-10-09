@@ -777,7 +777,7 @@ export interface DocFile {
   created_at: string; on_behalf: boolean; by: string | null; mine: boolean;
 }
 export interface ProjectDocument {
-  id: string; source: "standard" | "extra"; name: string; description: string | null; required: boolean; status: DocStatus; round: number;
+  id: string; source: "standard" | "extra"; name: string; description: string | null; section?: string | null; required: boolean; status: DocStatus; round: number;
   reject_reason: string | null; submitted_at: string | null; reviewed_at: string | null; reviewed_by: string | null; requested_by: string | null;
   created_at: string; removed_at: string | null; removed_reason: string | null; removed_auto: boolean; files: DocFile[]; history: DocFile[];
 }
@@ -789,7 +789,18 @@ export interface DocumentsBoard {
   project: { id: string; name: string; code: string | null; status: string };
   is_client: boolean; is_staff: boolean; can_upload: boolean; can_review: boolean; can_manage: boolean;
   progress: DocProgress; wait: ClientWait | null; documents_days: number; items: ProjectDocument[]; removed: ProjectDocument[];
+  holder?: "pf" | "pj"; documents_wait?: boolean; questions?: DocQuestionState[];
+}
+export interface DocQuestionState {
+  id: string; text: string; help: string | null; required: boolean; answer: boolean | null; answered_at: string | null; answered_by: string | null; can_answer: boolean;
 }
 export interface DocProjectSummary { id: string; name: string; code: string | null; status: string; progress: DocProgress }
-export interface DocumentType { id: string; name: string; description: string | null; required: boolean; sort_order: number; service_codes: string[] | null }
-export interface DocumentTypesList { can_edit: boolean; types: DocumentType[]; services: { code: string; name: string; family: string }[] }
+export interface DocumentType {
+  id: string; name: string; description: string | null; required: boolean; sort_order: number; service_codes: string[] | null;
+  section_id: string | null; holder: "pf" | "pj" | null; question_id: string | null;
+}
+export interface DocSection { id: string; name: string; sort_order: number }
+export interface DocQuestion { id: string; text: string; help: string | null }
+export interface DocumentTypesList {
+  can_edit: boolean; types: DocumentType[]; sections: DocSection[]; questions: DocQuestion[]; services: { code: string; name: string; family: string }[];
+}

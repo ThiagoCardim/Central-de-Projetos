@@ -2406,3 +2406,24 @@ a.docmini:hover .docbar { box-shadow: 0 0 0 2px var(--brand-pastel); }
 }
 .docsum__hint { display: flex; align-items: center; gap: 6px; margin: var(--s3) 0 0; }
 .docsum__hint > svg { flex: none; }
+.docgroup { display: flex; flex-direction: column; gap: var(--s3); }
+.docgroup__title { margin: var(--s2) 0 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.docsum__meta { margin: var(--s3) 0 0; }
+.docsum__meta .link { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.docq { display: flex; flex-direction: column; gap: var(--s3); }
+.docq__row { display: flex; align-items: center; gap: var(--s3); }
+.docq__row > svg { flex: none; color: var(--text-3); }
+.docq__row.is-open > svg { color: var(--brand-text); }
+.docq__row .grow { display: grid; gap: 2px; }
+.docq__ans { flex: none; }
+.docq__ans button { min-width: 64px; }
+.docq-list { list-style: none; margin: var(--s3) 0 0; padding: 0; display: grid; gap: var(--s2); }
+.docq-list li { display: flex; align-items: center; gap: var(--s2); }
+.docq-list li > svg { flex: none; color: var(--text-3); }
+.docsec__n { color: var(--text-3); margin-right: 2px; }
+.docsec__tools { gap: 2px; }
+@media (max-width: 760px) {
+  .docq__row { flex-wrap: wrap; }
+  .docq__ans { width: 100%; }
+  .docq__ans button { flex: 1; }
+}

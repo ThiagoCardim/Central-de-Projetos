@@ -46,6 +46,7 @@ function progressText(p: DocProgress, client: boolean) {
 export function DocumentsView({ projectId }: { projectId: string }) {
   const q = useAsync(() => api.projectDocuments(projectId), [projectId]);
   const [adding, setAdding] = useState(false);
+  const [waitOn, setWaitOn] = useState<boolean | null>(null);
   const b = q.data;
   if (q.error) return <LoadError message={q.error} onRetry={() => void q.reload()} />;
   if (!b) return <Skeleton height={420} radius={16} />;
@@ -86,6 +87,14 @@ export function DocumentsView({ projectId }: { projectId: string }) {
             </span>
           </p>
         )}
+        {b.is_staff && (
+          <p className="subtext docsum__meta">
+            {b.holder === "pj" ? "Proprietário pessoa jurídica" : "Proprietário pessoa física"} (pelo CPF/CNPJ do cliente).{" "}
+            {b.documents_wait === false
+              ? <>Prazo automático dos obrigatórios desligado neste projeto.{b.can_manage && <> <button type="button" className="link" onClick={() => setWaitOn(true)}>Ligar prazo</button></>}</>
+              : b.can_manage && <button type="button" className="link" onClick={() => setWaitOn(false)}>Desligar prazo automático</button>}
+          </p>
+        )}
         {b.can_upload && p.total > 0 && (
           <p className="subtext docsum__hint"><Icon name="paperclip" size={14} /> PDF, foto ou outro arquivo de até 50 MB (maiores, pelo link do Drive). Também dá para arrastar o arquivo até o documento.</p>
         )}
@@ -95,14 +104,89 @@ export function DocumentsView({ projectId }: { projectId: string }) {
         <Card><EmptyState icon="file" title="Nenhum documento pedido para este projeto."
           text={b.can_manage ? "A lista padrão fica em Configurações › Documentos do cliente. Use “Pedir documento” para algo específico deste projeto." : undefined} /></Card>
       ) : (
-        <ol className="doclist">
-          {b.items.map((d, i) => <DocItem key={d.id} b={b} d={d} n={i + 1} onChanged={reload} />)}
-        </ol>
+        <>
+          {(b.questions ?? []).length > 0 && <QuestionsCard b={b} onChanged={reload} />}
+          {groupBySection(b.items).map((g) => (
+            <section key={g.key} className="docgroup" aria-label={g.title ?? "Documentos"}>
+              {g.title && <h2 className="docgroup__title">{g.title}</h2>}
+              <ol className="doclist">
+                {g.items.map(({ d, n }) => <DocItem key={d.id} b={b} d={d} n={n} onChanged={reload} />)}
+              </ol>
+            </section>
+          ))}
+        </>
       )}
+      {b.items.length === 0 && (b.questions ?? []).length > 0 && <QuestionsCard b={b} onChanged={reload} />}
 
       {b.can_manage && b.removed.length > 0 && <RemovedList b={b} onChanged={reload} />}
       {adding && <ExtraModal projectId={b.project.id} onClose={() => setAdding(false)} onDone={() => { setAdding(false); reload(); }} />}
+      {waitOn !== null && <WaitToggle projectId={b.project.id} on={waitOn} days={b.documents_days} onClose={() => setWaitOn(null)} onDone={() => { setWaitOn(null); reload(); }} />}
     </div>
+  );
+}
+
+/** Agrupa pela seção (a lista já vem na ordem); os extras ficam juntos no fim. */
+function groupBySection(items: ProjectDocument[]) {
+  const out: { group: string; key: string; title: string | null; items: { d: ProjectDocument; n: number }[] }[] = [];
+  const anySection = items.some((d) => d.section);
+  items.forEach((d, i) => {
+    const key = d.source === "extra" ? "extra" : d.section ?? "";
+    const title = d.source === "extra" ? "Solicitados pela equipe" : d.section ?? (anySection ? "Outros documentos" : null);
+    const last = out[out.length - 1];
+    if (last && last.group === key) last.items.push({ d, n: i + 1 });
+    else out.push({ group: key, key: `${key}#${out.length}`, title, items: [{ d, n: i + 1 }] });
+  });
+  return out;
+}
+
+function QuestionsCard({ b, onChanged }: { b: DocumentsBoard; onChanged: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  async function answer(id: string, v: boolean) {
+    setBusy(id + v);
+    try { await api.documentAnswer(b.project.id, id, v); toast(v ? "Resposta registrada. Os documentos relacionados entraram na lista." : "Resposta registrada."); onChanged(); }
+    catch (e) { toast((e as Error).message, "error"); } finally { setBusy(null); }
+  }
+  return (
+    <Card className="docq">
+      {(b.questions ?? []).map((x) => (
+        <div key={x.id} className={cx("docq__row", x.answer === null && "is-open")}>
+          <Icon name="help" size={18} />
+          <div className="grow">
+            <b>{x.text}</b>
+            <span className="subtext">
+              {x.answer === null ? (b.is_client ? "Responda para sabermos quais documentos pedir." : "Aguardando a resposta do cliente (a equipe também pode responder).")
+                : `Resposta: ${x.answer ? "Sim" : "Não"}${x.answered_by ? ` · ${x.answered_by}` : ""}${x.answered_at ? ` · ${formatDate(x.answered_at)}` : ""}`}
+              {x.help ? ` ${x.help}` : ""}
+            </span>
+          </div>
+          {x.can_answer && (
+            <div className="segmented docq__ans" role="radiogroup" aria-label={x.text}>
+              <button type="button" role="radio" aria-checked={x.answer === true} disabled={busy !== null} onClick={() => answer(x.id, true)}>Sim</button>
+              <button type="button" role="radio" aria-checked={x.answer === false} disabled={busy !== null} onClick={() => answer(x.id, false)}>Não</button>
+            </div>
+          )}
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+function WaitToggle({ projectId, on, days, onClose, onDone }: { projectId: string; on: boolean; days: number; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    try { await api.documentsWaitSet(projectId, on); toast(on ? "Prazo dos documentos ligado." : "Prazo dos documentos desligado."); onDone(); }
+    catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
+  }
+  return (
+    <Modal open onClose={onClose} title={on ? "Ligar o prazo dos documentos?" : "Desligar o prazo dos documentos?"}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button loading={busy} onClick={save}>{on ? "Ligar prazo" : "Desligar prazo"}</Button></>}>
+      <p>{on
+        ? `Se faltar algum obrigatório, o cliente passa a ter ${days} dias úteis a partir de amanhã. Vencido, o cronograma do projeto é adiado a cada dia útil de atraso.`
+        : "O cliente continua vendo e enviando os documentos, mas a falta deles deixa de adiar o cronograma. Dias já adiados por este prazo voltam."}</p>
+    </Modal>
   );
 }
 
@@ -154,7 +238,7 @@ function DocItem({ b, d, n, onChanged }: { b: DocumentsBoard; d: ProjectDocument
         <div className="docit__head">
           <h3 className="docit__name">{d.name}</h3>
           {d.required ? <Badge tone="warning" outline>Obrigatório para iniciar</Badge> : <Badge outline>Opcional</Badge>}
-          {d.source === "extra" && <Badge tag>{client ? "Solicitado pela equipe" : `Pedido extra${d.requested_by ? ` · ${d.requested_by}` : ""}`}</Badge>}
+          {d.source === "extra" && !client && d.requested_by && <Badge tag>{`Pedido por ${d.requested_by}`}</Badge>}
           <span className="grow" />
           <Badge tone={st.tone} dot>{client ? st.client : st.team}</Badge>
         </div>

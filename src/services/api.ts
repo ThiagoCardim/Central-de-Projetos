@@ -355,8 +355,16 @@ export const api = {
   documentRemove: (documentId: string, reason: string) => rpc<void>("document_remove", { p_document: documentId, p_reason: reason.trim() }),
   documentRestore: (documentId: string) => rpc<void>("document_restore", { p_document: documentId }),
   documentTypes: () => rpc<DocumentTypesList>("document_types_list"),
-  documentTypeSave: (id: string | null, name: string, description: string | null, required: boolean, serviceCodes: string[]) =>
-    rpc<string>("document_type_save", { p_id: id, p_name: name.trim(), p_description: description?.trim() || null, p_required: required, p_service_codes: serviceCodes }),
+  documentTypeSave: (id: string | null, v: { name: string; description: string | null; required: boolean; serviceCodes: string[]; sectionId: string | null; holder: "pf" | "pj" | null; questionId: string | null }) =>
+    rpc<string>("document_type_save", { p_id: id, p_name: v.name.trim(), p_description: v.description?.trim() || null, p_required: v.required,
+      p_service_codes: v.serviceCodes, p_section: v.sectionId, p_holder: v.holder, p_question: v.questionId }),
+  documentSectionSave: (id: string | null, name: string) => rpc<string>("document_section_save", { p_id: id, p_name: name.trim() }),
+  documentSectionDelete: (id: string) => rpc<void>("document_section_delete", { p_id: id }),
+  documentSectionsReorder: (ids: string[]) => rpc<void>("document_sections_reorder", { p_ids: ids }),
+  documentQuestionSave: (id: string | null, text: string, help: string | null) => rpc<string>("document_question_save", { p_id: id, p_text: text.trim(), p_help: help?.trim() || null }),
+  documentQuestionDelete: (id: string) => rpc<void>("document_question_delete", { p_id: id }),
+  documentAnswer: (projectId: string, questionId: string, answer: boolean) => rpc<void>("document_answer", { p_project: projectId, p_question: questionId, p_answer: answer }),
+  documentsWaitSet: (projectId: string, on: boolean) => rpc<void>("documents_wait_set", { p_project: projectId, p_on: on }),
   documentTypeDelete: (id: string) => rpc<void>("document_type_delete", { p_id: id }),
   documentTypesReorder: (ids: string[]) => rpc<void>("document_types_reorder", { p_ids: ids }),
   // Entregas do projeto e rodadas de revisão (regras validadas no banco)
