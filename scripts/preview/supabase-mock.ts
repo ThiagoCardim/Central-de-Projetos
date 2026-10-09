@@ -160,6 +160,128 @@ function csDashboard() {
 }
 
 // NPS
+// Entregas e rodadas de revisão
+const dAgo = (days: number, h = 10) => { const x = new Date(Date.now() - days * 86400000); x.setHours(h, 0, 0, 0); return x.toISOString(); };
+const BEA = { id: "p-c1", name: "Beatriz Nogueira" }, CAM = { id: "p-pj", name: "Camila Rocha" }, LUC = { id: "p-c2", name: "Lucas Ferreira" };
+const dfile = (id: string, name: string, size = 4_800_000) => ({ id, kind: "file", name, path: `pr1/v/${id}.${name.split(".").pop()}`, url: null, mime: "application/pdf", size });
+const dlink = (id: string, name: string, url: string) => ({ id, kind: "link", name, path: null, url, mime: null, size: null });
+const dver = (id: string, kind: string, round: number | null, title: string, days: number, resp: any, files: any[], notes: string | null = null) =>
+  ({ id, kind, round, title, notes, created_at: dAgo(days + 1), published_at: days < 0 ? null : dAgo(days), is_draft: days < 0, published_by: days < 0 ? null : resp?.name ?? "Rafael Andrade", responsible: resp, files });
+const dreq = (id: string, round: number, days: number, items: string[], answeredDays: number | null, by = "Fernanda Souza", resp: any = BEA, onBehalf = false) =>
+  ({ id, round, items, notes: null, on_behalf: onBehalf, requested_by: by, created_at: dAgo(days, 15), answered_at: answeredDays == null ? null : dAgo(answeredDays, 17), answered_version_id: null, version_id: null, responsible: resp });
+let DLV: Record<string, any> = {
+  "ps-arq": { name: "Projeto Arquitetônico", area: "architecture", sort: 10, enabled: true, included: 3, approvedAt: null, approvedBy: null, onBehalf: false, note: null, resp: BEA,
+    versions: [
+      dver("v-arq-1", "revision", 1, "Revisão 1", 2, BEA, [dfile("f1", "Planta baixa R1.pdf"), dfile("f2", "Cortes e fachadas R1.pdf", 6_200_000), dlink("f3", "Imagens 3D", "https://drive.google.com/drive/folders/abc")],
+        "Ampliamos a suíte principal e trocamos o revestimento da fachada conforme o pedido."),
+      dver("v-arq-0", "presentation", 0, "Apresentação preliminar", 16, BEA, [dfile("f4", "Estudo preliminar.pdf", 9_100_000), dlink("f5", "Vídeo de apresentação", "https://drive.google.com/file/d/xyz")]),
+    ],
+    requests: [dreq("r-arq-1", 1, 9, ["Aumentar a suíte principal em 1 metro", "Trocar o revestimento da fachada por pedra natural", "Incluir uma despensa na cozinha"], 2)],
+    extras: [] },
+  "ps-est": { name: "Projeto Estrutural", area: "engineering", sort: 20, enabled: true, included: 3, approvedAt: null, approvedBy: null, onBehalf: false, note: null, resp: CAM,
+    versions: [
+      dver("v-est-d", "revision", 1, "Revisão 1", -1, CAM, [dfile("f6", "Formas pavimento térreo R1.pdf", 3_200_000)]),
+      dver("v-est-0", "presentation", 0, "Apresentação preliminar", 12, CAM, [dfile("f7", "Lançamento estrutural.pdf", 5_400_000)]),
+    ],
+    requests: [dreq("r-est-1", 1, 5, ["Eliminar o pilar no meio da sala de estar", "Avaliar laje para caixa d'água de 1.000 litros"], null, "Rafael Andrade", CAM, true)],
+    extras: [] },
+  "ps-int": { name: "Design de Interiores", area: "architecture", sort: 30, enabled: true, included: 3, approvedAt: dAgo(12), approvedBy: "Fernanda Souza", onBehalf: false, note: "Ficou lindo, podem seguir!", resp: LUC,
+    versions: [
+      dver("v-int-f", "final", null, "Projeto final", 3, LUC, [dfile("f8", "Detalhamento marcenaria.pdf", 12_000_000), dfile("f9", "Paginação de pisos.pdf"), dlink("f10", "Renders finais", "https://drive.google.com/drive/folders/int")],
+        "Projeto executivo de interiores completo. Qualquer dúvida estamos à disposição."),
+      dver("v-int-4", "revision", 4, "Revisão 4", 14, LUC, [dfile("f11", "Layout R4.pdf")]),
+      dver("v-int-3", "revision", 3, "Revisão 3", 20, LUC, [dfile("f12", "Layout R3.pdf")]),
+      dver("v-int-2", "revision", 2, "Revisão 2", 26, LUC, [dfile("f13", "Layout R2.pdf")]),
+      dver("v-int-1", "revision", 1, "Revisão 1", 32, LUC, [dfile("f14", "Layout R1.pdf")]),
+      dver("v-int-0", "presentation", 0, "Apresentação preliminar", 40, LUC, [dfile("f15", "Layout e modelagem.pdf")]),
+    ],
+    requests: [dreq("r-int-1", 1, 36, ["Trocar o sofá por um modelo em L"], 32, "Fernanda Souza", LUC), dreq("r-int-2", 2, 30, ["Mudar a cor da marcenaria da cozinha"], 26, "Fernanda Souza", LUC),
+      dreq("r-int-3", 3, 24, ["Incluir nicho no banheiro social"], 20, "Fernanda Souza", LUC), dreq("r-int-4", 4, 17, ["Ajustar a iluminação da sala"], 14, "Fernanda Souza", LUC)],
+    extras: [{ id: "x-int-1", kind: "courtesy", status: "approved", created_at: dAgo(18), decided_at: dAgo(18, 11), reason: "Ajuste pequeno de iluminação; evitar desgaste com a cliente", amount: null, decision_note: null, requested_by: "Lucas Ferreira", decided_by: "Rafael Andrade" }] },
+  "ps-ele": { name: "Projeto Elétrico", area: "engineering", sort: 40, enabled: true, included: 3, approvedAt: null, approvedBy: null, onBehalf: false, note: null, resp: CAM, versions: [], requests: [], extras: [] },
+  general: { name: "Documentos do projeto", area: null, sort: 99, enabled: false, included: 0, approvedAt: null, approvedBy: null, onBehalf: false, note: null, resp: null,
+    versions: [dver("v-gen-0", "document", null, "Documentos do terreno", 30, null, [dfile("f16", "Matrícula do imóvel.pdf", 800_000), dfile("f17", "IPTU 2026.pdf", 400_000)])],
+    requests: [], extras: [] },
+};
+function dlvCalc(it: any) {
+  const pub = it.versions.filter((v: any) => !v.is_draft);
+  const lc = pub.filter((v: any) => v.kind === "presentation" || v.kind === "revision").sort((a: any, b: any) => b.published_at.localeCompare(a.published_at))[0];
+  const lf = pub.filter((v: any) => v.kind === "final" || v.kind === "document").sort((a: any, b: any) => b.published_at.localeCompare(a.published_at))[0];
+  const open = it.requests.find((r: any) => !r.answered_at) ?? null;
+  const allowed = it.included + it.extras.filter((e: any) => e.status === "approved").length;
+  const status = !it.enabled ? (lf ? "delivered" : "in_production") : it.approvedAt && lf ? "final" : it.approvedAt ? "detailing" : open ? "revision_requested" : lc ? "awaiting_client" : "in_production";
+  return { lc, lf, open, allowed, used: it.requests.length, status };
+}
+function dlvItem(key: string, staff: boolean) {
+  const it = DLV[key]; const c = dlvCalc(it);
+  const p = me(); const lead = ["global_admin", "unit_admin"].includes(p?.role) || p?.id === "p-ld";
+  return { key, project_service_id: key === "general" ? null : key, delivery_id: `d-${key}`, name: it.name, area: it.area, sort: it.sort,
+    revisions_enabled: it.enabled, included: it.included, allowed: c.allowed, used: c.used, status: c.status,
+    creation_approved_at: it.approvedAt, creation_approved_by: it.approvedBy, approval_on_behalf: it.onBehalf, approval_note: it.note,
+    last_creation_version_id: c.lc?.id ?? null, last_final_version_id: c.lf?.id ?? null, has_draft: it.versions.some((v: any) => v.is_draft),
+    open_request: c.open ? { ...c.open, responsible: staff ? c.open.responsible : null } : null,
+    requests: [...it.requests].sort((a: any, b: any) => a.round - b.round).map((r: any) => ({ ...r, responsible: staff ? r.responsible : null })),
+    versions: it.versions.filter((v: any) => staff || !v.is_draft).map((v: any) => ({ ...v, responsible: staff ? v.responsible : null })),
+    extras: it.extras.filter((e: any) => staff || e.status === "approved").map((e: any) => staff ? e : { ...e, reason: null, amount: null, decision_note: null, requested_by: null, decided_by: null }),
+    creation_responsible: staff ? it.resp : null, can_decide_extra: staff && lead };
+}
+function dlvBoard(projectId: string) {
+  const p = me(); const staff = p?.role !== "client";
+  const proj = PROJECTS.find((x: any) => x.id === projectId) ?? PROJECTS.find((x: any) => x.id === "pr1");
+  return { project: { id: proj.id, name: proj.name, code: proj.code, status: proj.status }, is_client: !staff, is_staff: staff,
+    can_work: staff && p?.role !== "customer_success", can_request_extra: staff,
+    items: Object.keys(DLV).filter((k) => k !== "general").map((k) => dlvItem(k, staff)), general: dlvItem("general", staff) };
+}
+const dlvFindVersion = (id: string) => { for (const k of Object.keys(DLV)) { const v = DLV[k].versions.find((x: any) => x.id === id); if (v) return { key: k, it: DLV[k], v }; } return null; };
+function dlvAct(fn: string, a: any): any {
+  const p = me(); const name = p?.name ?? "Equipe";
+  const key = a.p_ps ?? "general"; const it = DLV[key];
+  if (fn === "delivery_version_start") {
+    const c = dlvCalc(it); const round = a.p_kind === "revision" ? c.open?.round : a.p_kind === "presentation" ? 0 : null;
+    const title = a.p_title || (a.p_kind === "presentation" ? "Apresentação preliminar" : a.p_kind === "revision" ? `Revisão ${round}` : a.p_kind === "final" ? "Projeto final" : "Documentos");
+    const v = dver("v" + Date.now(), a.p_kind, round, title, -1, it.resp, []); v.notes = a.p_notes; it.versions.unshift(v); return v.id;
+  }
+  const fv = a.p_version ? dlvFindVersion(a.p_version) : null;
+  if (fn === "delivery_version_update" && fv) { Object.assign(fv.v, { title: a.p_title, notes: a.p_notes, responsible: a.p_responsible ? { id: a.p_responsible, name: profiles.find((x) => x.id === a.p_responsible)?.name } : null }); return null; }
+  if (fn === "delivery_file_add" && fv) { const f = a.p_kind === "file" ? { ...dfile("f" + Date.now(), a.p_name, a.p_size), path: a.p_path } : dlink("f" + Date.now(), a.p_name || "Link", a.p_url); fv.v.files.push(f); return f.id; }
+  if (fn === "delivery_file_remove") { for (const k of Object.keys(DLV)) DLV[k].versions.forEach((v: any) => { v.files = v.files.filter((f: any) => f.id !== a.p_file); }); return null; }
+  if (fn === "delivery_version_discard" && fv) { fv.it.versions = fv.it.versions.filter((x: any) => x.id !== fv.v.id); return null; }
+  if (fn === "delivery_version_publish" && fv) {
+    const c = dlvCalc(fv.it); Object.assign(fv.v, { is_draft: false, published_at: new Date().toISOString(), published_by: name });
+    if (fv.v.kind === "revision" && c.open) c.open.answered_at = new Date().toISOString(); return null;
+  }
+  if (fn === "delivery_request_revision") { const c = dlvCalc(it); it.requests.push(dreq("r" + Date.now(), c.used + 1, 0, a.p_items, null, name, it.resp, p?.role !== "client")); it.requests[it.requests.length - 1].created_at = new Date().toISOString(); return c.used + 1; }
+  if (fn === "delivery_approve") { Object.assign(it, { approvedAt: new Date().toISOString(), approvedBy: name, onBehalf: p?.role !== "client", note: a.p_note }); return null; }
+  if (fn === "delivery_extra_request") {
+    const auto = ["global_admin", "unit_admin"].includes(p?.role) || p?.id === "p-ld";
+    it.extras.unshift({ id: "x" + Date.now(), kind: a.p_kind, status: auto ? "approved" : "pending", created_at: new Date().toISOString(), decided_at: auto ? new Date().toISOString() : null,
+      reason: a.p_reason, amount: a.p_amount, decision_note: null, requested_by: name, decided_by: auto ? name : null });
+    if (auto) it.approvedAt = null; return "x";
+  }
+  if (fn === "delivery_extra_decide") {
+    for (const k of Object.keys(DLV)) { const e = DLV[k].extras.find((x: any) => x.id === a.p_id); if (e) { Object.assign(e, { status: a.p_approve ? "approved" : "rejected", decided_at: new Date().toISOString(), decided_by: name, decision_note: a.p_note }); if (a.p_approve) DLV[k].approvedAt = null; } }
+    return null;
+  }
+  return null;
+}
+const DLV_SETTINGS: any[] = [
+  ["Arquitetura", "Projeto Arquitetônico", true, 3, ["estudo_preliminar"], [["planejamento", "Planejamento"], ["envio_briefing", "Envio do Briefing"], ["estudo_preliminar", "Estudo Preliminar"], ["alteracoes", "Alterações"], ["imagens_3d_video", "Imagens 3D e Vídeo"]]],
+  ["Interiores", "Design de Interiores", true, 3, ["projeto_interiores", "layout_modelagem"], [["layout_modelagem", "Layout + Modelagem"], ["projeto_interiores", "Projeto de Interiores"], ["alteracao", "Alteração"], ["renderizacao", "Renderização"], ["detalhamento", "Detalhamento"]]],
+  ["Engenharia", "Projeto Estrutural", true, 3, ["producao_disciplina"], [["producao_disciplina", "Produção da disciplina"], ["compatibilizacao", "Compatibilização"], ["executivo", "Executivo"]]],
+  ["Engenharia", "Projeto Elétrico", true, 3, ["producao_disciplina"], [["producao_disciplina", "Produção da disciplina"], ["compatibilizacao", "Compatibilização"], ["executivo", "Executivo"]]],
+  ["Engenharia", "Projeto Hidrossanitário", true, 3, ["producao_disciplina"], [["producao_disciplina", "Produção da disciplina"], ["compatibilizacao", "Compatibilização"], ["executivo", "Executivo"]]],
+  ["Aprovações", "Aprovação / Projeto Legal", false, 0, [], [["projeto_legal", "Projeto Legal"], ["protocolo", "Protocolo Condomínio ou Prefeitura"]]],
+  ["Aprovações", "Aprovação CINDACTA", false, 0, [], [["aprovacao_orgao", "Aprovação CINDACTA"]]],
+].map(([family, n, en, inc, codes, opts]: any, i) => ({ id: "svc-" + i, name: n, family, area: "architecture", revisions_enabled: en, included_revisions: inc, creation_task_codes: codes,
+  task_options: opts.map(([code, nm]: any) => ({ code, name: nm })) }));
+const REV_PEOPLE = [
+  { id: "p-c2", name: "Lucas Ferreira", avatar_url: null, presentations: 2, revisions: 7, approved: 2, approved_rounds: 8, courtesy: 1, paid: 0 },
+  { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, presentations: 3, revisions: 3, approved: 2, approved_rounds: 3, courtesy: 0, paid: 0 },
+  { id: "p-pj", name: "Camila Rocha", avatar_url: null, presentations: 2, revisions: 2, approved: 1, approved_rounds: 1, courtesy: 0, paid: 1 },
+  { id: "p-a2", name: "Isadora Lima", avatar_url: null, presentations: 1, revisions: 1, approved: 1, approved_rounds: 1, courtesy: 0, paid: 0 },
+  { id: "p-e2", name: "Gabriel Souto", avatar_url: null, presentations: 1, revisions: 0, approved: 1, approved_rounds: 0, courtesy: 0, paid: 0 },
+];
+
 // "Preciso de ajuda"
 const SUPPORT_TPL = "Olá, {lider}! Aqui é {cliente}, do projeto {projeto}. Estou precisando de uma ajuda sobre {assunto}. {mensagem} Consegue me ajudar?";
 let SUPPORT_CATS: any[] = [
@@ -490,6 +612,20 @@ function rpc(name: string, _args?: any) {
       profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
     case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "project_deliveries": return delay({ data: dlvBoard(_args.p_project), error: null }, 200);
+    case "delivery_projects": return delay({ data: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014", awaiting_client: Object.keys(DLV).filter((k) => dlvCalc(DLV[k]).status === "awaiting_client").length, published: 12, last_published_at: dAgo(2) }], error: null }, 150);
+    case "delivery_version_start": case "delivery_version_update": case "delivery_file_add": case "delivery_file_remove": case "delivery_version_discard":
+    case "delivery_version_publish": case "delivery_request_revision": case "delivery_approve": case "delivery_extra_request": case "delivery_extra_decide":
+      return delay({ data: dlvAct(name, _args), error: null }, 250);
+    case "delivery_settings_list": return delay({ data: { can_edit: me()?.role === "global_admin", services: DLV_SETTINGS }, error: null }, 150);
+    case "delivery_settings_save": { const x = DLV_SETTINGS.find((y) => y.id === _args.p_service); if (x) Object.assign(x, { revisions_enabled: _args.p_enabled, included_revisions: _args.p_included, creation_task_codes: _args.p_codes }); return delay({ data: null, error: null }, 200); }
+    case "revisions_overview": { const pr = me(); const manager = ["leader", "unit_admin", "global_admin"].includes(pr?.role);
+      return delay({ data: { month: _args.p_month, month_end: _args.p_month, scope: manager ? "team" : "self", people: manager ? REV_PEOPLE : REV_PEOPLE.filter((x) => x.id === pr?.id) }, error: null }, 200); }
+    case "revisions_person": return delay({ data: _args.p_profile === "p-c2" || _args.p_profile === "p-c1" ? [
+      { id: "rv1", round: 4, created_at: dAgo(3), items: 1, on_behalf: false, project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", service: "Design de Interiores", allowed: 4, approved: true },
+      { id: "rv2", round: 3, created_at: dAgo(8), items: 2, on_behalf: true, project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", service: "Design de Interiores", allowed: 4, approved: true },
+      { id: "rv3", round: 1, created_at: dAgo(9), items: 3, on_behalf: false, project_id: "pr1", project_name: "Residência Souza", project_code: "YC-2026-0014", service: "Projeto Arquitetônico", allowed: 3, approved: false },
+    ] : [], error: null }, 150);
     case "support_options": return delay({ data: { categories: SUPPORT_CATS.filter((c) => c.active), projects: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014" }, { id: "pr7", name: "Reforma do apartamento", code: "YC-2026-0019" }] }, error: null }, 150);
     case "support_open": return delay({ data: supportOpen(_args), error: null }, 300);
     case "support_tickets_list": return delay({ data: SUPPORT_TICKETS, error: null }, 200);

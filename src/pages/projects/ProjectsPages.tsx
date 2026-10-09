@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
 import { ProjectApprovalsCard } from "@/pages/approvals/ProjectApprovals";
 import { ProjectCsCard } from "@/pages/cs/CsPage";
+import { ProjectDeliveriesCard } from "@/pages/deliveries/Deliveries";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
 } from "@/components/ui/primitives";
@@ -212,7 +213,10 @@ export function ProjectDetailPage() {
               <Button variant="outline" icon="userPlus" onClick={() => setTeamOpen(true)}>Editar equipe</Button>
             )}
             {["in_progress", "on_hold", "completed"].includes(p.status) && (
-              <Link to={`/projetos/${p.id}/cronograma`} className="btn btn--primary"><Icon name="calendar" /> Cronograma</Link>
+              <>
+                <Link to={`/projetos/${p.id}/entregas`} className="btn btn--outline"><Icon name="layers" /> Entregas</Link>
+                <Link to={`/projetos/${p.id}/cronograma`} className="btn btn--primary"><Icon name="calendar" /> Cronograma</Link>
+              </>
             )}
           </>
         }
@@ -242,6 +246,7 @@ export function ProjectDetailPage() {
               : <p className="subtext card__note">O cronograma é gerado a partir dos padrões YouCon quando a equipe for confirmada.</p>}
           </Card>
 
+          {permissions?.is_staff && ["in_progress", "on_hold", "completed"].includes(p.status) && <ProjectDeliveriesCard projectId={p.id} />}
           {permissions?.is_staff && ["in_progress", "on_hold", "completed"].includes(p.status) && <ProjectApprovalsCard projectId={p.id} />}
           {permissions?.is_staff && <ProjectCsCard projectId={p.id} />}
 

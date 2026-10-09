@@ -334,6 +334,31 @@ const scenes = [
   { name: "support-settings", url: "/configuracoes?as=global_admin&aba=atendimento", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(700); } },
   { name: "support-settings-light", url: "/configuracoes?as=unit_admin&aba=atendimento", vp: DESKTOP, light: true, full: true, action: async (p) => { await p.waitForTimeout(700); } },
   { name: "m-support-settings", url: "/configuracoes?as=unit_admin&aba=atendimento", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "dlv-client", url: "/entregas?as=client", vp: { width: 1440, height: 1200 }, full: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(400); } },
+  { name: "dlv-client-revision", url: "/entregas?as=client", vp: { width: 1440, height: 1000 }, action: async (p) => { await skipNps(p); await p.waitForTimeout(400);
+    await p.getByRole("button", { name: "Pedir revisão" }).first().click(); await p.getByLabel("Alteração 1").fill("Mudar a posição da escada");
+    await p.getByRole("button", { name: "Adicionar alteração" }).click(); await p.getByLabel("Alteração 2").fill("Varanda gourmet maior"); await p.waitForTimeout(200); } },
+  { name: "dlv-client-approve", url: "/entregas?as=client", vp: { width: 1440, height: 1000 }, action: async (p) => { await skipNps(p); await p.waitForTimeout(400);
+    await p.getByRole("button", { name: "Aprovar projeto" }).first().click(); await p.waitForTimeout(200); } },
+  { name: "dlv-client-final", url: "/entregas?as=client", vp: { width: 1440, height: 1200 }, full: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(400);
+    await p.getByRole("button", { name: /Design de Interiores/ }).click(); await p.waitForTimeout(300); } },
+  { name: "m-dlv-client", url: "/entregas?as=client", vp: MOBILE, full: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(400); } },
+  { name: "dlv-staff", url: "/projetos/pr1/entregas?as=leader", vp: { width: 1440, height: 1200 }, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "dlv-staff-arq", url: "/projetos/pr1/entregas?as=leader&servico=ps-arq", vp: { width: 1440, height: 1200 }, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "dlv-staff-extra", url: "/projetos/pr1/entregas?as=clt&servico=ps-arq", vp: { width: 1440, height: 1000 }, action: async (p) => { await p.waitForTimeout(700);
+    await p.getByRole("button", { name: "Revisão adicional" }).click(); await p.getByRole("radio", { name: /Paga/ }).click().catch(() => p.getByText("Paga pelo cliente").click());
+    await p.getByLabel("Motivo").fill("Cliente contratou revisão adicional da fachada"); await p.waitForTimeout(200); } },
+  { name: "dlv-staff-pending", url: "/projetos/pr1/entregas?as=clt&servico=ps-arq", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(700);
+    await p.getByRole("button", { name: "Revisão adicional" }).click(); await p.getByLabel("Motivo").fill("Ajuste pequeno na cozinha pedido pela cliente");
+    await p.getByRole("button", { name: "Enviar para a liderança" }).click(); await p.waitForTimeout(600); } },
+  { name: "dlv-staff-new", url: "/projetos/pr1/entregas?as=leader&servico=ps-ele", vp: { width: 1440, height: 1100 }, action: async (p) => { await p.waitForTimeout(700);
+    await p.getByRole("button", { name: "Preparar apresentação preliminar" }).click(); await p.waitForTimeout(600); } },
+  { name: "m-dlv-staff", url: "/projetos/pr1/entregas?as=leader", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "dlv-project", url: "/projetos/pr1?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(700); } },
+  { name: "dlv-settings", url: "/configuracoes?as=global_admin&aba=entregas", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(600); } },
+  { name: "rev-team", url: "/performance?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(900); } },
+  { name: "rev-self", url: "/performance?as=clt", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(900); } },
+  { name: "dlv-light", url: "/entregas?as=client", vp: { width: 1440, height: 1100 }, light: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(400); } },
 ];
 
 const browser = await chromium.launch();

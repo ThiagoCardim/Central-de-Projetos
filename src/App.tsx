@@ -23,6 +23,7 @@ import { PerformancePage } from "@/pages/performance/PerformancePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { FaqPage } from "@/pages/faq/FaqPage";
 import { HelpPage } from "@/pages/support/HelpPage";
+import { ClientDeliveriesPage, ProjectDeliveriesPage } from "@/pages/deliveries/DeliveriesPages";
 import { ApprovalsPage } from "@/pages/approvals/ApprovalsPage";
 import { CsPage } from "@/pages/cs/CsPage";
 
@@ -99,6 +100,8 @@ export function App() {
             { path: "/projetos", element: <Protected requires="staff"><ProjectsPage /></Protected> },
             { path: "/projetos/:id", element: <Protected requires="staff"><ProjectDetailPage /></Protected> },
             { path: "/projetos/:id/cronograma", element: <Protected requires="staff"><ProjectSchedulePage /></Protected> },
+            { path: "/projetos/:id/entregas", element: <Protected requires="staff"><ProjectDeliveriesPage /></Protected> },
+            { path: "/entregas", element: <Protected requires="client"><ClientDeliveriesPage /></Protected> },
             { path: "/minhas-tarefas", element: <Protected requires="staff"><MyWorkPage /></Protected> },
             { path: "/configuracoes", element: <Protected requires="manageUnit"><SettingsPage /></Protected> },
             { path: "/aprovacoes", element: <Protected requires="approvals"><ApprovalsPage /></Protected> },

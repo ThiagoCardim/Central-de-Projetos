@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "@/services/api";
 import { useNavigate } from "@/lib/router";
+import { useAuth } from "@/services/auth";
 import { Icon } from "@/components/ui/Icon";
 import { Button, Skeleton } from "@/components/ui/primitives";
 import type { AppNotification } from "@/types/domain";
@@ -19,6 +20,7 @@ function timeAgo(iso: string) {
 /** Central de avisos: sino com contador e painel com os avisos recentes. */
 export function NotificationsBell({ placement = "sidebar" }: { placement?: "sidebar" | "topbar" }) {
   const navigate = useNavigate();
+  const isClient = useAuth().permissions?.role === "client";
   const [items, setItems] = useState<AppNotification[] | null>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -64,6 +66,8 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
     else if (n.kind.startsWith("cs_") && n.entity_id) navigate(`/cs?chamado=${n.entity_id}`);
     else if (n.kind === "nps_detractor") navigate("/cs?aba=nps");
     else if (n.kind === "support_opened") navigate("/cs?aba=atendimentos");
+    else if (n.kind.startsWith("delivery_") && typeof n.data?.project_id === "string")
+      navigate(isClient ? `/entregas?projeto=${n.data.project_id}` : `/projetos/${n.data.project_id}/entregas`);
     else if (n.kind === "approval_rejected" && typeof n.data?.project_id === "string") navigate(`/projetos/${n.data.project_id}`);
     else if (n.entity_type === "projects" && n.entity_id) navigate(`/projetos/${n.entity_id}`);
     else if (n.entity_type === "project_tasks") navigate("/cronograma");
@@ -89,7 +93,7 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
              items.map((n) => (
               <button key={n.id} type="button" className={cx("nitem", !n.read_at && "is-unread")} onClick={() => openItem(n)}>
                 <span className={cx("nitem__icon", n.kind === "automation" && "is-auto")} aria-hidden="true">
-                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "adjustment_request" ? "refresh" : n.kind === "task_assigned" ? "user" : n.kind === "work_assigned" ? "checkCircle" : n.kind.startsWith("approval") ? "seal" : n.kind === "cs_alert" ? "alert" : n.kind === "nps_detractor" ? "trophy" : n.kind.startsWith("support_") ? "chat" : n.kind.startsWith("cs_") ? "headset" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
+                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "adjustment_request" ? "refresh" : n.kind === "task_assigned" ? "user" : n.kind === "work_assigned" ? "checkCircle" : n.kind.startsWith("approval") ? "seal" : n.kind === "cs_alert" ? "alert" : n.kind === "nps_detractor" ? "trophy" : n.kind.startsWith("support_") ? "chat" : n.kind.startsWith("delivery_") ? "layers" : n.kind.startsWith("cs_") ? "headset" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
                 </span>
                 <span className="nitem__text">
                   <span className="nitem__title">{n.title}</span>

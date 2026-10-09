@@ -15,6 +15,7 @@ import { todayISO } from "@/pages/schedule/model";
 import {
   BandPill, HighlightsGrid, monthLabel, monthOf, PersonPerformance, ScoreExplain, shiftMonth, TrendBars,
 } from "./perfUi";
+import { PersonRevisions, TeamRevisionsCard } from "@/pages/deliveries/RevisionsIndicator";
 
 /* ==========================================================================
    Performance do time
@@ -61,16 +62,20 @@ export function PerformancePage() {
       {!data ? <><Skeleton height={100} radius={16} /><Skeleton height={320} radius={16} /></> : data.scope === "self" ? (
         <div className="stack">
           <PersonPerformance profileId={profile!.id} month={month} settings={data.settings} self />
+          <PersonRevisions profileId={profile!.id} month={month} self />
           <HighlightsSection data={hl.data} />
           <ScoreExplain settings={data.settings} />
         </div>
       ) : (
-        <TeamView data={data} highlights={hl.data} loading={q.loading} onOpen={setOpenId} />
+        <div className="stack">
+          <TeamView data={data} highlights={hl.data} loading={q.loading} onOpen={setOpenId} />
+          <TeamRevisionsCard month={month} tenantId={isGlobal ? tenant || null : null} onOpen={setOpenId} />
+        </div>
       )}
 
       <Drawer open={!!openId} onClose={() => setOpenId(null)} wide
         title={data?.people.find((p) => p.id === openId)?.name ?? "Performance"} subtitle={monthLabel(month)}>
-        {openId && data && <PersonPerformance profileId={openId} month={month} settings={data.settings} />}
+        {openId && data && <div className="stack"><PersonPerformance profileId={openId} month={month} settings={data.settings} /><PersonRevisions profileId={openId} month={month} /></div>}
       </Drawer>
     </div>
   );

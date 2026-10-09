@@ -707,3 +707,49 @@ export interface SupportSettings {
   tenant_id: string; cs_whatsapp: string | null; message_template: string; default_template: string;
   people: SupportPerson[]; categories: SupportCategory[]; can_edit_categories: boolean;
 }
+
+/* ---------- Entregas e rodadas de revisão ---------- */
+export type DeliveryStatus = "in_production" | "awaiting_client" | "revision_requested" | "detailing" | "final" | "delivered";
+export type DeliveryKind = "presentation" | "revision" | "final" | "document";
+export interface DeliveryFile { id: string; kind: "file" | "link"; name: string; path: string | null; url: string | null; mime: string | null; size: number | null }
+export interface DeliveryVersion {
+  id: string; kind: DeliveryKind; round: number | null; title: string; notes: string | null;
+  created_at: string; published_at: string | null; is_draft: boolean; published_by: string | null;
+  responsible: { id: string; name: string } | null; files: DeliveryFile[];
+}
+export interface DeliveryRequest {
+  id: string; round: number; items: string[]; notes: string | null; on_behalf: boolean; requested_by: string | null;
+  created_at: string; answered_at: string | null; answered_version_id: string | null; version_id: string | null;
+  responsible: { id: string; name: string } | null;
+}
+export interface DeliveryExtra {
+  id: string; kind: "courtesy" | "paid"; status: "pending" | "approved" | "rejected"; created_at: string; decided_at: string | null;
+  reason: string | null; amount: number | null; decision_note: string | null; requested_by: string | null; decided_by: string | null;
+}
+export interface DeliveryItem {
+  key: string; project_service_id: string | null; delivery_id: string | null; name: string; area: "architecture" | "engineering" | "approval" | null;
+  sort: number; revisions_enabled: boolean; included: number; allowed: number; used: number; status: DeliveryStatus;
+  creation_approved_at: string | null; creation_approved_by: string | null; approval_on_behalf: boolean; approval_note: string | null;
+  last_creation_version_id: string | null; last_final_version_id: string | null; has_draft: boolean;
+  open_request: DeliveryRequest | null; requests: DeliveryRequest[]; versions: DeliveryVersion[]; extras: DeliveryExtra[];
+  creation_responsible: { id: string; name: string } | null; can_decide_extra?: boolean;
+}
+export interface DeliveryBoard {
+  project: { id: string; name: string; code: string | null; status: ProjectStatus };
+  is_client: boolean; is_staff: boolean; can_work: boolean; can_request_extra: boolean;
+  items: DeliveryItem[]; general: DeliveryItem;
+}
+export interface DeliveryProjectSummary { id: string; name: string; code: string | null; awaiting_client: number; published: number; last_published_at: string | null }
+export interface DeliverySettingsRow {
+  id: string; name: string; family: string; area: string; revisions_enabled: boolean; included_revisions: number;
+  creation_task_codes: string[]; task_options: { code: string; name: string }[];
+}
+export interface RevisionsPersonRow {
+  id: string; name: string; avatar_url: string | null; presentations: number; revisions: number; approved: number;
+  approved_rounds: number; courtesy: number; paid: number;
+}
+export interface RevisionsOverview { month: string; month_end: string; scope: "team" | "self"; people: RevisionsPersonRow[] }
+export interface RevisionEntry {
+  id: string; round: number; created_at: string; items: number; on_behalf: boolean; project_id: string; project_name: string;
+  project_code: string | null; service: string; allowed: number; approved: boolean;
+}

@@ -319,12 +319,31 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
   }
   return (
     <div className="stack client">
+      <ClientDeliveriesBanner />
       {projects.map((p) => (
         <ClientProjectCard key={p.id} project={p}
           changes={changes.data ? changes.data.filter((c) => c.project_id === p.id) : null} />
       ))}
       <FaqPrompt />
     </div>
+  );
+}
+
+/** Entregas que aguardam a avaliação do cliente. */
+function ClientDeliveriesBanner() {
+  const q = useAsync(() => api.deliveryProjects(), []);
+  const list = (q.data ?? []).filter((x) => x.awaiting_client > 0);
+  if (list.length === 0) return null;
+  const total = list.reduce((a, x) => a + x.awaiting_client, 0);
+  return (
+    <Card className="dlvbanner">
+      <span className="dlvbanner__icon" aria-hidden="true"><Icon name="layers" /></span>
+      <div className="grow">
+        <h2>{total === 1 ? "Uma entrega aguarda a sua avaliação" : `${total} entregas aguardam a sua avaliação`}</h2>
+        <p>Veja a nova versão e aprove ou peça uma revisão{list.length > 1 ? ` · ${list.map((x) => x.name).join(", ")}` : ""}.</p>
+      </div>
+      <Link to={`/entregas?projeto=${list[0].id}`} className="btn btn--primary">Ver entregas</Link>
+    </Card>
   );
 }
 

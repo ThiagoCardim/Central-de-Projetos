@@ -13,11 +13,12 @@ import { plural } from "@/utils/format";
 import { FaqSettings } from "./FaqSettings";
 import { CsSettingsPanel } from "./CsSettings";
 import { SupportSettingsPanel } from "./SupportSettings";
+import { DeliverySettingsPanel } from "./DeliverySettings";
 
 /* ==========================================================================
    Configurações (administração): setores da empresa e regras de performance
    ========================================================================== */
-type Tab = "setores" | "funcoes" | "performance" | "cs" | "atendimento" | "faq";
+type Tab = "setores" | "funcoes" | "performance" | "cs" | "atendimento" | "entregas" | "faq";
 
 export function SettingsPage() {
   useDocumentTitle("Configurações");
@@ -26,7 +27,7 @@ export function SettingsPage() {
   const initial = useSearchParam("aba") as Tab | null;
   // O FAQ é único para toda a rede: só a administração global edita.
   const canFaq = !!permissions?.can_manage_tenants;
-  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" || initial === "cs" || initial === "atendimento" || (initial === "faq" && canFaq) ? initial : "setores");
+  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" || initial === "cs" || initial === "atendimento" || initial === "entregas" || (initial === "faq" && canFaq) ? initial : "setores");
   const [tenant, setTenant] = useState(permissions?.tenant_id ?? "");
   const tenants = useAsync(() => (isGlobal ? api.listTenants() : Promise.resolve([])), [isGlobal]);
 
@@ -37,16 +38,17 @@ export function SettingsPage() {
         <Tabs<Tab> label="Configurações" value={tab} onChange={setTab} tabs={[
           { value: "setores", label: "Setores" }, { value: "funcoes", label: "Funções" }, { value: "performance", label: "Regras de performance" },
           { value: "cs", label: "Customer Success" }, { value: "atendimento", label: "Atendimento ao cliente" },
+          { value: "entregas", label: "Entregas e revisões" },
           ...(canFaq ? [{ value: "faq" as Tab, label: "FAQ" }] : []),
         ]} />
-        {isGlobal && tab !== "faq" && (
+        {isGlobal && tab !== "faq" && tab !== "entregas" && (
           <div className="settings__unit">
             <OptionPicker label="Unidade" value={tenant} loading={tenants.loading}
               options={(tenants.data ?? []).map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => v && setTenant(v)} />
           </div>
         )}
       </div>
-      {tab === "faq" ? <FaqSettings /> : tenant && (tab === "setores" ? <SectorsSettings key={tenant} tenantId={tenant} />
+      {tab === "faq" ? <FaqSettings /> : tab === "entregas" ? <DeliverySettingsPanel /> : tenant && (tab === "setores" ? <SectorsSettings key={tenant} tenantId={tenant} />
         : tab === "funcoes" ? <FunctionsSettings key={tenant} tenantId={tenant} />
         : tab === "cs" ? <CsSettingsPanel key={tenant} tenantId={tenant} />
         : tab === "atendimento" ? <SupportSettingsPanel key={tenant} tenantId={tenant} />

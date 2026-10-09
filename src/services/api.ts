@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, DeliveryKind, DeliverySettingsRow, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -13,6 +13,7 @@ export const ADJ_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export const ADJ_IMAGE_MAX = 8 * 1024 * 1024;
 export const APPROVAL_PROOF_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 export const APPROVAL_PROOF_MAX = 10 * 1024 * 1024;
+export const DELIVERY_FILE_MAX = 50 * 1024 * 1024;
 
 async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(fn, args);
@@ -311,6 +312,45 @@ export const api = {
   npsSkip: (projectServiceId: string, mode: "later" | "never") => rpc<void>("nps_skip", { p_ps: projectServiceId, p_mode: mode }),
   npsOverview: (from: string | null, to: string | null) => rpc<NpsOverview>("nps_overview", { p_tenant: null, p_from: from, p_to: to }),
   npsResponses: (from: string | null, to: string | null) => rpc<NpsResponse[]>("nps_responses_list", { p_tenant: null, p_from: from, p_to: to }),
+  // Entregas do projeto e rodadas de revisão (regras validadas no banco)
+  projectDeliveries: (projectId: string) => rpc<DeliveryBoard>("project_deliveries", { p_project: projectId }),
+  deliveryProjects: () => rpc<DeliveryProjectSummary[]>("delivery_projects"),
+  deliveryVersionStart: (projectId: string, projectServiceId: string | null, kind: DeliveryKind, title: string | null, notes: string | null, responsibleId: string | null) =>
+    rpc<string>("delivery_version_start", { p_project: projectId, p_ps: projectServiceId, p_kind: kind, p_title: title?.trim() || null, p_notes: notes?.trim() || null, p_responsible: responsibleId }),
+  deliveryVersionUpdate: (versionId: string, title: string, notes: string | null, responsibleId: string | null) =>
+    rpc<void>("delivery_version_update", { p_version: versionId, p_title: title.trim(), p_notes: notes?.trim() || null, p_responsible: responsibleId }),
+  /** Sobe o arquivo para a pasta da versão e registra. Arquivos acima de 50 MB entram como link. */
+  async deliveryUpload(projectId: string, versionId: string, f: File): Promise<string> {
+    if (f.size > DELIVERY_FILE_MAX) throw new UserFacingError(`“${f.name}” passa de 50 MB. Envie pelo Google Drive e adicione o link.`);
+    const ext = (f.name.match(/\.([a-z0-9]{1,8})$/i)?.[1] ?? "bin").toLowerCase();
+    const path = `${projectId}/${versionId}/${crypto.randomUUID()}.${ext}`;
+    const up = await supabase.storage.from("project-deliveries").upload(path, f, { contentType: f.type || "application/octet-stream", cacheControl: "3600" });
+    if (up.error) throw new UserFacingError(`Não foi possível enviar “${f.name}”. Tente novamente.`);
+    return rpc<string>("delivery_file_add", { p_version: versionId, p_kind: "file", p_name: f.name, p_path: path, p_mime: f.type || null, p_size: f.size, p_url: null });
+  },
+  deliveryAddLink: (versionId: string, name: string, url: string) =>
+    rpc<string>("delivery_file_add", { p_version: versionId, p_kind: "link", p_name: name.trim() || null, p_path: null, p_mime: null, p_size: null, p_url: url.trim() }),
+  deliveryFileRemove: (fileId: string) => rpc<void>("delivery_file_remove", { p_file: fileId }),
+  deliveryVersionDiscard: (versionId: string) => rpc<void>("delivery_version_discard", { p_version: versionId }),
+  deliveryVersionPublish: (versionId: string) => rpc<void>("delivery_version_publish", { p_version: versionId }),
+  deliveryFileUrl: async (path: string, download?: string): Promise<string> => {
+    const { data, error } = await supabase.storage.from("project-deliveries").createSignedUrl(path, 3600, download ? { download } : undefined);
+    if (error || !data) throw new UserFacingError("Não foi possível abrir o arquivo.");
+    return data.signedUrl;
+  },
+  deliveryRequestRevision: (projectId: string, projectServiceId: string, items: string[], notes: string | null) =>
+    rpc<number>("delivery_request_revision", { p_project: projectId, p_ps: projectServiceId, p_items: items.map((x) => x.trim()).filter(Boolean), p_notes: notes?.trim() || null }),
+  deliveryApprove: (projectId: string, projectServiceId: string, note: string | null) =>
+    rpc<void>("delivery_approve", { p_project: projectId, p_ps: projectServiceId, p_note: note?.trim() || null }),
+  deliveryExtraRequest: (projectId: string, projectServiceId: string, kind: "courtesy" | "paid", reason: string, amount: number | null) =>
+    rpc<string>("delivery_extra_request", { p_project: projectId, p_ps: projectServiceId, p_kind: kind, p_reason: reason.trim(), p_amount: amount }),
+  deliveryExtraDecide: (id: string, approve: boolean, note: string | null) =>
+    rpc<void>("delivery_extra_decide", { p_id: id, p_approve: approve, p_note: note?.trim() || null }),
+  deliverySettings: () => rpc<{ can_edit: boolean; services: DeliverySettingsRow[] }>("delivery_settings_list"),
+  deliverySettingsSave: (serviceId: string, enabled: boolean, included: number, codes: string[]) =>
+    rpc<void>("delivery_settings_save", { p_service: serviceId, p_enabled: enabled, p_included: included, p_codes: codes }),
+  revisionsOverview: (month: string, tenantId: string | null) => rpc<RevisionsOverview>("revisions_overview", { p_month: month, p_tenant: tenantId }),
+  revisionsPerson: (profileId: string, month: string) => rpc<RevisionEntry[]>("revisions_person", { p_profile: profileId, p_month: month }),
   // "Preciso de ajuda": cliente fala com o líder certo pelo WhatsApp; o CS acompanha
   supportOptions: () => rpc<SupportOptions>("support_options"),
   supportOpen: (projectId: string, categoryId: string, message: string | null) =>
