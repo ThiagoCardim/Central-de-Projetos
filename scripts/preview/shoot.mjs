@@ -392,6 +392,15 @@ const scenes = [
     await p.getByRole("button", { name: "Pedir revisão" }).first().click();
     for (let i = 0; i < 5; i++) await p.getByRole("button", { name: "Adicionar alteração" }).click();
     await p.waitForTimeout(300); console.log("   dentro da tela:", await p.getByRole("button", { name: "Enviar pedido de revisão" }).evaluate((b) => b.getBoundingClientRect().bottom <= innerHeight)); } },
+  { name: "scroll-unlock-nested", url: "/servicos?as=global_admin", vp: DESKTOP, action: async (p) => {
+    await p.getByRole("button", { name: "Mais ações" }).click(); await p.getByRole("menuitem", { name: /Nova versão|Editar/ }).first().click().catch(() => {});
+    await p.waitForTimeout(400);
+    const edit = p.getByRole("button", { name: "Editar padrão" }); if (await edit.count()) await edit.click();
+    await p.waitForTimeout(800);
+    await p.getByRole("button", { name: /Publicar versão/ }).click(); await p.waitForTimeout(300);
+    await p.getByRole("dialog").getByRole("button", { name: "Publicar", exact: true }).click(); await p.waitForTimeout(1200);
+    console.log("   body overflow:", JSON.stringify(await p.evaluate(() => document.body.style.overflow)), "dialogs:", await p.getByRole("dialog").count());
+  } },
 ];
 
 const browser = await chromium.launch();

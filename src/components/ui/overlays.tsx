@@ -9,6 +9,19 @@ import { useIsMobile } from "@/hooks";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/* Rolagem da página bloqueada enquanto houver qualquer diálogo aberto. Contador (e não
+   "restaurar o valor anterior"): com diálogos aninhados que fecham juntos (confirmação dentro
+   de uma gaveta), a ordem de limpeza deixava a página travada com overflow hidden. */
+let scrollLocks = 0;
+function lockScroll() {
+  scrollLocks += 1;
+  document.body.style.overflow = "hidden";
+}
+function unlockScroll() {
+  scrollLocks = Math.max(0, scrollLocks - 1);
+  if (scrollLocks === 0) document.body.style.overflow = "";
+}
+
 /** Foco preso no diálogo, Esc fecha, foco devolvido ao gatilho e rolagem da página bloqueada. */
 function useDialog(open: boolean, onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
@@ -21,8 +34,7 @@ function useDialog(open: boolean, onClose: () => void) {
     const node = ref.current;
     const first = node?.querySelector<HTMLElement>("[data-autofocus]") ?? node?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? node)?.focus();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockScroll();
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.stopPropagation(); onCloseRef.current(); return; }
@@ -36,8 +48,8 @@ function useDialog(open: boolean, onClose: () => void) {
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      previous?.focus?.();
+      unlockScroll();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, [open]);
 
