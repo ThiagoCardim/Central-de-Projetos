@@ -215,6 +215,7 @@ function TeamActions({ board, it, next, onChanged, onRegisterRevision, onRegiste
             <small>{it.open_request.requested_by}{it.open_request.on_behalf ? " (registrada pela equipe)" : ""} · {formatDate(it.open_request.created_at)}</small></span>
           <ol>{it.open_request.items.map((x, i) => <li key={i}>{x}</li>)}</ol>
           {it.open_request.notes && <p className="dlvh__quote">{it.open_request.notes}</p>}
+          <RequestAttachments files={it.open_request.files} />
         </div>
       ) : <p className="grow" />}
       <div className="dlvteam__actions">
@@ -481,9 +482,85 @@ function RequestEvent({ r, client, included }: { r: DeliveryRequest; client: boo
         </div>
         <ul className="dlvh__items">{r.items.map((x, i) => <li key={i}>{x}</li>)}</ul>
         {r.notes && <p className="dlvh__quote">{r.notes}</p>}
+        <RequestAttachments files={r.files} />
         {!client && r.responsible && <span className="subtext">Conta para {r.responsible.name}</span>}
       </div>
     </>
+  );
+}
+
+/* ---------- Anexos do pedido de revisão ---------- */
+const MAX_ATTACH = 20;
+const isImage = (f: { mime?: string | null; name: string }) => (f.mime ?? "").startsWith("image/") || /\.(png|jpe?g|webp|gif|heic|avif)$/i.test(f.name);
+
+function addFiles(current: File[], incoming: File[], toast: ReturnType<typeof useToast>): File[] {
+  const ok = incoming.filter((f) => {
+    if (f.size > 50 * 1024 * 1024) { toast(`“${f.name}” passa de 50 MB. Envie pelo Drive e cole o link nas observações.`, "error"); return false; }
+    return true;
+  });
+  const next = [...current, ...ok];
+  if (next.length > MAX_ATTACH) toast(`Máximo de ${MAX_ATTACH} anexos por revisão.`, "error");
+  return next.slice(0, MAX_ATTACH);
+}
+
+function AttachmentPicker({ files, onChange }: { files: File[]; onChange: (f: File[]) => void }) {
+  const toast = useToast();
+  const input = useRef<HTMLInputElement>(null);
+  const [drag, setDrag] = useState(false);
+  const previews = useMemo(() => files.map((f) => (isImage({ mime: f.type, name: f.name }) ? URL.createObjectURL(f) : null)), [files]);
+  useEffect(() => () => previews.forEach((u) => u && URL.revokeObjectURL(u)), [previews]);
+  return (
+    <div className="field">
+      <span className="field__label">Anexos <small>(opcional)</small></span>
+      <div className={cx("dlvdrop dlvdrop--compact", drag && "is-drag")}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); onChange(addFiles(files, [...e.dataTransfer.files], toast)); }}>
+        <Icon name="paperclip" size={18} />
+        <span>Prints, referências, inspirações ou qualquer arquivo que ajude a explicar.{" "}
+          <button type="button" className="link" onClick={() => input.current?.click()}>Escolher arquivos</button>
+          <small> Arraste aqui ou cole um print com Ctrl+V. Até {MAX_ATTACH} arquivos de 50 MB.</small></span>
+        <input ref={input} type="file" multiple hidden onChange={(e) => { if (e.target.files) onChange(addFiles(files, [...e.target.files], toast)); e.target.value = ""; }} />
+      </div>
+      {files.length > 0 && (
+        <ul className="dlvatt">
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`} className={cx("dlvatt__item", previews[i] && "is-img")}>
+              {previews[i] ? <img src={previews[i]!} alt="" /> : <span className="dlvfile__ext">{(f.name.split(".").pop() ?? "").slice(0, 4).toUpperCase() || "ARQ"}</span>}
+              <span className="dlvatt__name" title={f.name}>{f.name}</span>
+              <button type="button" className="dlvatt__x" aria-label={`Remover ${f.name}`} onClick={() => onChange(files.filter((_, j) => j !== i))}><Icon name="x" size={14} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function RequestAttachments({ files }: { files: DeliveryFile[] | undefined }) {
+  const list = files ?? [];
+  const images = list.filter((f) => f.path && isImage(f));
+  const others = list.filter((f) => !images.includes(f));
+  const urls = useAsync(() => api.deliveryFileUrls(images.map((f) => f.path!)), [images.map((f) => f.id).join()]);
+  if (list.length === 0) return null;
+  return (
+    <div className="dlvreqfiles">
+      {images.length > 0 && (
+        <ul className="dlvthumbs">
+          {images.map((f) => {
+            const u = urls.data?.[f.path!];
+            return (
+              <li key={f.id}>
+                <a href={u ?? undefined} target="_blank" rel="noopener noreferrer" className={cx("dlvthumb", !u && "is-loading")} title={f.name}
+                  onClick={(e) => { if (!u) e.preventDefault(); }}>
+                  {u ? <img src={u} alt={f.name} loading="lazy" /> : <span className="spinner" aria-hidden="true" />}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {others.length > 0 && <ul className="dlvfiles">{others.map((f) => <li key={f.id}><FileChip f={f} /></li>)}</ul>}
+    </div>
   );
 }
 
@@ -492,6 +569,7 @@ function RevisionModal({ board, it, onClose, onDone }: { board: DeliveryBoard; i
   const toast = useToast();
   const [items, setItems] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const round = it.used + 1;
   const filled = items.filter((x) => x.trim()).length;
@@ -499,7 +577,7 @@ function RevisionModal({ board, it, onClose, onDone }: { board: DeliveryBoard; i
   async function send() {
     setBusy(true);
     try {
-      await api.deliveryRequestRevision(board.project.id, it.project_service_id!, items, notes);
+      await api.deliveryRequestRevision(board.project.id, it.project_service_id!, items, notes, files);
       toast(board.is_client ? "Pedido enviado. A equipe já foi avisada." : "Pedido de revisão registrado.");
       onDone();
     } catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
@@ -508,9 +586,15 @@ function RevisionModal({ board, it, onClose, onDone }: { board: DeliveryBoard; i
     <Modal open onClose={onClose} wide title={`${board.is_client ? "Pedir" : "Registrar"} revisão ${round} de ${it.allowed}`}
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-        <Button icon="check" loading={busy} disabled={filled === 0} onClick={send}>{board.is_client ? "Enviar pedido de revisão" : "Registrar pedido"}</Button>
+        <Button icon="check" loading={busy} disabled={filled === 0} onClick={send}>{busy && files.length ? "Enviando anexos…" : board.is_client ? "Enviar pedido de revisão" : "Registrar pedido"}</Button>
       </>}>
-      <div className="stack">
+      <div className="stack" onPaste={(e) => {
+        const pasted = [...e.clipboardData.files];
+        if (!pasted.length) return;
+        e.preventDefault();
+        setFiles((xs) => addFiles(xs, pasted.map((f, i) => (f.name && f.name !== "image.png" ? f
+          : new File([f], `Print colado ${xs.length + i + 1}.${(f.type.split("/")[1] || "png").replace("jpeg", "jpg")}`, { type: f.type }))), toast));
+      }}>
         <div className="dlvnote">
           <Icon name="alertCircle" size={16} />
           <div>{round < it.allowed
@@ -528,6 +612,7 @@ function RevisionModal({ board, it, onClose, onDone }: { board: DeliveryBoard; i
           ))}
         </ol>
         {items.length < 50 && <Button size="sm" variant="outline" icon="plus" onClick={() => setItems((xs) => [...xs, ""])}>Adicionar alteração</Button>}
+        <AttachmentPicker files={files} onChange={setFiles} />
         <label className="field">
           <span className="field__label">Observações <small>(opcional)</small></span>
           <textarea className="input textarea" rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} />

@@ -359,6 +359,13 @@ const scenes = [
   { name: "rev-team", url: "/performance?as=leader", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(900); } },
   { name: "rev-self", url: "/performance?as=clt", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(900); } },
   { name: "dlv-light", url: "/entregas?as=client", vp: { width: 1440, height: 1100 }, light: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(400); } },
+  { name: "att-modal", url: "/entregas?as=client", vp: { width: 1440, height: 1100 }, action: async (p) => { await skipNps(p); await p.waitForTimeout(400);
+    await p.getByRole("button", { name: "Pedir revisão" }).first().click(); await p.getByLabel("Alteração 1").fill("Escada helicoidal no lugar da atual");
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l1xH1wAAAABJRU5ErkJggg==", "base64");
+    await p.locator(".modal input[type=file]").setInputFiles([{ name: "Print da planta.png", mimeType: "image/png", buffer: png }, { name: "Inspiração escada.png", mimeType: "image/png", buffer: png },
+      { name: "Medidas.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]); await p.waitForTimeout(300); } },
+  { name: "att-history", url: "/entregas?as=client", vp: { width: 1440, height: 1200 }, full: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(900); } },
+  { name: "att-staff", url: "/projetos/pr1/entregas?as=leader", vp: { width: 1440, height: 900 }, action: async (p) => { await p.waitForTimeout(900); } },
 ];
 
 const browser = await chromium.launch();

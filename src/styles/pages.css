@@ -2266,3 +2266,19 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
   .dlvstep { min-width: 58px; }
   .dlvp__head { flex-direction: column; gap: var(--s2); }
 }
+/* Anexos do pedido de revisão */
+.dlvdrop--compact { margin-top: 0; padding: var(--s3) var(--s4); }
+.dlvatt { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); align-items: start; gap: var(--s2); margin: var(--s2) 0 0; padding: 0; list-style: none; }
+.dlvatt__item { position: relative; display: flex; align-items: center; gap: var(--s2); min-width: 0; padding: 6px 30px 6px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 12px; }
+.dlvatt__item.is-img { flex-direction: column; align-items: stretch; padding: 6px; }
+.dlvatt__item img { width: 100%; height: 92px; object-fit: cover; border-radius: 6px; background: var(--surface-hover); }
+.dlvatt__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.dlvatt__item.is-img .dlvatt__name { padding-right: 22px; }
+.dlvatt__x { position: absolute; right: 6px; bottom: 6px; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: var(--card); color: var(--text-2); cursor: pointer; }
+.dlvatt__x:hover { color: var(--danger-text); background: var(--danger-pastel); }
+.dlvreqfiles { display: grid; gap: var(--s2); margin-top: 6px; }
+.dlvthumbs { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+.dlvthumb { display: grid; place-items: center; width: 112px; height: 84px; overflow: hidden; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-hover); transition: border-color var(--dur) var(--ease); }
+.dlvthumb:hover { border-color: var(--brand); }
+.dlvthumb img { width: 100%; height: 100%; object-fit: cover; }
+.dlvreq .dlvfiles { margin-top: 0; }

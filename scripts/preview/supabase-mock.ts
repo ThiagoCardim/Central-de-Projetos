@@ -168,7 +168,8 @@ const dlink = (id: string, name: string, url: string) => ({ id, kind: "link", na
 const dver = (id: string, kind: string, round: number | null, title: string, days: number, resp: any, files: any[], notes: string | null = null) =>
   ({ id, kind, round, title, notes, created_at: dAgo(days + 1), published_at: days < 0 ? null : dAgo(days), is_draft: days < 0, published_by: days < 0 ? null : resp?.name ?? "Rafael Andrade", responsible: resp, files });
 const dreq = (id: string, round: number, days: number, items: string[], answeredDays: number | null, by = "Fernanda Souza", resp: any = BEA, onBehalf = false) =>
-  ({ id, round, items, notes: null, on_behalf: onBehalf, requested_by: by, created_at: dAgo(days, 15), answered_at: answeredDays == null ? null : dAgo(answeredDays, 17), answered_version_id: null, version_id: null, responsible: resp });
+  ({ id, round, items, notes: null, on_behalf: onBehalf, requested_by: by, created_at: dAgo(days, 15), answered_at: answeredDays == null ? null : dAgo(answeredDays, 17), answered_version_id: null, version_id: null, responsible: resp, files: [] as any[] });
+const dimg = (id: string, name: string) => ({ id, kind: "file", name, path: `pr1/req/x/${id}.jpg`, url: null, mime: "image/jpeg", size: 240_000 });
 let DLV: Record<string, any> = {
   "ps-arq": { name: "Projeto Arquitetônico", area: "architecture", sort: 10, enabled: true, included: 3, approvedAt: null, approvedBy: null, onBehalf: false, note: null, resp: BEA,
     versions: [
@@ -176,14 +177,16 @@ let DLV: Record<string, any> = {
         "Ampliamos a suíte principal e trocamos o revestimento da fachada conforme o pedido."),
       dver("v-arq-0", "presentation", 0, "Apresentação preliminar", 16, BEA, [dfile("f4", "Estudo preliminar.pdf", 9_100_000), dlink("f5", "Vídeo de apresentação", "https://drive.google.com/file/d/xyz")]),
     ],
-    requests: [dreq("r-arq-1", 1, 9, ["Aumentar a suíte principal em 1 metro", "Trocar o revestimento da fachada por pedra natural", "Incluir uma despensa na cozinha"], 2)],
+    requests: [{ ...dreq("r-arq-1", 1, 9, ["Aumentar a suíte principal em 1 metro", "Trocar o revestimento da fachada por pedra natural", "Incluir uma despensa na cozinha"], 2),
+      files: [dimg("a1", "Print da planta.png"), dimg("a2", "Inspiração fachada.jpg"), dimg("a3", "Referência despensa.jpg"), dfile("a4", "Medidas do terreno.pdf", 900_000)] }],
     extras: [] },
   "ps-est": { name: "Projeto Estrutural", area: "engineering", sort: 20, enabled: true, included: 3, approvedAt: null, approvedBy: null, onBehalf: false, note: null, resp: CAM,
     versions: [
       dver("v-est-d", "revision", 1, "Revisão 1", -1, CAM, [dfile("f6", "Formas pavimento térreo R1.pdf", 3_200_000)]),
       dver("v-est-0", "presentation", 0, "Apresentação preliminar", 12, CAM, [dfile("f7", "Lançamento estrutural.pdf", 5_400_000)]),
     ],
-    requests: [dreq("r-est-1", 1, 5, ["Eliminar o pilar no meio da sala de estar", "Avaliar laje para caixa d'água de 1.000 litros"], null, "Rafael Andrade", CAM, true)],
+    requests: [{ ...dreq("r-est-1", 1, 5, ["Eliminar o pilar no meio da sala de estar", "Avaliar laje para caixa d'água de 1.000 litros"], null, "Rafael Andrade", CAM, true),
+      files: [dimg("a5", "Print do WhatsApp.png"), dimg("a6", "Referência sala sem pilar.jpg")] }],
     extras: [] },
   "ps-int": { name: "Design de Interiores", area: "architecture", sort: 30, enabled: true, included: 3, approvedAt: dAgo(12), approvedBy: "Fernanda Souza", onBehalf: false, note: "Ficou lindo, podem seguir!", resp: LUC,
     versions: [
@@ -250,7 +253,8 @@ function dlvAct(fn: string, a: any): any {
     const c = dlvCalc(fv.it); Object.assign(fv.v, { is_draft: false, published_at: new Date().toISOString(), published_by: name });
     if (fv.v.kind === "revision" && c.open) c.open.answered_at = new Date().toISOString(); return null;
   }
-  if (fn === "delivery_request_revision") { const c = dlvCalc(it); it.requests.push(dreq("r" + Date.now(), c.used + 1, 0, a.p_items, null, name, it.resp, p?.role !== "client")); it.requests[it.requests.length - 1].created_at = new Date().toISOString(); return c.used + 1; }
+  if (fn === "delivery_request_revision") { const c = dlvCalc(it); it.requests.push({ ...dreq("r" + Date.now(), c.used + 1, 0, a.p_items, null, name, it.resp, p?.role !== "client"),
+    files: (a.p_files ?? []).map((f: any, i: number) => ({ id: "na" + i, kind: "file", name: f.name, path: f.path, url: null, mime: f.mime, size: f.size })) }); it.requests[it.requests.length - 1].created_at = new Date().toISOString(); return c.used + 1; }
   if (fn === "delivery_approve") { Object.assign(it, { approvedAt: new Date().toISOString(), approvedBy: name, onBehalf: p?.role !== "client", note: a.p_note }); return null; }
   if (fn === "delivery_extra_request") {
     const auto = ["global_admin", "unit_admin"].includes(p?.role) || p?.id === "p-ld";

@@ -720,7 +720,7 @@ export interface DeliveryVersion {
 export interface DeliveryRequest {
   id: string; round: number; items: string[]; notes: string | null; on_behalf: boolean; requested_by: string | null;
   created_at: string; answered_at: string | null; answered_version_id: string | null; version_id: string | null;
-  responsible: { id: string; name: string } | null;
+  responsible: { id: string; name: string } | null; files: DeliveryFile[];
 }
 export interface DeliveryExtra {
   id: string; kind: "courtesy" | "paid"; status: "pending" | "approved" | "rejected"; created_at: string; decided_at: string | null;

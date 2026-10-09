@@ -338,8 +338,29 @@ export const api = {
     if (error || !data) throw new UserFacingError("Não foi possível abrir o arquivo.");
     return data.signedUrl;
   },
-  deliveryRequestRevision: (projectId: string, projectServiceId: string, items: string[], notes: string | null) =>
-    rpc<number>("delivery_request_revision", { p_project: projectId, p_ps: projectServiceId, p_items: items.map((x) => x.trim()).filter(Boolean), p_notes: notes?.trim() || null }),
+  /** Pede (ou registra) a revisão com anexos: prints, referências, inspirações. Os arquivos sobem antes do registro. */
+  async deliveryRequestRevision(projectId: string, projectServiceId: string, items: string[], notes: string | null, files: File[] = []): Promise<number> {
+    const big = files.find((f) => f.size > DELIVERY_FILE_MAX);
+    if (big) throw new UserFacingError(`“${big.name}” passa de 50 MB.`);
+    const id = crypto.randomUUID();
+    const uploaded: { name: string; path: string; mime: string | null; size: number }[] = [];
+    for (const f of files) {
+      const ext = (f.name.match(/\.([a-z0-9]{1,8})$/i)?.[1] ?? (f.type.startsWith("image/") ? f.type.slice(6) : "bin")).toLowerCase();
+      const path = `${projectId}/req/${id}/${crypto.randomUUID()}.${ext}`;
+      const up = await supabase.storage.from("project-deliveries").upload(path, f, { contentType: f.type || "application/octet-stream", cacheControl: "3600" });
+      if (up.error) throw new UserFacingError(`Não foi possível enviar “${f.name}”. Tente novamente.`);
+      uploaded.push({ name: f.name, path, mime: f.type || null, size: f.size });
+    }
+    return rpc<number>("delivery_request_revision", { p_project: projectId, p_ps: projectServiceId, p_items: items.map((x) => x.trim()).filter(Boolean),
+      p_notes: notes?.trim() || null, p_id: id, p_files: uploaded });
+  },
+  /** Endereços temporários (1 h) para mostrar miniaturas e abrir anexos. */
+  deliveryFileUrls: async (paths: string[]): Promise<Record<string, string>> => {
+    if (!paths.length) return {};
+    const { data, error } = await supabase.storage.from("project-deliveries").createSignedUrls(paths, 3600);
+    if (error || !data) return {};
+    return Object.fromEntries(data.filter((x) => x.signedUrl && x.path).map((x) => [x.path as string, x.signedUrl as string]));
+  },
   deliveryApprove: (projectId: string, projectServiceId: string, note: string | null) =>
     rpc<void>("delivery_approve", { p_project: projectId, p_ps: projectServiceId, p_note: note?.trim() || null }),
   deliveryExtraRequest: (projectId: string, projectServiceId: string, kind: "courtesy" | "paid", reason: string, amount: number | null) =>
