@@ -191,7 +191,7 @@ export function CsHome() {
             <ul className="csrisk">
               {d.at_risk.map((p) => (
                 <li key={p.id}>
-                  <Link to={`/projetos/${p.id}/cronograma`} className="csrisk__main">
+                  <Link to={`/projetos/${p.id}`} className="csrisk__main">
                     <span className="csrisk__name">{p.name}</span>
                     <span className="csrisk__meta">{p.client_name ?? "—"}{p.code ? ` · ${p.code}` : ""}{p.next_due ? ` · próxima entrega ${formatDate(p.next_due, true)}` : ""}</span>
                     <span className="csrisk__flags">
@@ -213,7 +213,7 @@ export function CsHome() {
               {d.upcoming.map((u) => (
                 <li key={u.task_id}>
                   <span className="csup__date"><b>{formatDate(u.planned_end_date)}</b><small>{weekday(u.planned_end_date)}</small></span>
-                  <Link to={`/projetos/${u.project_id}/cronograma`} className="csup__main">
+                  <Link to={`/projetos/${u.project_id}/cronograma?etapa=${u.task_id}`} className="csup__main">
                     <span className="csup__task">{u.task}</span>
                     <span className="csup__meta">{u.project_name} · {u.service}{u.responsible ? ` · ${u.responsible}` : ""}</span>
                   </Link>

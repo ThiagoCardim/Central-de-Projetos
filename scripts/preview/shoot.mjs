@@ -366,6 +366,12 @@ const scenes = [
       { name: "Medidas.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]); await p.waitForTimeout(300); } },
   { name: "att-history", url: "/entregas?as=client", vp: { width: 1440, height: 1200 }, full: true, action: async (p) => { await skipNps(p); await p.waitForTimeout(900); } },
   { name: "att-staff", url: "/projetos/pr1/entregas?as=leader", vp: { width: 1440, height: 900 }, action: async (p) => { await p.waitForTimeout(900); } },
+  { name: "nav-from-steps", url: "/minhas-tarefas?as=clt&aba=etapas", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(500);
+    await p.locator(".mw-card__proj").first().click(); await p.waitForTimeout(700); console.log("   url:", new URL(p.url()).pathname); } },
+  { name: "nav-sched-default", url: "/projetos/pr1/cronograma?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(600);
+    await p.getByRole("tab", { name: /Ajustes entre setores/ }).click(); await p.waitForTimeout(300);
+    await p.goto("http://localhost:4173/projetos/pr1/cronograma"); await p.waitForTimeout(900);
+    console.log("   aba:", await p.locator('[role=tab][aria-selected=true]').first().innerText()); } },
 ];
 
 const browser = await chromium.launch();

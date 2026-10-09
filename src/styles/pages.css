@@ -2282,3 +2282,9 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 .dlvthumb:hover { border-color: var(--brand); }
 .dlvthumb img { width: 100%; height: 100%; object-fit: cover; }
 .dlvreq .dlvfiles { margin-top: 0; }
+.mw-links { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.mw-links > span[aria-hidden] { color: var(--text-3); }
+a.mw-link { text-decoration: none; }
+a.mw-card__proj { text-decoration: none; }
+.mw-card__step { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.mw-card__step:hover { color: var(--brand-text); }

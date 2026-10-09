@@ -41,9 +41,10 @@ export function ProjectSchedulePage() {
   const staff = useAsync(() => (deliveryTenant ? api.listStaff(deliveryTenant) : Promise.resolve([] as StaffMember[])), [deliveryTenant]);
 
   const [view, setViewState] = useState<View>(() => {
-    try { return (localStorage.getItem(VIEW_KEY) as View) || "tracks"; } catch { return "tracks"; }
+    // Lembra a visualização preferida, mas nunca abre direto em "Ajustes entre setores" (só por link explícito).
+    try { const v = localStorage.getItem(VIEW_KEY) as View | null; return v && v !== "adjustments" ? v : "tracks"; } catch { return "tracks"; }
   });
-  const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* sem armazenamento */ } };
+  const setView = (v: View) => { setViewState(v); if (v !== "adjustments") try { localStorage.setItem(VIEW_KEY, v); } catch { /* sem armazenamento */ } };
   const [filters, setFilters] = useState<ScheduleFilters>({ quick: "all", service: "", responsible: "", step: "", showDone: true });
   const [mode, setMode] = useState<"view" | "manage">("view");
   const [selected, setSelected] = useState<string | null>(taskParam);

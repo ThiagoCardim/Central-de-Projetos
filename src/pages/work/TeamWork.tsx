@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "@/services/auth";
 import { useAsync } from "@/hooks";
-import { useSearchParam } from "@/lib/router";
+import { Link, useSearchParam } from "@/lib/router";
 import {
   Avatar, Button, Card, EmptyState, Field, Input, LoadError, MetricCard, ProgressBar, Segmented, Skeleton,
 } from "@/components/ui/primitives";
@@ -141,9 +141,8 @@ export function TeamWorkView({ today, onOpen, newDate, onNewDone, onChanged }: {
                   {w.description && <span className="tw-row__desc">{w.description}</span>}
                   <span className="tw-row__meta">
                     {w.project_id && (w.project_code || w.project_name) && (
-                      <button type="button" className="mw-link" onClick={() => onOpen({ id: w.project_task_id ?? "", project_id: w.project_id! })}>
-                        {[w.project_code ?? w.project_name, w.step_name].filter(Boolean).join(" · ")}
-                      </button>
+                      <ProjectStepLinks projectId={w.project_id} project={w.project_code ?? w.project_name} step={w.step_name}
+                        onStep={w.project_task_id ? () => onOpen({ id: w.project_task_id!, project_id: w.project_id! }) : undefined} />
                     )}
                     {w.assigned_by && <span>por {w.assigned_by.id === profile?.id ? "você" : w.assigned_by.name}</span>}
                   </span>
@@ -282,5 +281,16 @@ function AssignWorkModal({ open, item, people, today, defaultDate, onClose, onSa
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Projeto leva à página do projeto; a etapa abre no cronograma. */
+export function ProjectStepLinks({ projectId, project, step, onStep }: { projectId: string; project?: string | null; step?: string | null; onStep?: () => void }) {
+  return (
+    <span className="mw-links">
+      {project && <Link to={`/projetos/${projectId}`} className="mw-link" title="Abrir o projeto">{project}</Link>}
+      {step && (onStep ? <><span aria-hidden="true">·</span><button type="button" className="mw-link" onClick={onStep} title="Abrir a etapa no cronograma">{step}</button></>
+        : <><span aria-hidden="true">·</span><span>{step}</span></>)}
+    </span>
   );
 }

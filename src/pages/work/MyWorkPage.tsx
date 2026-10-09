@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "@/services/api";
 import { useAsync, useDocumentTitle, useIsMobile } from "@/hooks";
-import { useNavigate, useSearchParam } from "@/lib/router";
+import { Link, useNavigate, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
 import {
   Avatar, Badge, Button, Card, EmptyState, Input, LoadError, MetricCard, ProgressBar, Segmented, Skeleton, StatusBadge, Tabs,
@@ -14,7 +14,7 @@ import { cx, formatDate, formatToday, plural } from "@/utils/format";
 import { todayISO } from "@/pages/schedule/model";
 import { useAuth } from "@/services/auth";
 import { can } from "@/permissions";
-import { TeamWorkView, workState } from "@/pages/work/TeamWork";
+import { ProjectStepLinks, TeamWorkView, workState } from "@/pages/work/TeamWork";
 
 /* ==========================================================================
    Datas e leitura das etapas
@@ -204,7 +204,7 @@ function StepActions({ step, busy, onStart, onComplete, onOpen }: { step: MyStep
     <div className="mw-actions">
       {canStart && <Button size="sm" variant="secondary" icon="target" loading={busy} onClick={onStart}>Iniciar</Button>}
       {canComplete && <Button size="sm" icon="check" loading={busy} onClick={onComplete}>Concluir</Button>}
-      <Button size="sm" variant="ghost" onClick={onOpen}>Abrir</Button>
+      <Button size="sm" variant="ghost" onClick={onOpen} title="Abrir a etapa no cronograma">Abrir etapa</Button>
     </div>
   );
 }
@@ -336,9 +336,8 @@ function ItemRow({ item, step, today, actions, onOpen, late }: {
           {late && <span className="mw-late">era para {formatDate(item.due_date)} · {plural(diffDays(item.due_date, today), "dia", "dias")} de atraso</span>}
           {!late && item.due_date !== today && !done && <span>{formatDate(item.due_date)}</span>}
           {linkLabel && item.project_id && (
-            <button type="button" className="mw-link" onClick={() => onOpen({ id: item.project_task_id ?? "", project_id: item.project_id! })}>
-              {linkLabel}
-            </button>
+            <ProjectStepLinks projectId={item.project_id} project={projectLabel} step={stepLabel}
+              onStep={item.project_task_id ? () => onOpen({ id: item.project_task_id!, project_id: item.project_id! }) : undefined} />
           )}
         </span>
       </span>
@@ -454,9 +453,9 @@ function StepCard({ step: s, today, actions, onOpen }: { step: MyStep; today: st
   const prog = timeProgress(s, today);
   return (
     <article className={cx("mw-card", `is-${bucketOf(s, today)}`)}>
-      <button type="button" className="mw-card__proj" onClick={onOpen}>{s.project_code ? `${s.project_code} · ` : ""}{s.project_name}</button>
+      <Link to={`/projetos/${s.project_id}`} className="mw-card__proj" title="Abrir o projeto">{s.project_code ? `${s.project_code} · ` : ""}{s.project_name}</Link>
       <div className="mw-card__head">
-        <h4 className="mw-card__name">{s.name}</h4>
+        <h4 className="mw-card__name"><button type="button" className="mw-card__step" onClick={onOpen} title="Abrir a etapa no cronograma">{s.name}</button></h4>
         <StatusBadge status={shownStatus(s, today)} />
       </div>
       <p className="subtext mw-card__svc">{s.service_name}{s.client_name ? ` · ${s.client_name}` : ""}
@@ -547,9 +546,8 @@ function TeamItemRow({ item, today, onOpen }: { item: WorkItem; today: string; o
           <span>{item.owner?.name ?? "Equipe"}</span>
           <span className={cx("mw-dl", `is-${st.tone}`)}>{st.text}</span>
           {item.project_id && (item.project_code || item.project_name) && (
-            <button type="button" className="mw-link" onClick={() => onOpen({ id: item.project_task_id ?? "", project_id: item.project_id! })}>
-              {[item.project_code ?? item.project_name, item.step_name].filter(Boolean).join(" · ")}
-            </button>
+            <ProjectStepLinks projectId={item.project_id} project={item.project_code ?? item.project_name} step={item.step_name}
+              onStep={item.project_task_id ? () => onOpen({ id: item.project_task_id!, project_id: item.project_id! }) : undefined} />
           )}
         </span>
       </span>
