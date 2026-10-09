@@ -4,12 +4,13 @@ import { useAuth } from "@/services/auth";
 import { useAsync, useDocumentTitle } from "@/hooks";
 import { Link, useNavigate, useSearchParam } from "@/lib/router";
 import { PageHead } from "@/layouts/AppLayout";
-import { Button, Card, EmptyState, LoadError, MetricCard, SearchInput, Skeleton, Tabs } from "@/components/ui/primitives";
+import { Button, Card, EmptyState, LoadError, MetricCard, SearchInput, Segmented, Skeleton, Tabs } from "@/components/ui/primitives";
 import { Icon } from "@/components/ui/Icon";
 import { cx, formatDate, plural } from "@/utils/format";
 import { normName } from "@/components/ui/StepPicker";
 import type { CsDashboard, CsKind, CsRequest } from "@/types/domain";
 import { CS_KIND, CsRow, NewRequestModal, RequestDrawer } from "./csUi";
+import { NpsPanel, npsZone } from "./NpsPanel";
 
 /* ==========================================================================
    Customer Success: chamados (CS e liderança) e painel do CS
@@ -30,6 +31,7 @@ export function CsPage() {
   const isCs = !!permissions?.is_cs;
   const canOpen = isCs || permissions?.role === "unit_admin" || permissions?.role === "global_admin";
   const deep = useSearchParam("chamado");
+  const [mainTab, setMainTab] = useState<"chamados" | "nps">(useSearchParam("aba") === "nps" ? "nps" : "chamados");
   const [scope, setScope] = useState<"mine" | "all">(isCs ? "all" : "mine");
   const q = useAsync(() => api.csRequests(scope), [scope]);
   const [filter, setFilter] = useState<Filter>("active");
@@ -53,8 +55,13 @@ export function CsPage() {
             <Button icon="headset" onClick={() => setNewKind("clarification")}>Novo chamado</Button>
           </>
         ) : undefined} />
+      <Tabs<"chamados" | "nps"> label="Customer Success" value={mainTab} onChange={setMainTab} tabs={[
+        { value: "chamados", label: "Chamados", count: rows.filter((r) => r.status === "open" || r.status === "answered").length || undefined },
+        { value: "nps", label: "NPS" },
+      ]} />
+      {mainTab === "nps" ? <NpsPanel /> : <>
       {!isCs && (
-        <Tabs<"mine" | "all"> label="Escopo" value={scope} onChange={setScope} tabs={[
+        <Segmented<"mine" | "all"> label="Escopo" value={scope} onChange={setScope} options={[
           { value: "mine", label: "Para mim" }, { value: "all", label: "Todos dos meus projetos" },
         ]} />
       )}
@@ -85,6 +92,7 @@ export function CsPage() {
             )}
           </Card>
         )}
+      </>}
       <RequestDrawer id={openId} onClose={() => setOpenId(null)} onChanged={() => void q.reload()} />
       <NewRequestModal open={!!newKind} defaultKind={newKind ?? "clarification"} onClose={() => setNewKind(null)}
         onCreated={(id) => { setNewKind(null); void q.reload(); setOpenId(id); }} />
@@ -155,6 +163,8 @@ export function CsHome() {
           </Card>
         </div>
       </div>
+
+      <NpsSummary />
 
       <section aria-label="Projetos" className="csh__group">
         <span className="label">Projetos</span>
@@ -275,5 +285,25 @@ export function CsInboxCard() {
       <ul className="cslist">{items.slice(0, 4).map((r) => <CsRow key={r.id} r={r} onOpen={() => setOpenId(r.id)} />)}</ul>
       <RequestDrawer id={openId} onClose={() => setOpenId(null)} onChanged={() => void q.reload()} />
     </Card>
+  );
+}
+
+/* ---------- NPS no painel do CS ---------- */
+function NpsSummary() {
+  const navigate = useNavigate();
+  const q = useAsync(() => api.npsOverview(null, null), []);
+  const o = q.data;
+  if (!o) return null;
+  const open = () => navigate("/cs?aba=nps");
+  return (
+    <section aria-label="Satisfação dos clientes" className="csh__group">
+      <span className="label">Satisfação · NPS dos últimos 90 dias</span>
+      <div className="metrics">
+        <MetricCard label="NPS" value={o.nps ?? "—"} hint={npsZone(o.nps)} tone={o.nps != null && o.nps < 0 ? "danger" : o.nps != null && o.nps < 50 ? "warning" : undefined} onClick={open} />
+        <MetricCard label="Respostas" value={o.responses} hint={o.completed_services ? `${Math.round((100 * o.answered_services) / o.completed_services)}% dos serviços concluídos` : "Nenhum serviço concluído"} onClick={open} />
+        <MetricCard label="Detratores" value={o.detractors} tone={o.detractors ? "danger" : "quiet"} hint="Notas de 0 a 6" onClick={open} />
+        <MetricCard label="Aguardando avaliação" value={o.pending_services} tone={o.pending_services ? "warning" : "quiet"} hint="Serviços concluídos" onClick={open} />
+      </div>
+    </section>
   );
 }

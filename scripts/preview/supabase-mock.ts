@@ -159,6 +159,38 @@ function csDashboard() {
   };
 }
 
+// NPS
+let NPS_PENDING: any[] = [{ project_service_id: "ps-arq-1", project_id: "pr1", project_name: "Residência Souza", service_name: "Projeto Arquitetônico",
+  completed_on: d(-1), question: "De 0 a 10, quanto você recomendaria a YouCon para um amigo ou familiar?" }];
+const NPS_ROWS: any[] = [
+  [10, "Equipe muito atenciosa, o projeto ficou exatamente como sonhamos.", "Residência Souza", "Fernanda Souza", "Projeto Arquitetônico", -2],
+  [9, "Gostei muito das imagens 3D, ajudaram a decidir os acabamentos.", "Casa Moreira", "Paulo Moreira", "Design de Interiores", -6],
+  [4, "O prazo atrasou duas vezes e fiquei sabendo só quando perguntei.", "Edifício Horizonte", "Construtora Horizonte", "Projeto Estrutural", -9],
+  [8, "Bom trabalho. Poderiam mandar atualizações com mais frequência.", "Clínica Vida", "Clínica Vida Ltda.", "Aprovação / Projeto Legal", -12],
+  [10, null, "Loja Central", "Grupo Central", "Projeto Arquitetônico", -15],
+  [9, "Rápidos na aprovação da prefeitura.", "Casa Moreira", "Paulo Moreira", "Aprovação / Projeto Legal", -21],
+  [7, "Atendimento ok, mas o retorno das dúvidas demorou.", "Residência Lima", "Ana Lima", "Projeto Elétrico", -33],
+  [10, "Superou as expectativas!", "Casa Duarte", "Rogério Duarte", "Projeto Arquitetônico", -41],
+  [6, "Precisei refazer o briefing duas vezes.", "Studio Bela", "Bela Arquitetura", "Design de Interiores", -48],
+  [9, null, "Casa Duarte", "Rogério Duarte", "Projeto Estrutural", -57],
+].map(([score, comment, project_name, client_name, service_name, ago]: any, i) => ({
+  id: `nps${i}`, score, comment, answered_at: d(ago) + "T14:00:00Z", completed_on: d(ago - 1), project_id: "pr1", project_name, project_code: null,
+  client_name, service_name, respondent: client_name, tenant_name: "YouCon Franqueadora",
+  category: score >= 9 ? "promoter" : score >= 7 ? "passive" : "detractor" }));
+function npsOverview() {
+  const r = NPS_ROWS; const prom = r.filter((x) => x.score >= 9).length; const det = r.filter((x) => x.score <= 6).length;
+  const by: Record<string, number[]> = {}; r.forEach((x) => (by[x.service_name] ??= []).push(x.score));
+  const npsOf = (xs: number[]) => Math.round(100 * (xs.filter((v) => v >= 9).length - xs.filter((v) => v <= 6).length) / xs.length);
+  const months = Array.from({ length: 6 }, (_, i) => { const m = new Date(); m.setDate(1); m.setMonth(m.getMonth() - 5 + i); return m.toISOString().slice(0, 7) + "-01"; });
+  const series = [[3, 33], [4, 50], [2, 0], [5, 40], [6, 50], [4, 75]];
+  return { from: d(-89), to: d(0), responses: r.length, promoters: prom, passives: r.length - prom - det, detractors: det,
+    nps: npsOf(r.map((x) => x.score)), prev_nps: 38, avg_score: 8.2, completed_services: 13, answered_services: 10, pending_services: 2,
+    distribution: Array.from({ length: 11 }, (_, i) => r.filter((x) => x.score === i).length),
+    by_service: Object.entries(by).map(([service, xs]) => ({ service, responses: xs.length, nps: npsOf(xs), avg_score: Math.round(10 * xs.reduce((a, b) => a + b, 0) / xs.length) / 10 }))
+      .sort((a, b) => b.responses - a.responses),
+    by_month: months.map((m, i) => ({ month: m, responses: series[i][0], nps: series[i][1] })) };
+}
+
 const tenants = [
   { id: HQ, name: "YouCon Franqueadora", type: "franqueadora", status: "ativo", parent_tenant_id: null, slug: "youcon", city: "Poços de Caldas", state: "MG", created_at: "2026-01-10T12:00:00Z" },
   { id: POCOS, name: "YouCon Sul de Minas", type: "franquia", status: "ativo", parent_tenant_id: HQ, slug: "sul-de-minas", city: "Pouso Alegre", state: "MG", created_at: "2026-06-02T12:00:00Z" },
@@ -407,6 +439,10 @@ function rpc(name: string, _args?: any) {
       profiles.forEach((p) => { p.function_ids = (p.function_ids ?? []).filter((x: string) => x !== _args.p_id); }); JOB_FNS = JOB_FNS.filter((x) => x.id !== _args.p_id); return delay({ data: n, error: null }, 150); }
     case "job_function_reorder": (_args.p_ids as string[]).forEach((id, i) => { const x = JOB_FNS.find((y) => y.id === id); if (x) x.sort_order = (i + 1) * 10; }); return delay({ data: null, error: null }, 120);
     case "set_person_profile": { const t = profiles.find((x) => x.id === _args.p_profile); if (t) { t.function_ids = _args.p_functions; t.bio = _args.p_bio; } return delay({ data: null, error: null }, 150); }
+    case "nps_pending": return delay({ data: me()?.role === "client" ? NPS_PENDING : [], error: null }, 150);
+    case "nps_answer": case "nps_skip": NPS_PENDING = NPS_PENDING.filter((x) => x.project_service_id !== _args.p_ps); return delay({ data: null, error: null }, 250);
+    case "nps_overview": return delay({ data: npsOverview(), error: null }, 220);
+    case "nps_responses_list": return delay({ data: NPS_ROWS, error: null }, 220);
     case "cs_requests_list": {
       const p = me(); let list = CS_REQ.map(csJson);
       if (_args.p_project) list = list.filter((r) => r.project_id === _args.p_project);

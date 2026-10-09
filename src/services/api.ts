@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -304,6 +304,13 @@ export const api = {
   setPersonProfile: (profileId: string, functionIds: string[], bio: string | null) =>
     rpc<void>("set_person_profile", { p_profile: profileId, p_functions: functionIds, p_bio: bio }),
   clientProjectTeam: (projectId: string) => rpc<ProjectTeamMember[]>("client_project_team", { p_project: projectId }),
+  // NPS: pesquisa do cliente ao concluir um serviço; indicadores para o CS
+  npsPending: () => rpc<NpsPending[]>("nps_pending"),
+  npsAnswer: (projectServiceId: string, score: number, comment: string | null) =>
+    rpc<void>("nps_answer", { p_ps: projectServiceId, p_score: score, p_comment: comment?.trim() || null }),
+  npsSkip: (projectServiceId: string, mode: "later" | "never") => rpc<void>("nps_skip", { p_ps: projectServiceId, p_mode: mode }),
+  npsOverview: (from: string | null, to: string | null) => rpc<NpsOverview>("nps_overview", { p_tenant: null, p_from: from, p_to: to }),
+  npsResponses: (from: string | null, to: string | null) => rpc<NpsResponse[]>("nps_responses_list", { p_tenant: null, p_from: from, p_to: to }),
   // Customer Success: chamados para a equipe e painel
   csRequests: (scope: "all" | "mine" | "project", projectId?: string | null) =>
     rpc<CsRequest[]>("cs_requests_list", { p_scope: scope, p_project: projectId ?? null }),

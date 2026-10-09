@@ -310,6 +310,13 @@ const scenes = [
   { name: "cs-leader-reply", url: "/cs?as=leader&chamado=cs1", vp: { width: 1440, height: 1000 } },
   { name: "cs-settings", url: "/configuracoes?as=unit_admin&aba=cs", vp: DESKTOP },
   { name: "m-cs-home", url: "/?as=cs", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(900); } },
+  { name: "nps-popup", url: "/?as=client", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(1600); } },
+  { name: "nps-popup-score", url: "/?as=client", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(1600); await p.getByRole("radio", { name: "9", exact: true }).click(); await p.waitForTimeout(250); } },
+  { name: "nps-popup-thanks", url: "/?as=client", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(1600); await p.getByRole("radio", { name: "10", exact: true }).click(); await p.getByRole("button", { name: "Enviar avaliação" }).click(); await p.waitForTimeout(500); } },
+  { name: "m-nps-popup", url: "/?as=client", vp: MOBILE, action: async (p) => { await p.waitForTimeout(1600); await p.getByRole("radio", { name: "3", exact: true }).click(); await p.waitForTimeout(250); } },
+  { name: "nps-panel", url: "/cs?as=cs&aba=nps", vp: DESKTOP, full: true, action: async (p) => { await p.waitForTimeout(800); } },
+  { name: "nps-panel-light", url: "/cs?as=unit_admin&aba=nps", vp: DESKTOP, light: true, full: true, action: async (p) => { await p.waitForTimeout(800); } },
+  { name: "m-nps-panel", url: "/cs?as=cs&aba=nps", vp: MOBILE, full: true, action: async (p) => { await p.waitForTimeout(800); } },
 ];
 
 const browser = await chromium.launch();

@@ -671,3 +671,20 @@ export interface CsDashboard {
   upcoming: CsUpcoming[];
 }
 export interface CsSettings { tenant_id: string; normal_days: number; high_days: number; urgent_hours: number }
+
+/* ---------- NPS ---------- */
+export interface NpsPending { project_service_id: string; project_id: string; project_name: string; service_name: string; completed_on: string; question: string }
+export type NpsCategory = "promoter" | "passive" | "detractor";
+export interface NpsOverview {
+  from: string; to: string; responses: number; promoters: number; passives: number; detractors: number;
+  nps: number | null; prev_nps: number | null; avg_score: number | null;
+  completed_services: number; answered_services: number; pending_services: number;
+  distribution: number[];
+  by_service: { service: string; responses: number; nps: number; avg_score: number }[];
+  by_month: { month: string; responses: number; nps: number | null }[];
+}
+export interface NpsResponse {
+  id: string; score: number; comment: string | null; answered_at: string; completed_on: string | null;
+  project_id: string; project_name: string; project_code: string | null; client_name: string | null;
+  service_name: string; respondent: string; tenant_name: string | null; category: NpsCategory;
+}

@@ -10,6 +10,7 @@ import { Drawer } from "@/components/ui/overlays";
 import { NotificationsBell } from "@/components/domain/NotificationsBell";
 import { useTheme } from "@/hooks";
 import { EMPLOYMENT_LABEL, ROLE_LABEL } from "@/utils/format";
+import { NpsPrompt } from "@/pages/cs/NpsPrompt";
 
 function NavEntry({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   if (item.stage) {
@@ -93,6 +94,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className={collapsed ? "app is-collapsed" : "app"}>
       <a href="#conteudo" className="sr-only">Pular para o conteúdo</a>
+      {permissions?.role === "client" && <NpsPrompt />}
 
       <aside className="sidebar">
         <div className="sidebar__top">
