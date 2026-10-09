@@ -7,6 +7,7 @@ import { PageHead } from "@/layouts/AppLayout";
 import { ProjectApprovalsCard } from "@/pages/approvals/ProjectApprovals";
 import { ProjectCsCard } from "@/pages/cs/CsPage";
 import { ProjectDeliveriesCard } from "@/pages/deliveries/Deliveries";
+import { ProjectDocumentsCard } from "@/pages/documents/Documents";
 import { ClientWaitsCard } from "@/pages/schedule/ClientWaits";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
@@ -248,6 +249,7 @@ export function ProjectDetailPage() {
               : <p className="subtext card__note">O cronograma é gerado a partir dos padrões YouCon quando a equipe for confirmada.</p>}
           </Card>
 
+          {permissions?.is_staff && p.status !== "cancelled" && <ProjectDocumentsCard projectId={p.id} />}
           {permissions?.is_staff && ["in_progress", "on_hold", "completed"].includes(p.status) && <ProjectDeliveriesCard projectId={p.id} />}
           {permissions?.is_staff && ["in_progress", "on_hold", "completed"].includes(p.status) && <ProjectApprovalsCard projectId={p.id} />}
           {permissions?.is_staff && <ProjectCsCard projectId={p.id} />}

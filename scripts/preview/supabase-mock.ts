@@ -288,12 +288,12 @@ const REV_PEOPLE = [
 
 // Prazo de retorno do cliente
 const isoDay = (n: number) => { const x = new Date(Date.now() + n * 86400000); return x.toISOString().slice(0, 10); };
-let CW_SETTINGS = { enabled: true, days: 2 };
+let CW_SETTINGS: any = { enabled: true, days: 2, documents_days: 5 };
 let CWAITS: any[] = [
   { id: "cw1", project_id: "pr1", source: "delivery", label: "Avaliação: Revisão 1 · Projeto Arquitetônico", project_service_id: "ps-arq", task_id: null,
     started_on: isoDay(-6), due_on: isoDay(-4), returned_on: null, close_source: null, state: "late", late_days: 3, waived_until: null, waive_reason: null,
     returned_note: null, returned_by: null, project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza" },
-  { id: "cw2", project_id: "pr1", source: "task", label: "Envio de documentos do terreno", project_service_id: "ps-est", task_id: "t-x",
+  { id: "cw2", project_id: "pr1", source: "documents", label: "Envio dos documentos obrigatórios", project_service_id: null, task_id: null,
     started_on: isoDay(-1), due_on: isoDay(2), returned_on: null, close_source: null, state: "open", late_days: 0, waived_until: null, waive_reason: null,
     returned_note: null, returned_by: null, project_name: "Residência Souza", project_code: "YC-2026-0014", client_name: "Fernanda Souza" },
   { id: "cw3", project_id: "pr1", source: "delivery", label: "Avaliação: Apresentação preliminar · Design de Interiores", project_service_id: "ps-int", task_id: null,
@@ -302,8 +302,54 @@ let CWAITS: any[] = [
 ];
 const cwFor = (w: any, staff: boolean) => {
   const pr = me(); const lead = ["global_admin", "unit_admin"].includes(pr?.role) || pr?.id === "p-ld";
-  return { ...w, can_return: staff && w.state !== "closed" && (lead || pr?.id === "p-c1"), can_waive: staff && w.state !== "closed" && lead,
+  return { ...w, can_return: staff && w.state !== "closed" && w.source !== "documents" && (lead || pr?.id === "p-c1"), can_waive: staff && w.state !== "closed" && lead,
     waive_reason: staff ? w.waive_reason : null, returned_note: staff ? w.returned_note : null, returned_by: staff ? w.returned_by : null };
+};
+
+// Documentos do cliente
+let DOC_TYPES: any[] = [
+  { id: "dt1", name: "Matrícula atualizada do imóvel", description: "Emitida no cartório há no máximo 30 dias.", required: true, service_codes: null },
+  { id: "dt2", name: "Documento com foto dos proprietários", description: "RG ou CNH de todos que constam na matrícula.", required: true, service_codes: null },
+  { id: "dt3", name: "Levantamento topográfico", description: "Planialtimétrico, em DWG ou PDF.", required: true, service_codes: ["projeto_arquitetonico"] },
+  { id: "dt4", name: "IPTU do último ano", description: null, required: false, service_codes: null },
+  { id: "dt5", name: "Convenção e regimento do condomínio", description: "Com as regras de construção do loteamento.", required: false, service_codes: ["aprovacao_projeto_legal"] },
+  { id: "dt6", name: "Fotos do terreno", description: "Pode ser pelo celular: frente, fundos e laterais.", required: false, service_codes: null },
+].map((t, i) => ({ ...t, sort_order: (i + 1) * 10 }));
+const docFile = (id: string, name: string, kind = "file", extra: any = {}) => ({ id, round: 1, kind, name, path: kind === "file" ? `pr1/x/${id}.pdf` : null, mime: "application/pdf",
+  size: kind === "file" ? 812000 : null, url: kind === "link" ? "https://drive.google.com/drive/folders/abc" : null, created_at: isoDay(-3) + "T14:20:00Z", on_behalf: false, by: "Fernanda Souza", mine: true, ...extra });
+let DOCS: any[] = [
+  { id: "d1", type: "dt1", status: "approved", files: [docFile("f1", "matricula-12345.pdf")], reviewed_by: "Beatriz Nogueira", reviewed_at: isoDay(-2) + "T10:00:00Z", submitted_at: isoDay(-3) + "T14:20:00Z" },
+  { id: "d2", type: "dt2", status: "submitted", files: [docFile("f2", "rg-fernanda.jpg"), docFile("f3", "cnh-marcos.jpg")], submitted_at: isoDay(-1) + "T09:12:00Z" },
+  { id: "d3", type: "dt3", status: "rejected", round: 2, files: [], history: [docFile("f4", "topografico.pdf")], reject_reason: "O arquivo veio sem as curvas de nível. Peça ao topógrafo a versão planialtimétrica completa.",
+    reviewed_by: "Beatriz Nogueira", reviewed_at: isoDay(-1) + "T16:00:00Z" },
+  { id: "d4", type: "dt4", status: "pending", files: [] },
+  { id: "d6", type: "dt6", status: "pending", files: [] },
+  { id: "d7", source: "extra", name: "Certidão de uso do solo", description: "Exigida pela prefeitura para o alvará. Peça no setor de urbanismo.", required: true, status: "pending", files: [],
+    requested_by: "Ana Paula Martins", created_at: isoDay(-1) },
+];
+let DOCS_REMOVED: any[] = [{ id: "d8", source: "standard", name: "Projeto aprovado anterior", description: null, required: false, status: "pending", removed_reason: "Terreno sem construção anterior", files: [], history: [] }];
+const docJson = (d: any, staff: boolean) => {
+  const t = DOC_TYPES.find((x) => x.id === d.type);
+  return { id: d.id, source: d.source ?? "standard", name: d.name ?? t?.name, description: d.description ?? t?.description ?? null, required: d.required ?? t?.required ?? false,
+    status: d.status, round: d.round ?? 1, reject_reason: d.reject_reason ?? null, submitted_at: d.submitted_at ?? null, reviewed_at: d.reviewed_at ?? null,
+    reviewed_by: staff ? d.reviewed_by ?? null : null, requested_by: staff ? d.requested_by ?? null : null, created_at: d.created_at ?? isoDay(-10),
+    removed_at: d.removed_reason ? isoDay(-2) : null, removed_reason: staff ? d.removed_reason ?? null : null, removed_auto: false,
+    files: (d.files ?? []).map((f: any) => ({ ...f, by: staff ? f.by : null })), history: d.history ?? [] };
+};
+const docProgress = () => {
+  const items = DOCS.map((d) => docJson(d, true));
+  const c = (st: string) => items.filter((d) => d.status === st).length;
+  const req = items.filter((d) => d.required);
+  return { total: items.length, approved: c("approved"), submitted: c("submitted"), rejected: c("rejected"), pending: c("pending"),
+    required_total: req.length, required_sent: req.filter((d) => d.status === "submitted" || d.status === "approved").length,
+    percent: items.length ? Math.round((100 * c("approved")) / items.length) : null };
+};
+const docBoard = () => {
+  const pr = me(); const staff = pr?.role !== "client"; const lead = ["global_admin", "unit_admin", "leader"].includes(pr?.role);
+  const w = CWAITS.find((x) => x.source === "documents" && x.state !== "closed");
+  return { project: { id: "pr1", name: "Residência Souza", code: "YC-2026-0014", status: "in_progress" }, is_client: !staff, is_staff: staff,
+    can_upload: true, can_review: staff, can_manage: staff && lead, progress: docProgress(), wait: w ? cwFor(w, staff) : null, documents_days: CW_SETTINGS.documents_days,
+    items: DOCS.map((d) => docJson(d, staff)), removed: staff ? DOCS_REMOVED.map((d) => ({ ...docJson(d, true), removed_at: isoDay(-2) })) : [] };
 };
 
 // "Preciso de ajuda"
@@ -646,7 +692,23 @@ function rpc(name: string, _args?: any) {
     case "client_wait_waive": { const w = CWAITS.find((x) => x.id === _args.p_wait); const back = w ? w.late_days : 0;
       if (w) Object.assign(w, { waived_until: _args.p_until, waive_reason: _args.p_reason, late_days: 0 }); return delay({ data: { refunded_days: back }, error: null }, 250); }
     case "client_wait_settings_get": return delay({ data: { tenant_id: _args.p_tenant, ...CW_SETTINGS }, error: null }, 120);
-    case "client_wait_settings_save": CW_SETTINGS = { enabled: _args.p_enabled, days: _args.p_days }; return delay({ data: null, error: null }, 200);
+    case "client_wait_settings_save": CW_SETTINGS = { enabled: _args.p_enabled, days: _args.p_days, documents_days: _args.p_documents_days ?? CW_SETTINGS.documents_days }; return delay({ data: null, error: null }, 200);
+    case "project_documents": return delay({ data: docBoard(), error: null }, 200);
+    case "document_projects": return delay({ data: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014", status: "in_progress", progress: docProgress() }], error: null }, 150);
+    case "document_file_add": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) { d.files.push(docFile(`f${Date.now()}`, _args.p_name ?? "Link", _args.p_kind)); if (d.status !== "submitted") { d.status = "submitted"; d.submitted_at = new Date().toISOString(); } } return delay({ data: "f", error: null }, 250); }
+    case "document_file_remove": { DOCS.forEach((d) => { d.files = d.files.filter((f: any) => f.id !== _args.p_file); if (d.status === "submitted" && !d.files.length) d.status = "pending"; }); return delay({ data: null, error: null }, 150); }
+    case "document_review": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) { if (_args.p_approve) Object.assign(d, { status: "approved", reviewed_by: me()?.name, reviewed_at: new Date().toISOString() });
+      else Object.assign(d, { status: "rejected", round: (d.round ?? 1) + 1, history: [...(d.history ?? []), ...d.files], files: [], reject_reason: _args.p_reason }); } return delay({ data: null, error: null }, 200); }
+    case "document_extra_add": { const id = `dx${Date.now()}`; DOCS.push({ id, source: "extra", name: _args.p_name, description: _args.p_description, required: _args.p_required, status: "pending", files: [], requested_by: me()?.name }); return delay({ data: id, error: null }, 200); }
+    case "document_extra_update": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) Object.assign(d, { name: _args.p_name, description: _args.p_description, required: _args.p_required }); return delay({ data: null, error: null }, 150); }
+    case "document_remove": { const d = DOCS.find((x) => x.id === _args.p_document); if (d) { DOCS = DOCS.filter((x) => x !== d); DOCS_REMOVED.unshift({ ...d, removed_reason: _args.p_reason }); } return delay({ data: null, error: null }, 150); }
+    case "document_restore": { const d = DOCS_REMOVED.find((x) => x.id === _args.p_document); if (d) { DOCS_REMOVED = DOCS_REMOVED.filter((x) => x !== d); DOCS.push({ ...d, removed_reason: undefined }); } return delay({ data: null, error: null }, 150); }
+    case "document_types_list": return delay({ data: { can_edit: me()?.role === "global_admin", types: DOC_TYPES,
+      services: CATALOG_SERVICES_FOR_DOCS() }, error: null }, 150);
+    case "document_type_save": { if (_args.p_id) { const t = DOC_TYPES.find((x) => x.id === _args.p_id); if (t) Object.assign(t, { name: _args.p_name, description: _args.p_description, required: _args.p_required, service_codes: _args.p_service_codes?.length ? _args.p_service_codes : null }); return delay({ data: _args.p_id, error: null }, 200); }
+      const id = `dt${Date.now()}`; DOC_TYPES.push({ id, name: _args.p_name, description: _args.p_description, required: _args.p_required, service_codes: _args.p_service_codes?.length ? _args.p_service_codes : null, sort_order: 999 }); return delay({ data: id, error: null }, 200); }
+    case "document_type_delete": DOC_TYPES = DOC_TYPES.filter((x) => x.id !== _args.p_id); return delay({ data: null, error: null }, 150);
+    case "document_types_reorder": DOC_TYPES = (_args.p_ids as string[]).map((id) => DOC_TYPES.find((x) => x.id === id)).filter(Boolean); return delay({ data: null, error: null }, 120);
     case "project_deliveries": return delay({ data: dlvBoard(_args.p_project), error: null }, 200);
     case "delivery_projects": return delay({ data: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014", awaiting_client: Object.keys(DLV).filter((k) => dlvCalc(DLV[k]).status === "awaiting_client").length, published: 12, last_published_at: dAgo(2) }], error: null }, 150);
     case "delivery_version_start": case "delivery_version_update": case "delivery_file_add": case "delivery_file_remove": case "delivery_version_discard":
@@ -1085,6 +1147,7 @@ const CATALOG = [
 ].map(([id, family_id, code, name, b2c, b2b, has], i) => ({ id, family_id, code, name, description: null, available_for_b2c: b2c, available_for_b2b: b2b,
   has_schedule_template: has, requires_area_rule: code === "design_interiores",
   leadership_area: family_id === "f-engenharia" || family_id === "f-orcamentos" ? "engineering" : family_id === "f-aprovacoes" ? "approval" : "architecture", sort_order: i * 10, active: true, aliases: code === "projeto_arquitetonico" ? ["Arquitetura"] : [] }));
+function CATALOG_SERVICES_FOR_DOCS() { return CATALOG.map((c) => ({ code: c.code, name: c.name, family: FAMILIES.find((f) => f.id === c.family_id)?.name ?? "" })); }
 const tplTasks = (tid: string, defs: [string, string, number | null, string?][]) => defs.map(([code, name, days, type = "fixed"], i) => ({
   id: `${tid}-${code}`, template_id: tid, code, name, description: null, sort_order: (i + 1) * 10, default_duration_days: days, duration_type: type,
   include_if_service_codes: code === "compatibilizacao_interiores" ? ["design_interiores"] : null, client_visible: true, active: true,

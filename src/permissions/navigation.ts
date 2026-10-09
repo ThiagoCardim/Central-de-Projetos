@@ -19,6 +19,7 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { key: "home", label: "Início", to: "/", icon: "home", requires: "home", mobile: true },
       { key: "deliveries", label: "Entregas", to: "/entregas", icon: "layers", requires: "client", mobile: true },
+      { key: "documents", label: "Documentos", to: "/documentos", icon: "file", requires: "client", mobile: true },
       { key: "mywork", label: "Minhas tarefas", to: "/minhas-tarefas", icon: "checkCircle", requires: "staff", mobile: true },
       { key: "projects", label: "Projetos", to: "/projetos", icon: "folder", requires: "staff", mobile: true },
       { key: "cs", label: "Customer Success", to: "/cs", icon: "headset", requires: "csDesk", mobile: true },

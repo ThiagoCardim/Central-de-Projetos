@@ -67,7 +67,10 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
     else if (n.kind === "nps_detractor") navigate("/cs?aba=nps");
     else if (n.kind === "support_opened") navigate("/cs?aba=atendimentos");
     else if (n.kind.startsWith("client_wait_") && typeof n.data?.project_id === "string")
-      navigate(isClient ? (n.data.source === "delivery" ? `/entregas?projeto=${n.data.project_id}` : "/") : `/projetos/${n.data.project_id}`);
+      navigate(isClient ? (n.data.source === "delivery" ? `/entregas?projeto=${n.data.project_id}` : n.data.source === "documents" ? `/documentos?projeto=${n.data.project_id}` : "/")
+        : n.data.source === "documents" ? `/projetos/${n.data.project_id}/documentos` : `/projetos/${n.data.project_id}`);
+    else if (n.kind.startsWith("document_") && typeof n.data?.project_id === "string")
+      navigate(isClient ? `/documentos?projeto=${n.data.project_id}` : `/projetos/${n.data.project_id}/documentos`);
     else if (n.kind.startsWith("delivery_") && typeof n.data?.project_id === "string")
       navigate(isClient ? `/entregas?projeto=${n.data.project_id}` : `/projetos/${n.data.project_id}/entregas`);
     else if (n.kind === "approval_rejected" && typeof n.data?.project_id === "string") navigate(`/projetos/${n.data.project_id}`);
@@ -95,7 +98,7 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
              items.map((n) => (
               <button key={n.id} type="button" className={cx("nitem", !n.read_at && "is-unread")} onClick={() => openItem(n)}>
                 <span className={cx("nitem__icon", n.kind === "automation" && "is-auto")} aria-hidden="true">
-                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "adjustment_request" ? "refresh" : n.kind === "task_assigned" ? "user" : n.kind === "work_assigned" ? "checkCircle" : n.kind.startsWith("approval") ? "seal" : n.kind === "cs_alert" ? "alert" : n.kind === "nps_detractor" ? "trophy" : n.kind.startsWith("support_") ? "chat" : n.kind.startsWith("delivery_") ? "layers" : n.kind.startsWith("client_wait_") ? "clock" : n.kind.startsWith("cs_") ? "headset" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
+                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "adjustment_request" ? "refresh" : n.kind === "task_assigned" ? "user" : n.kind === "work_assigned" ? "checkCircle" : n.kind.startsWith("approval") ? "seal" : n.kind === "cs_alert" ? "alert" : n.kind === "nps_detractor" ? "trophy" : n.kind.startsWith("support_") ? "chat" : n.kind.startsWith("delivery_") ? "layers" : n.kind.startsWith("document_") ? "file" : n.kind.startsWith("client_wait_") ? "clock" : n.kind.startsWith("cs_") ? "headset" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
                 </span>
                 <span className="nitem__text">
                   <span className="nitem__title">{n.title}</span>

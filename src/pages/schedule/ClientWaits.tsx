@@ -58,6 +58,7 @@ export function ClientWaitsCard({ projectId, onChanged }: { projectId: string; o
             <div className="cwait__actions">
               {w.can_waive && w.state === "late" && <Button size="sm" variant="ghost" onClick={() => setWaiving(w)}>Abonar dias</Button>}
               {w.can_return && <Button size="sm" icon="check" onClick={() => setReturning(w)}>Cliente retornou</Button>}
+              {w.source === "documents" && <Link to={`/projetos/${projectId}/documentos`} className="btn btn--secondary btn--sm">Ver documentos</Link>}
             </div>
           </li>
         ))}
@@ -193,7 +194,8 @@ export function ClientWaitBanner() {
           : "Seu retorno no prazo mantém o cronograma em dia. Se precisar de ajuda, fale com a equipe."}</p>
       </div>
       <div className="cwaitc__actions">
-        {list.some((w) => w.source === "delivery") && <Link to={`/entregas?projeto=${list.find((w) => w.source === "delivery")!.project_id}`} className="btn btn--primary">Ver entregas</Link>}
+        {list.some((w) => w.source === "documents") && <Link to={`/documentos?projeto=${list.find((w) => w.source === "documents")!.project_id}`} className="btn btn--primary">Enviar documentos</Link>}
+        {list.some((w) => w.source === "delivery") && <Link to={`/entregas?projeto=${list.find((w) => w.source === "delivery")!.project_id}`} className={list.some((w) => w.source === "documents") ? "btn btn--secondary" : "btn btn--primary"}>Ver entregas</Link>}
         <Link to="/ajuda" className="btn btn--secondary"><Icon name="chat" /> Falar com a equipe</Link>
       </div>
     </Card>

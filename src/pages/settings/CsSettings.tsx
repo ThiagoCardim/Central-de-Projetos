@@ -63,17 +63,18 @@ export function CsSettingsPanel({ tenantId }: { tenantId: string }) {
 function ClientWaitSettingsCard({ tenantId }: { tenantId: string }) {
   const toast = useToast();
   const q = useAsync(() => api.clientWaitSettings(tenantId), [tenantId]);
-  const [v, setV] = useState<{ enabled: boolean; days: string } | null>(null);
+  const [v, setV] = useState<{ enabled: boolean; days: string; docs: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (q.data) setV({ enabled: q.data.enabled, days: String(q.data.days) }); }, [q.data]);
+  useEffect(() => { if (q.data) setV({ enabled: q.data.enabled, days: String(q.data.days), docs: String(q.data.documents_days ?? 5) }); }, [q.data]);
   if (q.error) return <LoadError message={q.error} onRetry={() => void q.reload()} />;
   if (!v || !q.data) return <Skeleton height={140} radius={16} />;
   const days = Number(v.days);
-  const invalid = !(days >= 1 && days <= 15);
-  const changed = v.enabled !== q.data.enabled || days !== q.data.days;
+  const docs = Number(v.docs);
+  const invalid = !(days >= 1 && days <= 15) || !(docs >= 1 && docs <= 30);
+  const changed = v.enabled !== q.data.enabled || days !== q.data.days || docs !== (q.data.documents_days ?? 5);
   async function save() {
     setBusy(true);
-    try { await api.clientWaitSettingsSave(tenantId, v!.enabled, days); toast("Prazo de retorno do cliente salvo. Vale para as próximas esperas."); await q.reload(); }
+    try { await api.clientWaitSettingsSave(tenantId, v!.enabled, days, docs); toast("Prazo de retorno do cliente salvo. Vale para as próximas esperas."); await q.reload(); }
     catch (e) { toast((e as Error).message, "error"); } finally { setBusy(false); }
   }
   return (
@@ -86,6 +87,10 @@ function ClientWaitSettingsCard({ tenantId }: { tenantId: string }) {
         <Field label="Prazo para o cliente retornar" hint="Dias úteis contados a partir do dia seguinte ao envio.">
           {({ id, describedBy }) => <div className="csset__in"><Input id={id} aria-describedby={describedBy} value={v.days} inputMode="numeric" disabled={!v.enabled}
             onChange={(e) => setV({ ...v, days: e.target.value.replace(/\D/g, "") })} /><span>dias úteis</span></div>}
+        </Field>
+        <Field label="Prazo para enviar os documentos obrigatórios" hint="Dias úteis a partir do início do projeto (ou do pedido de um novo obrigatório).">
+          {({ id, describedBy }) => <div className="csset__in"><Input id={id} aria-describedby={describedBy} value={v.docs} inputMode="numeric" disabled={!v.enabled}
+            onChange={(e) => setV({ ...v, docs: e.target.value.replace(/\D/g, "") })} /><span>dias úteis</span></div>}
         </Field>
       </div>
       <div className="settings__save">

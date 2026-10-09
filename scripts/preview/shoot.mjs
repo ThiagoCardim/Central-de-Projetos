@@ -401,6 +401,14 @@ const scenes = [
     await p.getByRole("dialog").getByRole("button", { name: "Publicar", exact: true }).click(); await p.waitForTimeout(1200);
     console.log("   body overflow:", JSON.stringify(await p.evaluate(() => document.body.style.overflow)), "dialogs:", await p.getByRole("dialog").count());
   } },
+  { name: "docs-client", url: "/documentos?as=client", vp: DESKTOP, full: true, action: skipNps },
+  { name: "m-docs-client", url: "/documentos?as=client", vp: MOBILE, full: true, action: skipNps },
+  { name: "docs-team", url: "/projetos/pr1/documentos?as=leader", vp: DESKTOP, full: true },
+  { name: "docs-team-extra", url: "/projetos/pr1/documentos?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: "Pedir documento" }).click(); await p.waitForTimeout(300); } },
+  { name: "docs-team-reject", url: "/projetos/pr1/documentos?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: "Pedir reenvio" }).first().click(); await p.waitForTimeout(300); } },
+  { name: "docs-settings", url: "/configuracoes?aba=documentos&as=global_admin", vp: DESKTOP, full: true },
+  { name: "docs-settings-edit", url: "/configuracoes?aba=documentos&as=global_admin", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: /Editar Levantamento/ }).click(); await p.getByRole("radio", { name: /Só quando/ }).check(); await p.waitForTimeout(300); } },
+  { name: "docs-home-client", url: "/?as=client", vp: DESKTOP, full: true, action: skipNps },
 ];
 
 const browser = await chromium.launch();

@@ -15,6 +15,7 @@ import { MyDayCard, TeamTasksCard, useWorkSummary } from "./WorkCards";
 import { HighlightsCard, MyPerformanceCard } from "./PerfCards";
 import { CsHome, CsInboxCard } from "@/pages/cs/CsPage";
 import { ClientWaitBanner } from "@/pages/schedule/ClientWaits";
+import { ClientDocumentsCard } from "@/pages/documents/Documents";
 import { myDayStats, teamStats } from "@/pages/work/workStats";
 import { todayISO } from "@/pages/schedule/model";
 import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
@@ -321,6 +322,7 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
   return (
     <div className="stack client">
       <ClientWaitBanner />
+      <ClientDocumentsCard />
       <ClientDeliveriesBanner />
       {projects.map((p) => (
         <ClientProjectCard key={p.id} project={p}

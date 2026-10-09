@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, ClientWait, ProjectClientWaits, ClientWaitSettings, DeliveryKind, DeliverySettingsRow, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, ClientWait, ProjectClientWaits, ClientWaitSettings, DeliveryKind, DeliverySettingsRow, DocumentsBoard, DocProjectSummary, DocumentTypesList, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -321,8 +321,44 @@ export const api = {
   clientWaitWaive: (waitId: string, until: string, reason: string) =>
     rpc<{ refunded_days: number }>("client_wait_waive", { p_wait: waitId, p_until: until, p_reason: reason.trim() }),
   clientWaitSettings: (tenantId: string) => rpc<ClientWaitSettings>("client_wait_settings_get", { p_tenant: tenantId }),
-  clientWaitSettingsSave: (tenantId: string, enabled: boolean, days: number) =>
-    rpc<void>("client_wait_settings_save", { p_tenant: tenantId, p_enabled: enabled, p_days: days }),
+  clientWaitSettingsSave: (tenantId: string, enabled: boolean, days: number, documentsDays?: number) =>
+    documentsDays === undefined
+      ? rpc<void>("client_wait_settings_save", { p_tenant: tenantId, p_enabled: enabled, p_days: days })
+      : rpc<void>("client_wait_settings_save", { p_tenant: tenantId, p_enabled: enabled, p_days: days, p_documents_days: documentsDays }),
+
+  /* ---------- Documentos do cliente ---------- */
+  projectDocuments: (projectId: string) => rpc<DocumentsBoard>("project_documents", { p_project: projectId }),
+  documentProjects: () => rpc<DocProjectSummary[]>("document_projects"),
+  /** Sobe o arquivo para a pasta do documento e registra. Acima de 50 MB, só por link. */
+  async documentUpload(projectId: string, documentId: string, f: File): Promise<string> {
+    if (f.size > DELIVERY_FILE_MAX) throw new UserFacingError(`“${f.name}” passa de 50 MB. Envie pelo Google Drive e adicione o link.`);
+    const ext = (f.name.match(/\.([a-z0-9]{1,8})$/i)?.[1] ?? "bin").toLowerCase();
+    const path = `${projectId}/${documentId}/${crypto.randomUUID()}.${ext}`;
+    const up = await supabase.storage.from("project-documents").upload(path, f, { contentType: f.type || "application/octet-stream", cacheControl: "3600" });
+    if (up.error) throw new UserFacingError(`Não foi possível enviar “${f.name}”. Tente novamente.`);
+    return rpc<string>("document_file_add", { p_document: documentId, p_kind: "file", p_name: f.name, p_path: path, p_mime: f.type || null, p_size: f.size, p_url: null });
+  },
+  documentAddLink: (documentId: string, name: string, url: string) =>
+    rpc<string>("document_file_add", { p_document: documentId, p_kind: "link", p_name: name.trim() || null, p_path: null, p_mime: null, p_size: null, p_url: url.trim() }),
+  documentFileRemove: (fileId: string) => rpc<void>("document_file_remove", { p_file: fileId }),
+  documentFileUrl: async (path: string): Promise<string> => {
+    const { data, error } = await supabase.storage.from("project-documents").createSignedUrl(path, 3600);
+    if (error || !data) throw new UserFacingError("Não foi possível abrir o arquivo.");
+    return data.signedUrl;
+  },
+  documentReview: (documentId: string, approve: boolean, reason: string | null) =>
+    rpc<void>("document_review", { p_document: documentId, p_approve: approve, p_reason: reason?.trim() || null }),
+  documentExtraAdd: (projectId: string, name: string, description: string | null, required: boolean) =>
+    rpc<string>("document_extra_add", { p_project: projectId, p_name: name.trim(), p_description: description?.trim() || null, p_required: required }),
+  documentExtraUpdate: (documentId: string, name: string, description: string | null, required: boolean) =>
+    rpc<void>("document_extra_update", { p_document: documentId, p_name: name.trim(), p_description: description?.trim() || null, p_required: required }),
+  documentRemove: (documentId: string, reason: string) => rpc<void>("document_remove", { p_document: documentId, p_reason: reason.trim() }),
+  documentRestore: (documentId: string) => rpc<void>("document_restore", { p_document: documentId }),
+  documentTypes: () => rpc<DocumentTypesList>("document_types_list"),
+  documentTypeSave: (id: string | null, name: string, description: string | null, required: boolean, serviceCodes: string[]) =>
+    rpc<string>("document_type_save", { p_id: id, p_name: name.trim(), p_description: description?.trim() || null, p_required: required, p_service_codes: serviceCodes }),
+  documentTypeDelete: (id: string) => rpc<void>("document_type_delete", { p_id: id }),
+  documentTypesReorder: (ids: string[]) => rpc<void>("document_types_reorder", { p_ids: ids }),
   // Entregas do projeto e rodadas de revisão (regras validadas no banco)
   projectDeliveries: (projectId: string) => rpc<DeliveryBoard>("project_deliveries", { p_project: projectId }),
   deliveryProjects: () => rpc<DeliveryProjectSummary[]>("delivery_projects"),

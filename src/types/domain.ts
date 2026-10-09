@@ -761,11 +761,35 @@ export interface RevisionEntry {
 
 /* ---------- Prazo de retorno do cliente ---------- */
 export interface ClientWait {
-  id: string; project_id: string; source: "delivery" | "task"; label: string; project_service_id: string | null; task_id: string | null;
+  id: string; project_id: string; source: "delivery" | "task" | "documents"; label: string; project_service_id: string | null; task_id: string | null;
   started_on: string; due_on: string; returned_on: string | null; close_source: "portal" | "team" | "status" | "cancelled" | null;
   state: "open" | "late" | "closed"; late_days: number; waived_until: string | null; waive_reason: string | null;
   returned_note: string | null; returned_by: string | null; can_return: boolean; can_waive: boolean;
   project_name?: string; project_code?: string | null; client_name?: string | null;
 }
 export interface ProjectClientWaits { days: number; enabled: boolean; total_late_days: number; waits: ClientWait[] }
-export interface ClientWaitSettings { tenant_id: string; enabled: boolean; days: number }
+export interface ClientWaitSettings { tenant_id: string; enabled: boolean; days: number; documents_days?: number }
+
+/* ---------- Documentos do cliente ---------- */
+export type DocStatus = "pending" | "submitted" | "approved" | "rejected";
+export interface DocFile {
+  id: string; round: number; kind: "file" | "link"; name: string; path: string | null; mime: string | null; size: number | null; url: string | null;
+  created_at: string; on_behalf: boolean; by: string | null; mine: boolean;
+}
+export interface ProjectDocument {
+  id: string; source: "standard" | "extra"; name: string; description: string | null; required: boolean; status: DocStatus; round: number;
+  reject_reason: string | null; submitted_at: string | null; reviewed_at: string | null; reviewed_by: string | null; requested_by: string | null;
+  created_at: string; removed_at: string | null; removed_reason: string | null; removed_auto: boolean; files: DocFile[]; history: DocFile[];
+}
+export interface DocProgress {
+  total: number; approved: number; submitted: number; rejected: number; pending: number;
+  required_total: number; required_sent: number; percent: number | null;
+}
+export interface DocumentsBoard {
+  project: { id: string; name: string; code: string | null; status: string };
+  is_client: boolean; is_staff: boolean; can_upload: boolean; can_review: boolean; can_manage: boolean;
+  progress: DocProgress; wait: ClientWait | null; documents_days: number; items: ProjectDocument[]; removed: ProjectDocument[];
+}
+export interface DocProjectSummary { id: string; name: string; code: string | null; status: string; progress: DocProgress }
+export interface DocumentType { id: string; name: string; description: string | null; required: boolean; sort_order: number; service_codes: string[] | null }
+export interface DocumentTypesList { can_edit: boolean; types: DocumentType[]; services: { code: string; name: string; family: string }[] }
