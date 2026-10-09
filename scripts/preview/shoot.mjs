@@ -410,6 +410,11 @@ const scenes = [
   { name: "docs-settings-edit", url: "/configuracoes?aba=documentos&as=global_admin", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(500); await p.getByRole("button", { name: /Editar Convenção/ }).click(); await p.waitForTimeout(300); } },
   { name: "docs-client-yes", url: "/documentos?as=client", vp: DESKTOP, full: true, action: async (p) => { await skipNps(p); await p.getByRole("radio", { name: "Sim" }).click(); await p.waitForTimeout(600); } },
   { name: "docs-home-client", url: "/?as=client", vp: DESKTOP, full: true, action: skipNps },
+  { name: "tabs-settings-narrow", url: "/configuracoes?aba=cs&as=global_admin", vp: { width: 1300, height: 500 }, light: true },
+  { name: "tabs-settings-end", url: "/configuracoes?aba=documentos&as=global_admin", vp: { width: 1300, height: 500 }, light: true },
+  { name: "tabs-settings-wide", url: "/configuracoes?as=global_admin", vp: { width: 1600, height: 400 } },
+  { name: "tabs-sched-narrow", url: "/projetos/pr1/cronograma?as=leader", vp: { width: 1024, height: 900 } },
+  { name: "m-tabs-settings", url: "/configuracoes?as=global_admin", vp: MOBILE },
 ];
 
 const browser = await chromium.launch();

@@ -1,7 +1,7 @@
 // Componentes base: Button, Field, Input, Select, Segmented, Badge, StatusBadge,
 // Card, MetricCard, Avatar, ProgressBar, Tabs, FilterBar, EmptyState, Skeleton, Alert.
 import {
-  forwardRef, useId,
+  forwardRef, useEffect, useId, useRef, useState,
   type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes,
 } from "react";
 import { Icon, type IconName } from "./Icon";
@@ -185,28 +185,69 @@ export function ProgressBar({ value, label, tone, thin }: { value: number; label
 }
 
 /* ---------- Tabs ---------- */
+/** Abas em uma linha. Quando não cabem, a faixa rola e mostra setas nas pontas; a aba ativa fica sempre visível. */
 export function Tabs<T extends string>({ value, onChange, tabs, label }: {
   value: T; onChange: (v: T) => void; tabs: { value: T; label: string; count?: number }[]; label: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setEdge({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", update);
+    return () => { el.removeEventListener("scroll", update); ro?.disconnect(); window.removeEventListener("resize", update); };
+  }, [tabs.length]);
+
+  // A aba ativa sempre à vista (inclusive quando vem pelo link ?aba=).
+  useEffect(() => {
+    const el = ref.current;
+    const active = el?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!el || !active) return;
+    const pad = 32;
+    if (active.offsetLeft < el.scrollLeft + pad) el.scrollTo({ left: Math.max(0, active.offsetLeft - pad), behavior: "smooth" });
+    else if (active.offsetLeft + active.offsetWidth > el.scrollLeft + el.clientWidth - pad)
+      el.scrollTo({ left: active.offsetLeft + active.offsetWidth - el.clientWidth + pad, behavior: "smooth" });
+  }, [value]);
+
+  const nudge = (dir: -1 | 1) => { const el = ref.current; if (el) el.scrollBy({ left: dir * Math.max(160, el.clientWidth * 0.6), behavior: "smooth" }); };
+
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
-      {tabs.map((t) => (
-        <button
-          key={t.value} type="button" role="tab" className="tab" aria-selected={value === t.value}
-          tabIndex={value === t.value ? 0 : -1}
-          onClick={() => onChange(t.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-            const i = tabs.findIndex((x) => x.value === value);
-            const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
-            onChange(next.value);
-            (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[tabs.indexOf(next)])?.focus();
-          }}
-        >
-          {t.label}
-          {t.count != null && <span className="tab__count num">{t.count}</span>}
+    <div className={cx("tabs-wrap", edge.left && "has-left", edge.right && "has-right")}>
+      {edge.left && (
+        <button type="button" className="tabs__nav is-left" tabIndex={-1} aria-hidden="true" onClick={() => nudge(-1)}>
+          <Icon name="chevronRight" size={16} />
         </button>
-      ))}
+      )}
+      <div ref={ref} className="tabs" role="tablist" aria-label={label}>
+        {tabs.map((t) => (
+          <button
+            key={t.value} type="button" role="tab" className="tab" aria-selected={value === t.value}
+            tabIndex={value === t.value ? 0 : -1}
+            onClick={() => onChange(t.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+              const i = tabs.findIndex((x) => x.value === value);
+              const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+              onChange(next.value);
+              (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[tabs.indexOf(next)])?.focus();
+            }}
+          >
+            {t.label}
+            {t.count != null && <span className="tab__count num">{t.count}</span>}
+          </button>
+        ))}
+      </div>
+      {edge.right && (
+        <button type="button" className="tabs__nav is-right" tabIndex={-1} aria-hidden="true" onClick={() => nudge(1)}>
+          <Icon name="chevronRight" size={16} />
+        </button>
+      )}
     </div>
   );
 }

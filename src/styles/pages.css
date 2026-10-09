@@ -1483,7 +1483,9 @@ fieldset:disabled .input, fieldset:disabled .segmented { opacity: 0.75; }
 
 /* Configurações */
 .settings__bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
-.settings__bar .tabs { flex: 1; min-width: 0; }
+/* Unidade em cima, à direita; as abas ocupam a largura toda embaixo. */
+.settings__bar > .tabs-wrap { flex: 1 1 100%; order: 2; }
+.settings__bar .settings__unit { order: 1; margin-left: auto; }
 .settings__unit, .pmonth__unit { width: min(280px, 100%); }
 .pmonth__unit { margin-left: auto; }
 .settings__grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s4); align-items: start; }

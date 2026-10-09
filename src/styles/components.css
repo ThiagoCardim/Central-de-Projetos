@@ -143,7 +143,17 @@ button.metric:hover { border-color: var(--border-strong); }
 .progress--thin { height: 4px; }
 
 /* ---------- Tabs ---------- */
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tabs-wrap { position: relative; min-width: 0; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; }
+.tabs-wrap.has-left .tabs { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 56px); mask-image: linear-gradient(to right, transparent 0, #000 56px); }
+.tabs-wrap.has-right .tabs { -webkit-mask-image: linear-gradient(to left, transparent 0, #000 56px); mask-image: linear-gradient(to left, transparent 0, #000 56px); }
+.tabs-wrap.has-left.has-right .tabs { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%); }
+.tabs__nav { position: absolute; top: 50%; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; margin-top: -15px;
+  border: 1px solid var(--border); border-radius: 50%; background: var(--card); color: var(--text-2); cursor: pointer; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.2)); }
+.tabs__nav:hover { color: var(--text); border-color: var(--border-strong); }
+.tabs__nav.is-left { left: 0; }
+.tabs__nav.is-left .icon, .tabs__nav.is-left svg { transform: rotate(180deg); }
+.tabs__nav.is-right { right: 0; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
