@@ -392,6 +392,51 @@ const caccessBoard = () => {
       can_edit: manage && x.profile_id !== pr?.id && (!client || !x.is_primary) })) };
 };
 
+// Reuniões
+const iso = (days: number, hm: string) => { const x = new Date(Date.now() + days * 86400000); const k = x.toISOString().slice(0, 10); return new Date(`${k}T${hm}:00-03:00`).toISOString(); };
+const HOST_NAMES: Record<string, string> = { "p-c1": "Beatriz Nogueira", "p-ld": "Rafael Andrade", "p-pj": "Camila Rocha" };
+const host = (id: string) => ({ id, name: HOST_NAMES[id] ?? "Equipe", avatar_url: null });
+let MEETINGS: any[] = [
+  { id: "mt1", project_id: "pr1", project_name: "Residência Souza", kind: "presentation", kind_label: "Apresentação de etapa", title: "Apresentação · Estudo preliminar · Residência Souza",
+    notes: "Apresentar o estudo preliminar e colher os ajustes da área social.", task: { id: "t-ep", name: "Estudo preliminar" }, host: host("p-c1"),
+    starts_at: iso(2, "14:00"), ends_at: iso(2, "15:00"), state: "scheduled", booked_via: "portal", booked_by: "Fernanda Souza", guest: null,
+    record: true, transcribe: true, meet_uri: "https://meet.google.com/abc-defg-hij", google_status: "created", google_error: null, transcript_url: null, recording_url: null,
+    artifacts_status: "waiting", cancel_reason: null, cancelled_at: null, can_cancel: true, can_manage: true },
+  { id: "mt2", project_id: "pr1", project_name: "Residência Souza", kind: "alignment", kind_label: "Reunião de alinhamento", title: "Reunião de alinhamento · Residência Souza",
+    notes: null, task: null, host: host("p-ld"), starts_at: iso(6, "10:00"), ends_at: iso(6, "11:00"), state: "scheduled", booked_via: "link", booked_by: "Marcos Souza",
+    guest: { name: "Marcos Souza", email: "marcos.souza@email.com", phone: "(11) 98888-1234" }, record: false, transcribe: true, meet_uri: null, google_status: "not_connected",
+    google_error: null, transcript_url: null, recording_url: null, artifacts_status: "waiting", cancel_reason: null, cancelled_at: null, can_cancel: true, can_manage: true },
+  { id: "mt3", project_id: "pr1", project_name: "Residência Souza", kind: "alignment", kind_label: "Reunião de alinhamento", title: "Reunião de alinhamento · Residência Souza",
+    notes: "Programa de necessidades e prioridades do casal.", task: null, host: host("p-ld"), starts_at: iso(-8, "16:00"), ends_at: iso(-8, "17:00"), state: "past",
+    booked_via: "team", booked_by: "Rafael Andrade", guest: null, record: true, transcribe: true, meet_uri: null, google_status: "created", google_error: null,
+    transcript_url: "https://docs.google.com/document/d/x/edit", recording_url: "https://drive.google.com/file/d/y/view", artifacts_status: "done",
+    cancel_reason: null, cancelled_at: null, can_cancel: false, can_manage: true },
+  { id: "mt4", project_id: "pr1", project_name: "Residência Souza", kind: "presentation", kind_label: "Apresentação de etapa", title: "Apresentação · Levantamento · Residência Souza",
+    notes: null, task: { id: "t-lv", name: "Levantamento e briefing" }, host: host("p-c1"), starts_at: iso(-1, "09:30"), ends_at: iso(-1, "10:30"), state: "past",
+    booked_via: "portal", booked_by: "Fernanda Souza", guest: null, record: false, transcribe: true, meet_uri: null, google_status: "created", google_error: null,
+    transcript_url: null, recording_url: null, artifacts_status: "waiting", cancel_reason: null, cancelled_at: null, can_cancel: false, can_manage: true },
+  { id: "mt5", project_id: "pr1", project_name: "Residência Souza", kind: "alignment", kind_label: "Reunião de alinhamento", title: "Reunião de alinhamento · Residência Souza",
+    notes: null, task: null, host: host("p-pj"), starts_at: iso(-4, "11:00"), ends_at: iso(-4, "12:00"), state: "cancelled", booked_via: "portal", booked_by: "Fernanda Souza", guest: null,
+    record: false, transcribe: true, meet_uri: null, google_status: "created", google_error: null, transcript_url: null, recording_url: null, artifacts_status: "waiting",
+    cancel_reason: "Remarcar depois da aprovação do estudo.", cancelled_at: iso(-5, "18:00"), can_cancel: false, can_manage: true },
+];
+const meetingView = (m: any) => { const client = me()?.role === "client"; return { ...m, guest: client ? null : m.guest, can_manage: !client && m.can_manage,
+  transcript_url: client ? null : m.transcript_url, recording_url: client ? null : m.recording_url, google_error: client ? null : m.google_error }; };
+const MEETING_HOSTS = [
+  { id: "p-c1", name: "Beatriz Nogueira", avatar_url: null, role: "Projeto Arquitetônico" },
+  { id: "p-ld", name: "Rafael Andrade", avatar_url: null, role: "Liderança de Arquitetura" },
+  { id: "p-pj", name: "Camila Rocha", avatar_url: null, role: "Projeto Estrutural, Projeto Elétrico" },
+];
+const mockSlots = () => { const out: string[] = []; for (let d = 1; d <= 12; d++) { const x = new Date(Date.now() + d * 86400000); const wd = x.getDay(); if (wd === 0 || wd === 6) continue;
+  for (const hm of ["09:00", "09:30", "10:00", "11:00", "14:00", "14:30", "15:00", "16:30"]) if ((d + hm.length + Number(hm.slice(0, 2))) % 3 !== 0) out.push(iso(d, hm)); } return out; };
+let AVAIL: any = { bookable: true, rules: [1, 2, 3, 4].flatMap((wd) => [{ weekday: wd, start: "09:00", end: "12:00" }, { weekday: wd, start: "14:00", end: "18:00" }]).concat([{ weekday: 5, start: "09:00", end: "12:00" }]),
+  blocks: [{ id: "bl1", starts_at: iso(9, "00:00"), ends_at: iso(11, "00:00"), reason: "Visita a obra em Caldas" }] };
+let MLINKS: any[] = [
+  { id: "ml1", token: "Xk2p9QmLr7aTz3vB0cWnYe4d", kind: "alignment", kind_label: "Reunião de alinhamento", host: "Rafael Andrade", task: null, created_by: "Rafael Andrade",
+    created_at: iso(-3, "10:00"), expires_at: iso(11, "10:00"), used_at: iso(-2, "19:12"), state: "used" },
+];
+let MSET: any = { alignment_minutes: 60, presentation_minutes: 60, min_notice_hours: 24, horizon_days: 30, buffer_minutes: 15, slot_step_minutes: 30, share_with_client: false };
+
 // "Preciso de ajuda"
 const SUPPORT_TPL = "Olá, {lider}! Aqui é {cliente}, do projeto {projeto}. Estou precisando de uma ajuda sobre {assunto}. {mensagem} Consegue me ajudar?";
 let SUPPORT_CATS: any[] = [
@@ -733,6 +778,27 @@ function rpc(name: string, _args?: any) {
       if (w) Object.assign(w, { waived_until: _args.p_until, waive_reason: _args.p_reason, late_days: 0 }); return delay({ data: { refunded_days: back }, error: null }, 250); }
     case "client_wait_settings_get": return delay({ data: { tenant_id: _args.p_tenant, ...CW_SETTINGS }, error: null }, 120);
     case "client_wait_settings_save": CW_SETTINGS = { enabled: _args.p_enabled, days: _args.p_days, documents_days: _args.p_documents_days ?? CW_SETTINGS.documents_days }; return delay({ data: null, error: null }, 200);
+    case "project_meetings": return delay({ data: { can_schedule: true, can_share_link: me()?.role !== "client", has_hosts: true, google: "connected",
+      meetings: MEETINGS.filter((m) => m.project_id === _args.p_project).map(meetingView) }, error: null }, 150);
+    case "my_meetings": return delay({ data: MEETINGS.filter((m) => m.state === "scheduled" || m.state === "live").sort((a, b) => a.starts_at.localeCompare(b.starts_at)).map(meetingView), error: null }, 150);
+    case "meeting_options": return delay({ data: { project: { id: _args.p_project, name: "Residência Souza", status: "in_progress" }, is_client: me()?.role === "client", can_record: me()?.role !== "client",
+      kinds: [{ kind: "alignment", label: "Reunião de alinhamento", minutes: MSET.alignment_minutes }, { kind: "presentation", label: "Apresentação de etapa", minutes: MSET.presentation_minutes }],
+      hosts: MEETING_HOSTS, tasks: [{ id: "t-ep", name: "Estudo preliminar", service: "Projeto Arquitetônico" }, { id: "t-ap", name: "Anteprojeto", service: "Projeto Arquitetônico" }, { id: "t-ee", name: "Estudo estrutural", service: "Projeto Estrutural" }] }, error: null }, 150);
+    case "project_meeting_links": return delay({ data: MLINKS, error: null }, 120);
+    case "meeting_link_create": { const l = { id: `ml${Date.now()}`, token: "pQ7rT2vX9mK4sL8nB3cZ1dWf", kind: _args.p_kind, kind_label: _args.p_kind === "presentation" ? "Apresentação de etapa" : "Reunião de alinhamento",
+      host: MEETING_HOSTS.find((h) => h.id === _args.p_host)?.name, task: null, created_by: me()?.name, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + _args.p_days * 86400000).toISOString(), used_at: null, state: "open" };
+      MLINKS = [l, ...MLINKS]; return delay({ data: { id: l.id, token: l.token, expires_at: l.expires_at }, error: null }, 200); }
+    case "meeting_link_disable": MLINKS = MLINKS.map((l) => (l.id === _args.p_link ? { ...l, state: "off" } : l)); return delay({ data: null, error: null }, 120);
+    case "meeting_set_link": MEETINGS = MEETINGS.map((m) => (m.id === _args.p_meeting ? { ...m, meet_uri: _args.p_url, google_status: "manual" } : m)); return delay({ data: null, error: null }, 150);
+    case "meeting_set_artifacts": MEETINGS = MEETINGS.map((m) => (m.id === _args.p_meeting ? { ...m, transcript_url: _args.p_transcript, recording_url: _args.p_recording, artifacts_status: "done" } : m)); return delay({ data: null, error: null }, 150);
+    case "my_availability": return delay({ data: { ...AVAIL, upcoming: 2, google: "connected", settings: MSET }, error: null }, 150);
+    case "availability_save": AVAIL = { ...AVAIL, rules: _args.p_rules, bookable: _args.p_bookable }; return delay({ data: null, error: null }, 200);
+    case "availability_block_add": AVAIL = { ...AVAIL, blocks: [...AVAIL.blocks, { id: `bl${Date.now()}`, starts_at: _args.p_starts, ends_at: _args.p_ends, reason: _args.p_reason }].sort((a: any, b: any) => a.starts_at.localeCompare(b.starts_at)) }; return delay({ data: "x", error: null }, 150);
+    case "availability_block_remove": AVAIL = { ...AVAIL, blocks: AVAIL.blocks.filter((b: any) => b.id !== _args.p_id) }; return delay({ data: null, error: null }, 150);
+    case "meeting_settings_get": return delay({ data: { tenant_id: _args.p_tenant, ...MSET, can_connect: me()?.role === "global_admin",
+      google: { status: "connected", email: "reunioes@youconprojetos.com.br", connected_at: iso(-12, "10:20"), last_error: null, connected_by: "Thiago Cardim" } }, error: null }, 150);
+    case "meeting_settings_save": MSET = { ...MSET, ..._args.p }; return delay({ data: null, error: null }, 200);
+    case "google_disconnect": return delay({ data: null, error: null }, 200);
     case "project_client_access": return delay({ data: caccessBoard(), error: null }, 150);
     case "client_access_update": { const x = CACCESS.find((y) => y.id === _args.p_contact); if (x) Object.assign(x, { relation: _args.p_relation, scope: _args.p_all ? "all" : "projects", can_decide: _args.p_decide, projects: _args.p_all ? null : 1 }); return delay({ data: null, error: null }, 200); }
     case "client_access_remove": CACCESS = CACCESS.filter((y) => y.id !== _args.p_contact); return delay({ data: null, error: null }, 200);
@@ -1553,6 +1619,26 @@ export function createClient() {
     },
     functions: {
       invoke: (_name: string, { body }: any) => {
+        if (_name === "meetings") {
+          if (body.action === "slots") return delay({ data: { minutes: 60, slots: mockSlots() }, error: null }, 300);
+          if (body.action === "sync") return delay({ data: { checked: 0, results: {} }, error: null }, 300);
+          if (body.action === "book") {
+            const h = host(body.host_id);
+            MEETINGS = [{ ...MEETINGS[0], id: `mt${Date.now()}`, kind: body.kind, kind_label: body.kind === "presentation" ? "Apresentação de etapa" : "Reunião de alinhamento", task: null, notes: body.notes,
+              host: h, starts_at: body.starts_at, ends_at: new Date(new Date(body.starts_at).getTime() + 3600000).toISOString(), record: body.record, booked_via: me()?.role === "client" ? "portal" : "team", booked_by: me()?.name }, ...MEETINGS];
+            return delay({ data: { id: "x", meet_uri: "https://meet.google.com/new-meet-xyz", google_status: "created" }, error: null }, 500);
+          }
+          if (body.action === "cancel") { MEETINGS = MEETINGS.map((m) => (m.id === body.meeting_id ? { ...m, state: "cancelled", can_cancel: false, cancel_reason: body.reason } : m)); return delay({ data: { cancelled: true }, error: null }, 300); }
+          if (body.action === "set_record") { MEETINGS = MEETINGS.map((m) => (m.id === body.meeting_id ? { ...m, record: body.record } : m)); return delay({ data: { record: body.record }, error: null }, 300); }
+          if (body.action === "link_info") {
+            if (body.token === "expirado") return delay({ data: null, error: { context: new Response(JSON.stringify({ message: "Este link de agendamento expirou. Peça um novo à equipe." })) } }, 300);
+            return delay({ data: { project_name: "Residência Souza", kind: "presentation", kind_label: "Apresentação de etapa", task_name: "Estudo preliminar", host: { name: "Beatriz Nogueira", avatar_url: null },
+              minutes: 60, expires_at: iso(10, "10:00"), slots: mockSlots() }, error: null }, 400);
+          }
+          if (body.action === "link_book") return delay({ data: { title: "Apresentação · Estudo preliminar · Residência Souza", starts_at: body.starts_at, ends_at: body.starts_at, when: "quinta-feira, 16 de outubro às 14:00",
+            host_name: "Beatriz Nogueira", meet_uri: "https://meet.google.com/abc-defg-hij", google_status: "created" }, error: null }, 500);
+        }
+        if (_name === "google-oauth") return delay({ data: null, error: { context: new Response(JSON.stringify({ message: "Faltam as credenciais do Google no servidor (GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET)." })) } }, 300);
         if (body.action === "invite" && profiles.some((p) => p.email === body.email)) {
           return delay({ data: null, error: { context: new Response(JSON.stringify({ message: "Já existe um usuário com este e-mail" })) } }, 500);
         }

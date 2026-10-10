@@ -73,6 +73,8 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
       navigate(isClient ? `/documentos?projeto=${n.data.project_id}` : `/projetos/${n.data.project_id}/documentos`);
     else if (n.kind.startsWith("delivery_") && typeof n.data?.project_id === "string")
       navigate(isClient ? `/entregas?projeto=${n.data.project_id}` : `/projetos/${n.data.project_id}/entregas`);
+    else if (n.kind.startsWith("meeting_") && typeof n.data?.project_id === "string")
+      navigate(isClient ? "/reunioes" : `/projetos/${n.data.project_id}#reunioes`);
     else if (n.kind === "approval_rejected" && typeof n.data?.project_id === "string") navigate(`/projetos/${n.data.project_id}`);
     else if (n.entity_type === "projects" && n.entity_id) navigate(isClient ? "/" : `/projetos/${n.entity_id}`);
     else if (n.entity_type === "project_tasks") navigate("/cronograma");
@@ -98,7 +100,7 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
              items.map((n) => (
               <button key={n.id} type="button" className={cx("nitem", !n.read_at && "is-unread")} onClick={() => openItem(n)}>
                 <span className={cx("nitem__icon", n.kind === "automation" && "is-auto")} aria-hidden="true">
-                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "adjustment_request" ? "refresh" : n.kind === "task_assigned" ? "user" : n.kind === "work_assigned" ? "checkCircle" : n.kind.startsWith("approval") ? "seal" : n.kind === "cs_alert" ? "alert" : n.kind === "nps_detractor" ? "trophy" : n.kind.startsWith("support_") ? "chat" : n.kind.startsWith("delivery_") ? "layers" : n.kind.startsWith("document_") ? "file" : n.kind.startsWith("client_wait_") ? "clock" : n.kind.startsWith("cs_") ? "headset" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
+                  <Icon name={n.kind === "automation" ? "zap" : n.kind === "adjustment_request" ? "refresh" : n.kind === "task_assigned" ? "user" : n.kind === "work_assigned" ? "checkCircle" : n.kind.startsWith("approval") ? "seal" : n.kind === "cs_alert" ? "alert" : n.kind === "nps_detractor" ? "trophy" : n.kind.startsWith("support_") ? "chat" : n.kind.startsWith("delivery_") ? "layers" : n.kind.startsWith("document_") ? "file" : n.kind.startsWith("client_wait_") ? "clock" : n.kind.startsWith("meeting_") ? "video" : n.kind.startsWith("cs_") ? "headset" : n.kind.startsWith("project") ? "folder" : "bell"} size={16} />
                 </span>
                 <span className="nitem__text">
                   <span className="nitem__title">{n.title}</span>

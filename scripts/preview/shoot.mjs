@@ -420,12 +420,24 @@ const scenes = [
     await p.getByPlaceholder("Nome completo").fill("Pedro Lima"); await p.getByPlaceholder("nome@email.com").fill("pedro@obra.com.br"); await p.getByPlaceholder("Ex.: Cônjuge, Sócio(a)").fill("Engenheiro da obra"); await p.waitForTimeout(200); } },
   { name: "access-remove", url: "/projetos/pr1?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(600); await p.getByRole("button", { name: /Remover acesso de Marcos/ }).click(); await p.waitForTimeout(300); } },
   { name: "access-client", url: "/?as=client", vp: DESKTOP, full: true, action: skipNps },
+  { name: "mtg-project", url: "/projetos/pr1?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(700); await p.locator("#reunioes").scrollIntoViewIfNeeded(); } , clip: "#reunioes" },
+  { name: "mtg-book", url: "/projetos/pr1?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(600); await p.getByRole("button", { name: "Agendar reunião" }).click(); await p.waitForTimeout(800); await p.locator(".slots__time").nth(2).click(); await p.waitForTimeout(200); } },
+  { name: "mtg-share", url: "/projetos/pr1?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(600); await p.getByRole("button", { name: "Link para o cliente" }).click(); await p.waitForTimeout(600); await p.getByRole("button", { name: "Criar link" }).click(); await p.waitForTimeout(500); } },
+  { name: "mtg-agenda", url: "/agenda?as=clt", vp: DESKTOP, full: true },
+  { name: "mtg-client-home", url: "/?as=client", vp: DESKTOP, full: true, action: async (p) => { await skipNps(p); } },
+  { name: "mtg-client-book", url: "/reunioes?as=client", vp: DESKTOP, action: async (p) => { await skipNps(p); await p.waitForTimeout(600); await p.getByRole("button", { name: "Agendar reunião" }).first().click(); await p.waitForTimeout(800); await p.locator(".mtghost").nth(1).click(); await p.waitForTimeout(600); } },
+  { name: "mtg-client-page", url: "/reunioes?as=client", vp: DESKTOP, full: true, action: async (p) => { await skipNps(p); } },
+  { name: "mtg-public", url: "/agendar/Xk2p9QmLr7aTz3vB0cWnYe4d", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(900); await p.locator(".slots__time").nth(1).click(); await p.waitForTimeout(200); } },
+  { name: "mtg-public-m", url: "/agendar/Xk2p9QmLr7aTz3vB0cWnYe4d", vp: MOBILE, full: true },
+  { name: "mtg-public-expired", url: "/agendar/expirado", vp: MOBILE },
+  { name: "mtg-settings", url: "/configuracoes?aba=reunioes&as=global_admin", vp: DESKTOP, full: true },
+  { name: "mtg-agenda-m", url: "/agenda?as=clt", vp: MOBILE, full: true },
 ];
 
 const browser = await chromium.launch();
 let failures = 0;
 for (const s of scenes.filter((x) => x.name.includes(filter))) {
-  const ctx = await browser.newContext({ viewport: s.vp, deviceScaleFactor: 1, colorScheme: s.light ? "light" : "dark", isMobile: s.vp.width < 768, hasTouch: s.vp.width < 768 });
+  const ctx = await browser.newContext({ viewport: s.vp, deviceScaleFactor: 1, colorScheme: s.light ? "light" : "dark", locale: "pt-BR", timezoneId: "America/Sao_Paulo", isMobile: s.vp.width < 768, hasTouch: s.vp.width < 768 });
   if (s.light) await ctx.addInitScript(() => localStorage.setItem("yc-theme", "light"));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   const page = await ctx.newPage();
@@ -434,7 +446,10 @@ for (const s of scenes.filter((x) => x.name.includes(filter))) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto(`http://localhost:4173${s.url}`);
   await page.waitForTimeout(900);
-  if (s.action) { await s.action(page); await page.waitForTimeout(500); }
+  if (s.action) {
+    try { await s.action(page); } catch (e) { errors.push(`ação: ${String(e.message ?? e).split("\n")[0]}`); }
+    await page.waitForTimeout(500);
+  }
   await page.screenshot({ path: path.join(shots, `${s.name}.png`), fullPage: !!s.full });
   if (errors.length) { failures++; console.log(`✗ ${s.name}\n   ${errors.join("\n   ")}`); }
   else console.log(`✓ ${s.name}`);

@@ -3,6 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
+  Meeting, MeetingKind, MeetingLink, MeetingOptions, MeetingSettings, MeetingSlots, MyAvailability, AvailabilityRule, ProjectMeetings, PublicBookResult, PublicMeetingLink,
   AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, ClientWait, ProjectClientWaits, ClientWaitSettings, DeliveryKind, DeliverySettingsRow, ProjectClientAccess, DocumentsBoard, DocProjectSummary, DocumentTypesList, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
@@ -21,11 +22,11 @@ async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-/** Chama a Edge Function admin-users e devolve a mensagem de erro do servidor quando houver. */
-async function adminUsers<T>(body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke("admin-users", { body });
+/** Chama uma Edge Function e devolve a mensagem de erro do servidor quando houver. */
+async function edgeFn<T>(name: string, body: Record<string, unknown>, fallback = "Não foi possível concluir. Nada foi alterado. Tente novamente."): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body });
   if (error) {
-    let message = "Não foi possível concluir. Nada foi alterado. Tente novamente.";
+    let message = fallback;
     const ctx = (error as { context?: Response }).context;
     if (ctx && typeof ctx.json === "function") {
       try {
@@ -37,6 +38,9 @@ async function adminUsers<T>(body: Record<string, unknown>): Promise<T> {
   }
   return data as T;
 }
+
+/** Chama a Edge Function admin-users e devolve a mensagem de erro do servidor quando houver. */
+const adminUsers = <T,>(body: Record<string, unknown>): Promise<T> => edgeFn<T>("admin-users", body);
 
 const PROFILE_COLUMNS =
   "id, auth_user_id, tenant_id, name, email, role, employment_type, client_type, status, phone, avatar_url, invited_at, last_seen_at, created_at, sector_id, function_ids, bio";
@@ -841,6 +845,38 @@ export const api = {
     const { error } = await supabase.from("task_library").update({ active }).eq("id", id);
     if (error) throw toUserError(error);
   },
+
+  // ---------- Reuniões ----------
+  projectMeetings: (projectId: string) => rpc<ProjectMeetings>("project_meetings", { p_project: projectId }),
+  myMeetings: () => rpc<Meeting[]>("my_meetings"),
+  meetingOptions: (projectId: string) => rpc<MeetingOptions>("meeting_options", { p_project: projectId }),
+  meetingSlots: (projectId: string, hostId: string, kind: MeetingKind) =>
+    edgeFn<MeetingSlots>("meetings", { action: "slots", project_id: projectId, host_id: hostId, kind }, "Não foi possível carregar os horários. Tente novamente."),
+  meetingBook: (input: { project_id: string; host_id: string; kind: MeetingKind; starts_at: string; task_id: string | null; notes: string | null; record: boolean }) =>
+    edgeFn<{ id: string; meet_uri: string | null; google_status: string }>("meetings", { action: "book", ...input }),
+  meetingCancel: (meetingId: string, reason: string | null) => edgeFn<{ cancelled: boolean }>("meetings", { action: "cancel", meeting_id: meetingId, reason }),
+  meetingSetRecord: (meetingId: string, record: boolean) => edgeFn<{ record: boolean }>("meetings", { action: "set_record", meeting_id: meetingId, record }),
+  meetingSync: (projectId: string) => edgeFn<{ checked: number }>("meetings", { action: "sync", project_id: projectId }),
+  meetingSetLink: (meetingId: string, url: string | null) => rpc<void>("meeting_set_link", { p_meeting: meetingId, p_url: url?.trim() || null }),
+  meetingSetArtifacts: (meetingId: string, transcript: string | null, recording: string | null) =>
+    rpc<void>("meeting_set_artifacts", { p_meeting: meetingId, p_transcript: transcript?.trim() || null, p_recording: recording?.trim() || null }),
+  meetingLinkCreate: (projectId: string, hostId: string, kind: MeetingKind, taskId: string | null, days: number) =>
+    rpc<{ id: string; token: string; expires_at: string }>("meeting_link_create", { p_project: projectId, p_host: hostId, p_kind: kind, p_task: taskId, p_days: days }),
+  projectMeetingLinks: (projectId: string) => rpc<MeetingLink[]>("project_meeting_links", { p_project: projectId }),
+  meetingLinkDisable: (linkId: string) => rpc<void>("meeting_link_disable", { p_link: linkId }),
+  publicMeetingLink: (token: string) => edgeFn<PublicMeetingLink>("meetings", { action: "link_info", token }, "Não foi possível abrir este link de agendamento."),
+  publicMeetingBook: (input: { token: string; starts_at: string; name: string; email: string; phone: string | null; notes: string | null }) =>
+    edgeFn<PublicBookResult>("meetings", { action: "link_book", ...input }, "Não foi possível marcar a reunião. Tente novamente."),
+  myAvailability: () => rpc<MyAvailability>("my_availability"),
+  availabilitySave: (rules: AvailabilityRule[], bookable: boolean) => rpc<void>("availability_save", { p_rules: rules, p_bookable: bookable }),
+  availabilityBlockAdd: (startsAt: string, endsAt: string, reason: string | null) =>
+    rpc<string>("availability_block_add", { p_starts: startsAt, p_ends: endsAt, p_reason: reason?.trim() || null }),
+  availabilityBlockRemove: (id: string) => rpc<void>("availability_block_remove", { p_id: id }),
+  meetingSettings: (tenantId: string) => rpc<MeetingSettings>("meeting_settings_get", { p_tenant: tenantId }),
+  meetingSettingsSave: (tenantId: string, s: Omit<MeetingSettings, "tenant_id" | "can_connect" | "google">) =>
+    rpc<void>("meeting_settings_save", { p_tenant: tenantId, p: s }),
+  googleConnect: (returnTo: string) => edgeFn<{ url: string }>("google-oauth", { action: "start", return_to: returnTo }),
+  googleDisconnect: () => rpc<void>("google_disconnect"),
 
   // ---------- Equipe ----------
   async teamWorkload(tenantId: string | null): Promise<{ user_id: string; project_role: string; project: { id: string; name: string; status: string } | null }[]> {

@@ -39,3 +39,11 @@ uri = "pg-functions://postgres/public/custom_access_token_hook"
 
 [functions.admin-users]
 verify_jwt = true
+
+# Link público de agendamento e retorno do OAuth do Google não trazem o JWT;
+# as funções validam o usuário pelas RPCs.
+[functions.meetings]
+verify_jwt = false
+
+[functions.google-oauth]
+verify_jwt = false

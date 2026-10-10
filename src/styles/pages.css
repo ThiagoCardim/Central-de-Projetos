@@ -2450,3 +2450,124 @@ a.docmini:hover .docbar { box-shadow: 0 0 0 2px var(--brand-pastel); }
 }
 /* Na coluna lateral do projeto: ações sempre abaixo do nome. */
 .detail-grid aside .caccess__row, .detail-side .caccess__row { flex-wrap: wrap; }
+
+/* ---------- Reuniões ---------- */
+.mtgcard { scroll-margin-top: calc(var(--topbar-h) + var(--s4)); }
+.mtgcard__actions { gap: var(--s1); flex-wrap: wrap; justify-content: flex-end; }
+.mtgcard__body { gap: var(--s3); }
+.mtgcard__sub { margin: var(--s2) 0 0; font-size: var(--fs-label); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.mtgcard__more { justify-self: start; background: none; border: 0; padding: 0; cursor: pointer; }
+.mtg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mtg { display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3) 0; border-top: 1px solid var(--border); }
+.mtg:first-child { border-top: 0; padding-top: 0; }
+.mtg__date { flex: none; width: 52px; display: grid; justify-items: center; gap: 1px; padding: 6px 0 7px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); line-height: 1.1; }
+.mtg__wd, .mtg__mm { font-size: var(--fs-label); font-weight: 700; letter-spacing: .06em; color: var(--text-3); }
+.mtg__dd { font-size: 20px; font-weight: 700; }
+.mtg.is-live .mtg__date, .mtg.is-scheduled .mtg__date { border-color: var(--brand-pastel-hover); background: var(--brand-pastel); }
+.mtg.is-live .mtg__wd, .mtg.is-live .mtg__mm, .mtg.is-scheduled .mtg__wd, .mtg.is-scheduled .mtg__mm { color: var(--brand-text); }
+.mtg.is-cancelled { opacity: .62; }
+.mtg.is-cancelled .mtg__title b { text-decoration: line-through; text-decoration-color: var(--text-3); }
+.mtg__body { flex: 1 1 0; min-width: 0; display: grid; gap: 4px; }
+.mtg__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: var(--fs-body); }
+.mtg__meta { display: flex; flex-wrap: wrap; align-items: center; font-size: var(--fs-sub); color: var(--text-2); min-width: 0; }
+.mtg__who { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-sub); color: var(--text-2); }
+.mtg__who b { color: var(--text); font-weight: 600; }
+.mtg__guest { display: flex; align-items: center; gap: 6px; margin: 0; }
+.mtg__notes { margin: 2px 0 0; padding: var(--s2) var(--s3); border-radius: 10px; background: var(--surface); font-size: var(--fs-sub); color: var(--text-2); white-space: pre-line; }
+.mtg__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.mtg__tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--r-pill); background: var(--neutral-pastel); font-size: 11px; color: var(--text-2); }
+.mtg__tag.is-rec { background: var(--brand-pastel); color: var(--brand-text); }
+.mtg__tag.is-off { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-3); }
+.mtg__note { margin-top: 4px; }
+.mtg__note .link { background: none; border: 0; padding: 0; cursor: pointer; font-size: inherit; }
+.mtg__warn { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--warning-text); }
+.mtg__files { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: 4px; }
+.mtg__actions { flex: none; display: flex; align-items: center; gap: 2px; }
+.mtg__list { container-type: inline-size; }
+/* Em cards estreitos, os botões com texto descem para baixo da reunião; só ícones ficam ao lado. */
+@container (max-width: 600px) {
+  .mtg:has(.mtg__actions > :not(.btn--icon)) { flex-wrap: wrap; }
+  .mtg:has(.mtg__actions > :not(.btn--icon)) .mtg__body { flex-basis: calc(100% - 64px); }
+  .mtg:has(.mtg__actions > :not(.btn--icon)) .mtg__actions { width: 100%; padding-left: 64px; flex-wrap: wrap; }
+}
+
+/* Agendar */
+.mtgbook { gap: var(--s4); }
+.mtghosts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s2); }
+.mtghost { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s3); min-height: 52px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.mtghost:hover { border-color: var(--border-strong); }
+.mtghost.is-on { border-color: var(--brand); background: var(--brand-pastel); }
+.mtghost__txt { display: grid; gap: 1px; min-width: 0; }
+.mtghost__txt b { font-size: var(--fs-body); font-weight: 600; }
+.mtghost__txt small { font-size: 11px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slots { display: grid; gap: var(--s3); }
+.slots__days { display: flex; gap: var(--s2); overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.slots__day { flex: none; width: 76px; display: grid; justify-items: center; gap: 1px; padding: var(--s2) 0; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; line-height: 1.15; }
+.slots__day:hover { border-color: var(--border-strong); }
+.slots__day.is-on { border-color: var(--brand); background: var(--brand-pastel); }
+.slots__day.has-pick:not(.is-on) { border-color: var(--brand-pastel-hover); }
+.slots__wd, .slots__mm { font-size: var(--fs-label); font-weight: 700; letter-spacing: .06em; color: var(--text-3); }
+.slots__day.is-on .slots__wd, .slots__day.is-on .slots__mm { color: var(--brand-text); }
+.slots__dd { font-size: 18px; font-weight: 700; }
+.slots__n { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+.slots__times { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: var(--s2); }
+.slots__time { height: 36px; border-radius: var(--r-control); border: 1px solid var(--border); background: var(--card); color: var(--text); font-weight: 600; font-size: var(--fs-body); cursor: pointer; }
+.slots__time:hover { border-color: var(--brand); color: var(--brand-text); }
+.slots__time.is-on { background: var(--brand-gradient); border-color: transparent; color: var(--text-on-brand); }
+.slots__tz { margin: 0; }
+.slots__empty { display: grid; gap: var(--s2); justify-items: start; padding: var(--s4); border-radius: 12px; border: 1px dashed var(--border-strong); font-size: var(--fs-sub); color: var(--text-2); }
+.slots__empty p { margin: 0; }
+
+/* Link para o cliente */
+.mtglink { display: grid; gap: var(--s3); justify-items: start; }
+.mtglink p { margin: 0; }
+.mtglink__url { display: flex; gap: var(--s2); width: 100%; }
+.mtglink__url .input { flex: 1 1 0; font-size: var(--fs-sub); }
+.mtglinks ul { list-style: none; margin: var(--s2) 0 0; padding: 0; display: flex; flex-direction: column; }
+.mtglinks li { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) 0; border-top: 1px solid var(--border); font-size: var(--fs-sub); }
+.mtglinks li .grow { display: grid; gap: 2px; min-width: 0; }
+
+/* Agenda (equipe) */
+.agenda__grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--s4); align-items: start; }
+@media (max-width: 1023px) { .agenda__grid { grid-template-columns: 1fr; } }
+.avail__bookable { margin: 0 0 var(--s3); }
+.avail__week { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.avail__week.is-off { opacity: .55; }
+.avail__day { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: var(--s3); align-items: start; padding: var(--s2) 0; border-top: 1px solid var(--border); }
+.avail__day:first-child { border-top: 0; }
+.avail__label { display: flex; align-items: center; gap: var(--s2); height: var(--control-h); font-size: var(--fs-body); font-weight: 600; color: var(--text-3); cursor: pointer; }
+.avail__label input { accent-color: var(--brand); }
+.avail__day.is-on .avail__label { color: var(--text); }
+.avail__ranges { display: grid; gap: var(--s2); align-content: center; min-height: var(--control-h); }
+.avail__range { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-sub); }
+.avail__range .input { width: 112px; }
+.avail__tools { display: flex; gap: 2px; min-height: var(--control-h); align-items: center; }
+.avail__save { align-items: center; justify-content: space-between; margin-top: var(--s3); }
+@media (max-width: 560px) {
+  .avail__day { grid-template-columns: 1fr auto; }
+  .avail__ranges { grid-column: 1 / -1; grid-row: 2; }
+  .avail__range .input { width: 100%; flex: 1 1 0; }
+}
+.blocks > .subtext { margin: 0 0 var(--s3); }
+.blocks__form { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--s3); }
+.blocks__reason { grid-column: 1 / -1; }
+.blocks__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s2); }
+.blocks__foot .pset__check { margin-top: 0; }
+.blocks__list { list-style: none; margin: var(--s3) 0 0; padding: 0; display: flex; flex-direction: column; }
+.blocks__list li { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) 0; border-top: 1px solid var(--border); font-size: var(--fs-sub); color: var(--text-2); }
+.blocks__list li > svg { color: var(--text-3); flex: none; }
+
+/* Configurações › Reuniões */
+.mtgset { margin-bottom: var(--s2); }
+.settings__steps { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.settings__steps code { font-size: 11px; word-break: break-all; padding: 1px 4px; border-radius: 4px; background: var(--surface); color: var(--text); }
+
+/* Agendamento público */
+.pubbook__panel { max-width: 560px; }
+.pubbook__host { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: 12px; background: var(--surface); }
+.pubbook__host > span { display: grid; gap: 2px; }
+.pubbook__form { gap: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--border); }
+.pubbook__done { gap: var(--s3); }
+.pubbook__ok { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--success-pastel); color: var(--success-text); }
+.pubbook__when { margin: 0; font-size: var(--fs-md); }
+@media (max-width: 480px) { .pubbook__panel { padding-left: 0; padding-right: 0; } }

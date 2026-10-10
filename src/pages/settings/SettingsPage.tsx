@@ -15,11 +15,12 @@ import { CsSettingsPanel } from "./CsSettings";
 import { SupportSettingsPanel } from "./SupportSettings";
 import { DeliverySettingsPanel } from "./DeliverySettings";
 import { DocumentSettingsPanel } from "./DocumentSettings";
+import { MeetingSettingsPanel } from "./MeetingSettings";
 
 /* ==========================================================================
    Configurações (administração): setores da empresa e regras de performance
    ========================================================================== */
-type Tab = "setores" | "funcoes" | "performance" | "cs" | "atendimento" | "entregas" | "documentos" | "faq";
+type Tab = "setores" | "funcoes" | "performance" | "cs" | "atendimento" | "entregas" | "documentos" | "reunioes" | "faq";
 
 export function SettingsPage() {
   useDocumentTitle("Configurações");
@@ -28,7 +29,7 @@ export function SettingsPage() {
   const initial = useSearchParam("aba") as Tab | null;
   // O FAQ é único para toda a rede: só a administração global edita.
   const canFaq = !!permissions?.can_manage_tenants;
-  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" || initial === "cs" || initial === "atendimento" || initial === "entregas" || initial === "documentos" || (initial === "faq" && canFaq) ? initial : "setores");
+  const [tab, setTab] = useState<Tab>(initial === "performance" || initial === "funcoes" || initial === "cs" || initial === "atendimento" || initial === "entregas" || initial === "documentos" || initial === "reunioes" || (initial === "faq" && canFaq) ? initial : "setores");
   const [tenant, setTenant] = useState(permissions?.tenant_id ?? "");
   const tenants = useAsync(() => (isGlobal ? api.listTenants() : Promise.resolve([])), [isGlobal]);
 
@@ -41,6 +42,7 @@ export function SettingsPage() {
           { value: "cs", label: "Customer Success" }, { value: "atendimento", label: "Atendimento ao cliente" },
           { value: "entregas", label: "Entregas e revisões" },
           { value: "documentos", label: "Documentos do cliente" },
+          { value: "reunioes", label: "Reuniões" },
           ...(canFaq ? [{ value: "faq" as Tab, label: "FAQ" }] : []),
         ]} />
         {isGlobal && tab !== "faq" && tab !== "entregas" && tab !== "documentos" && (
@@ -54,6 +56,7 @@ export function SettingsPage() {
         : tab === "funcoes" ? <FunctionsSettings key={tenant} tenantId={tenant} />
         : tab === "cs" ? <CsSettingsPanel key={tenant} tenantId={tenant} />
         : tab === "atendimento" ? <SupportSettingsPanel key={tenant} tenantId={tenant} />
+        : tab === "reunioes" ? <MeetingSettingsPanel key={tenant} tenantId={tenant} />
         : <PerformanceRules key={tenant} tenantId={tenant} />)}
     </div>
   );

@@ -815,3 +815,50 @@ export interface ProjectClientAccess {
   project: { id: string; name: string; client_name: string | null };
   can_manage: boolean; can_grant_all: boolean; other_projects: number; people: ClientAccessPerson[];
 }
+
+/* ---------- Reuniões com o cliente ---------- */
+export type MeetingKind = "alignment" | "presentation";
+export type MeetingState = "scheduled" | "live" | "past" | "cancelled";
+export type GoogleStatus = "connected" | "error" | "disconnected";
+export interface Meeting {
+  id: string; project_id: string; project_name: string; kind: MeetingKind; kind_label: string; title: string; notes: string | null;
+  task: { id: string; name: string } | null; host: { id: string; name: string; avatar_url: string | null };
+  starts_at: string; ends_at: string; state: MeetingState; booked_via: "portal" | "team" | "link"; booked_by: string | null;
+  guest: { name: string | null; email: string | null; phone: string | null } | null;
+  record: boolean; transcribe: boolean; meet_uri: string | null;
+  google_status: "pending" | "created" | "failed" | "not_connected" | "manual"; google_error: string | null;
+  transcript_url: string | null; recording_url: string | null; artifacts_status: "waiting" | "partial" | "done" | "none";
+  cancel_reason: string | null; cancelled_at: string | null; can_cancel: boolean; can_manage: boolean;
+}
+export interface ProjectMeetings {
+  can_schedule: boolean; can_share_link: boolean; has_hosts: boolean; google: GoogleStatus | null; meetings: Meeting[];
+}
+export interface MeetingHostOption { id: string; name: string; avatar_url: string | null; role: string }
+export interface MeetingOptions {
+  project: { id: string; name: string; status: string };
+  is_client: boolean; can_record: boolean;
+  kinds: { kind: MeetingKind; label: string; minutes: number }[];
+  hosts: MeetingHostOption[];
+  tasks: { id: string; name: string; service: string | null }[];
+}
+export interface MeetingSlots { minutes: number; slots: string[] }
+export interface MeetingLink {
+  id: string; token: string; kind: MeetingKind; kind_label: string; host: string | null; task: string | null; created_by: string | null;
+  created_at: string; expires_at: string; used_at: string | null; state: "open" | "used" | "expired" | "off";
+}
+export interface AvailabilityRule { weekday: number; start: string; end: string }
+export interface AvailabilityBlock { id: string; starts_at: string; ends_at: string; reason: string | null }
+export interface MyAvailability {
+  bookable: boolean; rules: AvailabilityRule[]; blocks: AvailabilityBlock[]; upcoming: number; google: GoogleStatus | null;
+  settings: { alignment_minutes: number; presentation_minutes: number; min_notice_hours: number; horizon_days: number; buffer_minutes: number };
+}
+export interface MeetingSettings {
+  tenant_id: string; alignment_minutes: number; presentation_minutes: number; min_notice_hours: number; horizon_days: number;
+  buffer_minutes: number; slot_step_minutes: number; share_with_client: boolean; can_connect: boolean;
+  google: { status: GoogleStatus; email: string | null; connected_at: string | null; last_error: string | null; connected_by: string | null } | null;
+}
+export interface PublicMeetingLink {
+  project_name: string; kind: MeetingKind; kind_label: string; task_name: string | null;
+  host: { name: string; avatar_url: string | null }; minutes: number; expires_at: string; slots: string[];
+}
+export interface PublicBookResult { title: string; starts_at: string; ends_at: string; when: string; host_name: string; meet_uri: string | null; google_status: string }

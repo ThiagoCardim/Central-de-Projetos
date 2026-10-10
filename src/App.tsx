@@ -27,6 +27,8 @@ import { ClientDeliveriesPage, ProjectDeliveriesPage } from "@/pages/deliveries/
 import { ClientDocumentsPage, ProjectDocumentsPage } from "@/pages/documents/DocumentsPages";
 import { ApprovalsPage } from "@/pages/approvals/ApprovalsPage";
 import { CsPage } from "@/pages/cs/CsPage";
+import { AgendaPage } from "@/pages/meetings/AgendaPage";
+import { PublicBookingPage } from "@/pages/meetings/PublicBookingPage";
 
 function Boot() {
   return <div className="boot" aria-busy="true" aria-label="Carregando"><BrandMark className="boot__mark" /></div>;
@@ -117,6 +119,9 @@ export function App() {
             { path: "/clientes", element: <Protected requires="oversight"><ClientsPage /></Protected> },
             { path: "/equipe", element: <Protected requires="oversight"><TeamPage /></Protected> },
             { path: "/cs", element: <Protected requires="csDesk"><CsPage /></Protected> },
+            { path: "/agenda", element: <Protected requires="staff"><AgendaPage /></Protected> },
+            { path: "/reunioes", element: <Protected requires="client"><AgendaPage /></Protected> },
+            { path: "/agendar/:token", element: <PublicBookingPage /> },
             { path: "*", element: <NotFound /> },
           ]} />
         </ToastProvider>
