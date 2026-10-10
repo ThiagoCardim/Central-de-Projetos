@@ -93,7 +93,9 @@ select public.adjustment_decide((select id from public.adjustment_requests limit
 reset role; select tst.login('');
 
 select tst.ok((select status from public.adjustment_requests limit 1) = 'approved', 'Pedido aprovado');
-select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).status = 'in_progress'
+-- Em fim de semana/feriado a etapa reaberta fica pronta para o próximo dia útil.
+select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).status
+                = case when private.is_business_day(current_date, private.calendar_for_tenant('00000000-0000-4000-8000-000000000001')) then 'in_progress' else 'ready' end::public.task_status
           and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).responsible_user_id = tst.uid('arq2@hq'),
   'Etapa reaberta com o colaborador escolhido');
 select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).planned_duration_days = 5, 'Prazo do ajuste aprovado (5 dias úteis)');
@@ -104,7 +106,11 @@ select tst.ok(exists (select 1 from public.notifications where recipient_profile
 select tst.ok(exists (select 1 from public.notifications where recipient_profile_id = tst.uid('arq2@hq') and title = 'Etapa reaberta'),
   'Colaborador é avisado para executar');
 
--- Etapa em andamento: aprovação acrescenta dias
+-- Etapa em andamento: aprovação acrescenta dias (em fim de semana, a equipe inicia a etapa reaberta antes)
+select tst.login('larq@hq'); set role authenticated;
+select public.set_task_status((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, 'in_progress')
+ where (tst.task('projeto_arquitetonico', 'estudo_preliminar')).status = 'ready';
+reset role;
 select tst.login('est@hq'); set role authenticated;
 select public.adjustment_create((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, 'simple', 'Mais um detalhe na escada');
 reset role;

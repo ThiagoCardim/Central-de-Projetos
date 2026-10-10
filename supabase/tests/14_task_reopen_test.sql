@@ -97,11 +97,16 @@ select public.reopen_task((tst.task('projeto_arquitetonico', 'estudo_preliminar'
   tst.reason('Cliente pediu alteração em etapa já concluída'), 'Mudou a posição da escada');
 reset role; select tst.login('');
 
-select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).status = 'in_progress'
-          and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).reopen_count = 1
+-- Em dia útil a etapa volta em andamento hoje; em fim de semana/feriado, fica pronta para o próximo dia útil.
+select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).reopen_count = 1
+          and case when private.is_business_day(current_date, '00000000-0000-4000-8000-000000000101')
+                   then (tst.task('projeto_arquitetonico', 'estudo_preliminar')).status = 'in_progress'
+                   else (tst.task('projeto_arquitetonico', 'estudo_preliminar')).status = 'ready'
+                        and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).planned_start_date = public.next_business_day(current_date, '00000000-0000-4000-8000-000000000101') end
           and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).planned_end_date =
-              public.add_business_days((tst.task('projeto_arquitetonico', 'estudo_preliminar')).actual_start_date, 7, '00000000-0000-4000-8000-000000000101'),
-  'Etapa reaberta em andamento com 7 dias úteis de retrabalho');
+              public.add_business_days(coalesce((tst.task('projeto_arquitetonico', 'estudo_preliminar')).actual_start_date,
+                                                (tst.task('projeto_arquitetonico', 'estudo_preliminar')).planned_start_date), 7, '00000000-0000-4000-8000-000000000101'),
+  'Etapa reaberta com 7 dias úteis de retrabalho');
 select tst.ok((tst.task('projeto_arquitetonico', 'alteracoes')).planned_start_date = (select s from tst.before where id = (tst.task('projeto_arquitetonico', 'alteracoes')).id),
   'Etapa em andamento não muda');
 select tst.ok(not exists (
@@ -133,7 +138,8 @@ select public.reopen_task((tst.task('projeto_arquitetonico', 'estudo_preliminar'
 reset role; select tst.login('');
 select tst.ok((tst.task('projeto_arquitetonico', 'estudo_preliminar')).status in ('not_started', 'ready')
           and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).actual_start_date is null
-          and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).start_not_before = current_date + 14,
+          and (tst.task('projeto_arquitetonico', 'estudo_preliminar')).start_not_before
+              in (current_date + 14, public.next_business_day(current_date + 14, '00000000-0000-4000-8000-000000000101')),
   'Início futuro: etapa aguarda a data, sem início real gravado');
 select tst.login('lid@hq'); set role authenticated;
 select public.set_task_status((tst.task('projeto_arquitetonico', 'estudo_preliminar')).id, 'in_progress');
