@@ -83,7 +83,10 @@ function ServicePanel({ board, it, people, onChanged, wait }: { board: DeliveryB
       {it.revisions_enabled && <PhaseTrack it={it} />}
 
       {/* Cliente: decisão sobre a versão atual */}
-      {client && it.status === "awaiting_client" && (
+      {client && it.status === "awaiting_client" && board.can_decide === false && (
+        <p className="dlvnote"><Icon name="eye" size={16} /><span><b>Aguardando a avaliação do cliente.</b> Seu acesso a este projeto é para acompanhar: quem aprova ou pede revisão é a pessoa responsável pelo projeto.</span></p>
+      )}
+      {client && it.status === "awaiting_client" && board.can_decide !== false && (
         <ClientDecision it={it} wait={wait} onApprove={() => setModal("approve")} onRevision={() => setModal("revision")} />
       )}
       {client && it.status === "revision_requested" && it.open_request && (

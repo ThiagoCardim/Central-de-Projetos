@@ -16,6 +16,7 @@ import { HighlightsCard, MyPerformanceCard } from "./PerfCards";
 import { CsHome, CsInboxCard } from "@/pages/cs/CsPage";
 import { ClientWaitBanner } from "@/pages/schedule/ClientWaits";
 import { ClientDocumentsCard } from "@/pages/documents/Documents";
+import { ClientAccessCard } from "@/pages/clients/ClientAccess";
 import { myDayStats, teamStats } from "@/pages/work/workStats";
 import { todayISO } from "@/pages/schedule/model";
 import type { ClientProject, ClientScheduleChange, HomeDashboard, Permissions } from "@/types/domain";
@@ -328,6 +329,7 @@ function ClientHome({ projects }: { projects: ClientProject[] }) {
         <ClientProjectCard key={p.id} project={p}
           changes={changes.data ? changes.data.filter((c) => c.project_id === p.id) : null} />
       ))}
+      {projects.map((p) => <ClientAccessCard key={`acc-${p.id}`} projectId={p.id} client />)}
       <FaqPrompt />
     </div>
   );

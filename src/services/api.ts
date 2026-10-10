@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import { toUserError, UserFacingError } from "./errors";
 import type {
-  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, ClientWait, ProjectClientWaits, ClientWaitSettings, DeliveryKind, DeliverySettingsRow, DocumentsBoard, DocProjectSummary, DocumentTypesList, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
+  AdjustmentAttachment, AdjustmentComplexity, AdjustmentRequest, ProjectType, ReasonKind, SaleServiceOption, TaskNote, MyStep, WorkItem, TeamPerson, Sector, SectorRow, JobFunction, JobFunctionRow, ProjectTeamMember, FaqCategory, FaqItem, FaqFeedback, ApprovalBoard, ApprovalRecord, ApprovalRate, ApprovalStatus, CsRequest, CsRequestDetail, CsDashboard, CsSettings, CsKind, CsUrgency, NpsPending, NpsOverview, NpsResponse, SupportOptions, SupportOpenResult, DeliveryBoard, DeliveryProjectSummary, ClientWait, ProjectClientWaits, ClientWaitSettings, DeliveryKind, DeliverySettingsRow, ProjectClientAccess, DocumentsBoard, DocProjectSummary, DocumentTypesList, RevisionsOverview, RevisionEntry, SupportTicket, SupportStatus, SupportSettings, SupportTarget, PerfOverview, PerfPersonDetail, PerfHighlights, PerfSettings, AppNotification, AutomationRule, ChangeReason, ClientScheduleChange, AutomationRun, BoardCard, BoardColumn, CatalogService, ClientListItem, ClientRecord, ClientType, EmploymentType, HomeDashboard, Intake, Permissions, Profile,
   ProjectDetail, ProjectListItem, ProjectRole, ProjectSchedule, RecordStatus, ScheduleTask, ScheduleTemplate, ScheduleTrack,
   SchedulePreview, ServiceFamily, StaffMember, StepOption, TaskAlert, TaskChange, TaskDependency, TaskLibraryItem, TaskStatus, TemplateDependency, Tenant,
   TenantOverview, UserRole,
@@ -89,6 +89,17 @@ export const api = {
   setUserStatus: (profile_id: string, status: RecordStatus) =>
     adminUsers<{ updated: boolean; sessions_revoked: boolean }>({ action: "set_status", profile_id, status }),
   resendInvite: (profile_id: string) => adminUsers<{ sent: boolean }>({ action: "resend_invite", profile_id }),
+
+  // ---------- Acessos do cliente por projeto ----------
+  projectClientAccess: (projectId: string) => rpc<ProjectClientAccess>("project_client_access", { p_project: projectId }),
+  clientAccessAdd: (input: { project_id: string; name: string; email: string; phone?: string | null; relation?: string | null; all_projects: boolean; can_decide: boolean }) =>
+    adminUsers<{ contact_id: string; invited: boolean; new_user: boolean }>({ action: "client_access_add", ...input, email: input.email.trim() }),
+  clientAccessUpdate: (projectId: string, contactId: string, relation: string | null, allProjects: boolean, canDecide: boolean) =>
+    rpc<void>("client_access_update", { p_project: projectId, p_contact: contactId, p_relation: relation?.trim() || null, p_all: allProjects, p_decide: canDecide }),
+  clientAccessRemove: (projectId: string, contactId: string, allProjects: boolean) =>
+    rpc<void>("client_access_remove", { p_project: projectId, p_contact: contactId, p_all: allProjects }),
+  clientAccessResend: (projectId: string, contactId: string) =>
+    adminUsers<{ sent: boolean }>({ action: "client_access_resend", project_id: projectId, contact_id: contactId }),
 
   // ---------- Clientes (mínimo necessário para vincular usuários-cliente) ----------
   async listClients(tenantId: string): Promise<ClientRecord[]> {

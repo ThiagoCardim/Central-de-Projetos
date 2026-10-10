@@ -8,6 +8,7 @@ import { ProjectApprovalsCard } from "@/pages/approvals/ProjectApprovals";
 import { ProjectCsCard } from "@/pages/cs/CsPage";
 import { ProjectDeliveriesCard } from "@/pages/deliveries/Deliveries";
 import { ProjectDocumentsCard } from "@/pages/documents/Documents";
+import { ClientAccessCard } from "@/pages/clients/ClientAccess";
 import { ClientWaitsCard } from "@/pages/schedule/ClientWaits";
 import {
   Alert, Avatar, Badge, Button, Card, EmptyState, Field, FilterBar, Input, LoadError, SearchInput, Segmented, Select, Skeleton, Tabs,
@@ -288,6 +289,7 @@ export function ProjectDetailPage() {
               </dl>
             </Card>
           )}
+          {permissions?.is_staff && p.status !== "cancelled" && <ClientAccessCard projectId={p.id} />}
 
           {p.allocations.length > 0 && (
             <Card title="Histórico de distribuição">

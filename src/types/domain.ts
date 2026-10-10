@@ -741,7 +741,7 @@ export interface DeliveryItem {
 }
 export interface DeliveryBoard {
   project: { id: string; name: string; code: string | null; status: ProjectStatus };
-  is_client: boolean; is_staff: boolean; can_work: boolean; can_request_extra: boolean;
+  is_client: boolean; is_staff: boolean; can_work: boolean; can_request_extra: boolean; can_decide?: boolean;
   items: DeliveryItem[]; general: DeliveryItem;
 }
 export interface DeliveryProjectSummary { id: string; name: string; code: string | null; awaiting_client: number; published: number; last_published_at: string | null }
@@ -787,7 +787,7 @@ export interface DocProgress {
 }
 export interface DocumentsBoard {
   project: { id: string; name: string; code: string | null; status: string };
-  is_client: boolean; is_staff: boolean; can_upload: boolean; can_review: boolean; can_manage: boolean;
+  is_client: boolean; is_staff: boolean; can_upload: boolean; can_review: boolean; can_manage: boolean; can_decide?: boolean;
   progress: DocProgress; wait: ClientWait | null; documents_days: number; items: ProjectDocument[]; removed: ProjectDocument[];
   holder?: "pf" | "pj"; documents_wait?: boolean; questions?: DocQuestionState[];
 }
@@ -803,4 +803,15 @@ export interface DocSection { id: string; name: string; sort_order: number }
 export interface DocQuestion { id: string; text: string; help: string | null }
 export interface DocumentTypesList {
   can_edit: boolean; types: DocumentType[]; sections: DocSection[]; questions: DocQuestion[]; services: { code: string; name: string; family: string }[];
+}
+
+/* ---------- Acessos do cliente por projeto ---------- */
+export interface ClientAccessPerson {
+  id: string; profile_id: string; name: string; email: string | null; relation: string | null;
+  scope: "all" | "projects"; can_decide: boolean; is_primary: boolean; is_me: boolean;
+  status: "active" | "pending" | "inactive"; projects: number | null; invited_by: string | null; can_edit: boolean;
+}
+export interface ProjectClientAccess {
+  project: { id: string; name: string; client_name: string | null };
+  can_manage: boolean; can_grant_all: boolean; other_projects: number; people: ClientAccessPerson[];
 }

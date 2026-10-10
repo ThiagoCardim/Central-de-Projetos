@@ -2429,3 +2429,24 @@ a.docmini:hover .docbar { box-shadow: 0 0 0 2px var(--brand-pastel); }
   .docq__ans { width: 100%; }
   .docq__ans button { flex: 1; }
 }
+
+/* ---------- Acessos do cliente ---------- */
+.caccess__list { list-style: none; margin: 0 0 var(--s3); padding: 0; display: flex; flex-direction: column; }
+.caccess__row { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--border); }
+.caccess__row:first-child { border-top: 0; padding-top: 0; }
+.caccess__who { display: grid; gap: 3px; min-width: 0; flex: 1 1 0; }
+.caccess__name { font-size: var(--fs-body); }
+.caccess__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; font-size: var(--fs-sub); }
+.caccess__actions { display: flex; align-items: center; gap: 2px; flex: none; }
+.caccess__hint { margin: 0; line-height: 1.5; }
+.caccess__hint b { color: var(--text-2); }
+.caccess__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.caccess__remove { display: grid; gap: 2px; }
+.dlvnote.is-error > svg { color: var(--danger-text); }
+@media (max-width: 760px) {
+  .caccess__grid { grid-template-columns: 1fr; }
+  .caccess__row { flex-wrap: wrap; }
+  .caccess__actions { width: 100%; justify-content: flex-end; }
+}
+/* Na coluna lateral do projeto: ações sempre abaixo do nome. */
+.detail-grid aside .caccess__row, .detail-side .caccess__row { flex-wrap: wrap; }

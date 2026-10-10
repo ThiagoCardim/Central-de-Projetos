@@ -95,6 +95,9 @@ export function DocumentsView({ projectId }: { projectId: string }) {
               : b.can_manage && <button type="button" className="link" onClick={() => setWaitOn(false)}>Desligar prazo automático</button>}
           </p>
         )}
+        {b.is_client && b.can_decide === false && (
+          <p className="subtext docsum__hint"><Icon name="eye" size={14} /> Seu acesso a este projeto é para acompanhar. O envio dos documentos é feito pela pessoa responsável pelo projeto.</p>
+        )}
         {b.can_upload && p.total > 0 && (
           <p className="subtext docsum__hint"><Icon name="paperclip" size={14} /> PDF, foto ou outro arquivo de até 50 MB (maiores, pelo link do Drive). Também dá para arrastar o arquivo até o documento.</p>
         )}

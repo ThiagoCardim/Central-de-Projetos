@@ -379,6 +379,19 @@ const docBoard = () => {
     items: docList().map((d) => docJson(d, staff)), removed: staff ? DOCS_REMOVED.map((d) => ({ ...docJson(d, true), removed_at: isoDay(-2) })) : [] };
 };
 
+// Acessos do cliente por projeto
+let CACCESS: any[] = [
+  { id: "ca1", profile_id: "p-cl", name: "Fernanda Souza", email: "fernanda@email.com", relation: "Proprietária", scope: "all", can_decide: true, is_primary: true, status: "active", projects: null, invited_by: null },
+  { id: "ca2", profile_id: "pc2", name: "Marcos Souza", email: "marcos.souza@email.com", relation: "Cônjuge", scope: "all", can_decide: true, is_primary: false, status: "active", projects: null, invited_by: "Fernanda Souza" },
+  { id: "ca3", profile_id: "pc3", name: "Juliana Prado", email: "juliana@pradoarq.com.br", relation: "Arquiteta parceira", scope: "projects", can_decide: false, is_primary: false, status: "pending", projects: 1, invited_by: "Rafael Andrade" },
+];
+const caccessBoard = () => {
+  const pr = me(); const client = pr?.role === "client"; const manage = !client || pr?.id === "p-cl";
+  return { project: { id: "pr1", name: "Residência Souza", client_name: "Fernanda Souza" }, can_manage: manage, can_grant_all: manage, other_projects: 1,
+    people: CACCESS.map((x) => ({ ...x, email: manage || x.profile_id === pr?.id ? x.email : null, is_me: x.profile_id === pr?.id,
+      can_edit: manage && x.profile_id !== pr?.id && (!client || !x.is_primary) })) };
+};
+
 // "Preciso de ajuda"
 const SUPPORT_TPL = "Olá, {lider}! Aqui é {cliente}, do projeto {projeto}. Estou precisando de uma ajuda sobre {assunto}. {mensagem} Consegue me ajudar?";
 let SUPPORT_CATS: any[] = [
@@ -720,6 +733,9 @@ function rpc(name: string, _args?: any) {
       if (w) Object.assign(w, { waived_until: _args.p_until, waive_reason: _args.p_reason, late_days: 0 }); return delay({ data: { refunded_days: back }, error: null }, 250); }
     case "client_wait_settings_get": return delay({ data: { tenant_id: _args.p_tenant, ...CW_SETTINGS }, error: null }, 120);
     case "client_wait_settings_save": CW_SETTINGS = { enabled: _args.p_enabled, days: _args.p_days, documents_days: _args.p_documents_days ?? CW_SETTINGS.documents_days }; return delay({ data: null, error: null }, 200);
+    case "project_client_access": return delay({ data: caccessBoard(), error: null }, 150);
+    case "client_access_update": { const x = CACCESS.find((y) => y.id === _args.p_contact); if (x) Object.assign(x, { relation: _args.p_relation, scope: _args.p_all ? "all" : "projects", can_decide: _args.p_decide, projects: _args.p_all ? null : 1 }); return delay({ data: null, error: null }, 200); }
+    case "client_access_remove": CACCESS = CACCESS.filter((y) => y.id !== _args.p_contact); return delay({ data: null, error: null }, 200);
     case "project_documents": return delay({ data: docBoard(), error: null }, 200);
     case "document_projects": return delay({ data: [{ id: "pr1", name: "Residência Souza", code: "YC-2026-0014", status: "in_progress", progress: docProgress() }], error: null }, 150);
     case "document_file_add": { if (String(_args.p_document).startsWith("dc-") && !DOCS.some((x) => x.id === _args.p_document)) DOCS.push({ id: _args.p_document, type: String(_args.p_document).slice(3), status: "pending", files: [] });
@@ -1542,6 +1558,12 @@ export function createClient() {
         }
         if (body.action === "invite") {
           profiles = [...profiles, { id: `p-${Date.now()}`, auth_user_id: null, tenant_id: body.tenant_id, name: body.name, email: body.email, role: body.role, employment_type: body.employment_type ?? null, client_type: body.client_type ?? null, status: "ativo", phone: null, avatar_url: null, invited_at: new Date().toISOString(), last_seen_at: null, created_at: new Date().toISOString() }];
+        }
+        if (body.action === "client_access_add") {
+          if (CACCESS.some((x) => x.email === body.email.toLowerCase())) return delay({ data: null, error: { context: new Response(JSON.stringify({ message: `${body.name} já tem acesso a este projeto` })) } }, 400);
+          CACCESS.push({ id: `ca${Date.now()}`, profile_id: `pc${Date.now()}`, name: body.name, email: body.email.toLowerCase(), relation: body.relation, scope: body.all_projects ? "all" : "projects",
+            can_decide: body.can_decide, is_primary: false, is_me: false, status: "pending", projects: body.all_projects ? null : 1, invited_by: me()?.name ?? null, can_edit: true });
+          return delay({ data: { contact_id: "x", invited: true, new_user: true }, error: null }, 500);
         }
         if (body.action === "set_status") profiles = profiles.map((p) => p.id === body.profile_id ? { ...p, status: body.status } : p);
         if (body.action === "update") profiles = profiles.map((p) => p.id === body.profile_id ? { ...p, name: body.name, role: body.role, employment_type: body.employment_type, client_type: body.client_type } : p);

@@ -74,7 +74,7 @@ export function NotificationsBell({ placement = "sidebar" }: { placement?: "side
     else if (n.kind.startsWith("delivery_") && typeof n.data?.project_id === "string")
       navigate(isClient ? `/entregas?projeto=${n.data.project_id}` : `/projetos/${n.data.project_id}/entregas`);
     else if (n.kind === "approval_rejected" && typeof n.data?.project_id === "string") navigate(`/projetos/${n.data.project_id}`);
-    else if (n.entity_type === "projects" && n.entity_id) navigate(`/projetos/${n.entity_id}`);
+    else if (n.entity_type === "projects" && n.entity_id) navigate(isClient ? "/" : `/projetos/${n.entity_id}`);
     else if (n.entity_type === "project_tasks") navigate("/cronograma");
     else if (n.entity_type === "project_intakes") navigate("/entrada");
   }

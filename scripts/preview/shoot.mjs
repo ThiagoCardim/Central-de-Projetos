@@ -415,6 +415,11 @@ const scenes = [
   { name: "tabs-settings-wide", url: "/configuracoes?as=global_admin", vp: { width: 1600, height: 400 } },
   { name: "tabs-sched-narrow", url: "/projetos/pr1/cronograma?as=leader", vp: { width: 1024, height: 900 } },
   { name: "m-tabs-settings", url: "/configuracoes?as=global_admin", vp: MOBILE },
+  { name: "access-project", url: "/projetos/pr1?as=leader", vp: { width: 1440, height: 1300 }, full: true },
+  { name: "access-add", url: "/projetos/pr1?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(600); await p.getByRole("button", { name: "Adicionar pessoa" }).click(); await p.waitForTimeout(300);
+    await p.getByPlaceholder("Nome completo").fill("Pedro Lima"); await p.getByPlaceholder("nome@email.com").fill("pedro@obra.com.br"); await p.getByPlaceholder("Ex.: Cônjuge, Sócio(a)").fill("Engenheiro da obra"); await p.waitForTimeout(200); } },
+  { name: "access-remove", url: "/projetos/pr1?as=leader", vp: DESKTOP, action: async (p) => { await p.waitForTimeout(600); await p.getByRole("button", { name: /Remover acesso de Marcos/ }).click(); await p.waitForTimeout(300); } },
+  { name: "access-client", url: "/?as=client", vp: DESKTOP, full: true, action: skipNps },
 ];
 
 const browser = await chromium.launch();
