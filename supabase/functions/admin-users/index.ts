@@ -39,7 +39,24 @@ interface ResendPayload {
   action: "resend_invite";
   profile_id: string;
 }
-type Payload = InvitePayload | UpdatePayload | StatusPayload | ResendPayload;
+// Acesso do cliente a um projeto: a liderança, o CS ou o contato principal do cliente vinculam
+// uma pessoa; a permissão é decidida pela RPC client_access_add (JWT de quem chamou).
+interface ClientAccessPayload {
+  action: "client_access_add";
+  project_id: string;
+  name?: string | null;
+  email: string;
+  phone?: string | null;
+  relation?: string | null;
+  all_projects?: boolean;
+  can_decide?: boolean;
+}
+interface ClientAccessResendPayload {
+  action: "client_access_resend";
+  project_id: string;
+  contact_id: string;
+}
+type Payload = InvitePayload | UpdatePayload | StatusPayload | ResendPayload | ClientAccessPayload | ClientAccessResendPayload;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -173,6 +190,42 @@ async function resendInvite(req: Request, p: ResendPayload) {
   return { sent: true };
 }
 
+async function clientAccessAdd(req: Request, p: ClientAccessPayload) {
+  assertUuid(p.project_id, "projeto");
+  if (!EMAIL_RE.test((p.email ?? "").trim())) throw new AppError(422, "invalid", "Informe um e-mail válido.");
+  const { data, error } = await userClient(req).rpc("client_access_add", {
+    p_project: p.project_id, p_name: p.name ?? null, p_email: p.email, p_phone: p.phone ?? null,
+    p_relation: p.relation ?? null, p_all: !!p.all_projects, p_decide: p.can_decide !== false,
+  });
+  if (error) throw fromPostgrest(error);
+  const r = data as { contact_id: string; profile_id: string; email: string; name: string; send_invite: boolean; new_user: boolean };
+  let invited = false;
+  if (r.send_invite) {
+    invited = await sendInvite(req, r.profile_id, r.email, r.name);
+    if (!invited) {
+      throw new AppError(502, "invite_failed",
+        "O acesso foi vinculado, mas o e-mail de convite não foi enviado. Use \"Reenviar convite\" em alguns minutos.");
+    }
+  }
+  return { contact_id: r.contact_id, invited, new_user: r.new_user };
+}
+
+async function clientAccessResend(req: Request, p: ClientAccessResendPayload) {
+  assertUuid(p.project_id, "projeto");
+  assertUuid(p.contact_id, "acesso");
+  const { data, error } = await userClient(req).rpc("client_access_invite_info", { p_project: p.project_id, p_contact: p.contact_id });
+  if (error) throw fromPostgrest(error);
+  const info = data as { profile_id: string; email: string; name: string; has_auth: boolean };
+  if (!info.has_auth) {
+    const sent = await sendInvite(req, info.profile_id, info.email, info.name);
+    if (!sent) throw new AppError(502, "invite_failed", "Não foi possível enviar o convite. Tente novamente em alguns minutos.");
+  } else {
+    const { error: linkError } = await serviceClient().auth.resetPasswordForEmail(info.email, { redirectTo: redirectUrl(req) });
+    if (linkError) throw new AppError(502, "invite_failed", "Não foi possível reenviar o convite. Tente novamente em alguns minutos.");
+  }
+  return { sent: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
   if (req.method !== "POST") return json(req, 405, { error: "method_not_allowed" });
@@ -184,6 +237,8 @@ Deno.serve(async (req) => {
       case "update":        return json(req, 200, await update(req, payload));
       case "set_status":    return json(req, 200, await setStatus(req, payload));
       case "resend_invite": return json(req, 200, await resendInvite(req, payload));
+      case "client_access_add":    return json(req, 200, await clientAccessAdd(req, payload));
+      case "client_access_resend": return json(req, 200, await clientAccessResend(req, payload));
       default: throw new AppError(400, "bad_request", "Ação desconhecida.");
     }
   } catch (err) {

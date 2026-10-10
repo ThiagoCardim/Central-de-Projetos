@@ -38,6 +38,8 @@ export function fromPostgrest(error: { code?: string; message: string }): AppErr
       return new AppError(403, "forbidden", error.message || "Você não tem permissão para esta ação.");
     case "23505":
       return new AppError(409, "conflict", error.message || "Registro já existe.");
+    case "P0002":
+      return new AppError(404, "not_found", error.message || "Registro não encontrado.");
     case "23514":
     case "23503":
     case "22P02":
